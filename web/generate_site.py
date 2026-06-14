@@ -468,18 +468,22 @@ def build_html(data):
       z-index:1;
       direction:rtl;
       text-align:right;
-      display:grid;
-      justify-items:end;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      justify-content:center;
       gap:3px;
+      margin-left:auto;
       margin-inline-start:auto;
       margin-inline-end:0;
       align-self:stretch;
-      justify-content:flex-end;
-      align-content:center;
-      padding-inline-start:14px;
-      padding-inline-end:0;
-      min-width:min(32vw, 440px);
-      width:max-content;
+      padding-right:40px;
+      padding-left:0;
+      padding-inline-start:0;
+      padding-inline-end:40px;
+      min-width:min(24vw, 340px);
+      width:100%;
+      flex:1 1 0;
     }}
     .hero-title h1 {{
       margin:0;
@@ -693,7 +697,7 @@ def build_html(data):
       .carrier-layout {{ grid-template-columns:1fr; }}
       .hero {{ padding:14px 18px 12px; margin-bottom:6px; }}
       .brand-logo {{ width:min(172px, 44vw); }}
-      .hero-title {{ min-width:0; padding-inline-start:10px; justify-items:end; width:auto; }}
+      .hero-title {{ min-width:0; padding-right:24px; padding-inline-start:0; align-items:flex-end; width:100%; }}
       .hero-copy span {{ font-size:15px; }}
       .hero-title h1 {{ font-size:20px; }}
       .hero-title p {{ font-size:10px; }}
