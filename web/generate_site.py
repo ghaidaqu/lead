@@ -555,7 +555,7 @@ def build_html(data):
     </div>
 
     <section class="metric-grid">
-      {metric_card("إجمالي الربح", fmt_money(totals["total"]), "صافي الشحنات من 1 إلى 12")}
+      {metric_card("إجمالي الربح", fmt_money(totals["total"]), "صافي الشحنات من 1 إلى 13")}
       {metric_card("ربح الشحنات", fmt_money(totals["base"]), "بعد الضريبة حسب شيت الأسعار")}
       {metric_card("ربح الوزن الزائد", fmt_money(totals["extra"]), "بعد 15 كجم")}
       {metric_card("ربح COD", fmt_money(totals["cod_profit"]), "الرسوم الصافية")}

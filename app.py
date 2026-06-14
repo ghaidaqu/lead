@@ -1,16 +1,51 @@
 from __future__ import annotations
 
 import os
+from base64 import b64decode
+from functools import wraps
 from pathlib import Path
 
-from flask import Flask, Response, redirect, send_file, send_from_directory, url_for
+from flask import Flask, Response, redirect, request, send_file, send_from_directory, url_for
 
 
 ROOT = Path(__file__).resolve().parent
 WEB_DIR = ROOT / "web"
 REPORT_PATH = ROOT / "output" / "lead6_report.xlsx"
+AUTH_USER = os.environ.get("LEAD_AUTH_USER", "")
+AUTH_PASS = os.environ.get("LEAD_AUTH_PASS", "")
 
 app = Flask(__name__)
+
+
+def _auth_enabled() -> bool:
+    return bool(AUTH_USER and AUTH_PASS)
+
+
+def _check_basic_auth() -> bool:
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Basic "):
+        return False
+    try:
+        raw = b64decode(header.split(" ", 1)[1]).decode("utf-8")
+    except Exception:
+        return False
+    user, _, password = raw.partition(":")
+    return user == AUTH_USER and password == AUTH_PASS
+
+
+def _basic_auth_required():
+    response = Response("Authentication required", status=401, mimetype="text/plain")
+    response.headers["WWW-Authenticate"] = 'Basic realm="lead"'
+    return response
+
+
+@app.before_request
+def enforce_basic_auth():
+    if request.path == "/health" or not _auth_enabled():
+        return None
+    if _check_basic_auth():
+        return None
+    return _basic_auth_required()
 
 
 def _dashboard_dir() -> Path | None:
