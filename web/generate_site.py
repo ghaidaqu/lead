@@ -469,16 +469,21 @@ def build_html(data):
       direction:rtl;
       text-align:right;
       display:grid;
-      gap:4px;
+      justify-items:end;
+      gap:3px;
       margin-inline-start:auto;
+      margin-inline-end:0;
       align-self:stretch;
-      justify-content:center;
-      padding-inline-start:16px;
-      min-width:min(34vw, 480px);
+      justify-content:flex-end;
+      align-content:center;
+      padding-inline-start:14px;
+      padding-inline-end:0;
+      min-width:min(32vw, 440px);
+      width:max-content;
     }}
     .hero-title h1 {{
       margin:0;
-      font-size:clamp(22px, 2.6vw, 30px);
+      font-size:clamp(20px, 2.3vw, 26px);
       line-height:1.08;
       letter-spacing:-0.03em;
       font-weight:800;
@@ -488,7 +493,7 @@ def build_html(data):
     .hero-title p {{
       margin:0;
       color:rgba(255,255,255,.72);
-      font-size:12px;
+      font-size:11px;
     }}
     .hero-tools {{
       display:flex;
@@ -688,10 +693,10 @@ def build_html(data):
       .carrier-layout {{ grid-template-columns:1fr; }}
       .hero {{ padding:14px 18px 12px; margin-bottom:6px; }}
       .brand-logo {{ width:min(172px, 44vw); }}
-      .hero-title {{ min-width:0; padding-inline-start:12px; }}
+      .hero-title {{ min-width:0; padding-inline-start:10px; justify-items:end; width:auto; }}
       .hero-copy span {{ font-size:15px; }}
-      .hero-title h1 {{ font-size:22px; }}
-      .hero-title p {{ font-size:11px; }}
+      .hero-title h1 {{ font-size:20px; }}
+      .hero-title p {{ font-size:10px; }}
     }}
   </style>
 </head>
