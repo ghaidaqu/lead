@@ -457,29 +457,29 @@ def build_html(data):
       mask-image: linear-gradient(90deg, transparent 0 52%, black 72% 100%);
       pointer-events:none;
     }}
-    .brand-lockup {{ position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:14px; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; }}
-    .brand-logo {{ width:min(182px, 19vw); max-width:182px; height:auto; display:block; background:transparent; filter: drop-shadow(0 10px 24px rgba(0,0,0,.18)); }}
-    .brand-divider {{ width:1px; height:68px; background:rgba(255,255,255,.28); box-shadow:0 0 0 1px rgba(0,0,0,.06); }}
-    .hero-copy {{ display:grid; gap:2px; justify-items:flex-start; }}
-    .hero-copy span {{ display:block; margin:0; color:rgba(255,255,255,.94); font-size:clamp(17px, 2vw, 24px); line-height:1.02; font-weight:650; letter-spacing:-0.03em; }}
-    .hero-copy .brand-tag {{ font-size:clamp(17px, 2vw, 24px); }}
+    .brand-lockup {{ position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:12px; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; }}
+    .brand-logo {{ width:min(176px, 18vw); max-width:176px; height:auto; display:block; background:transparent; filter: drop-shadow(0 10px 24px rgba(0,0,0,.18)); }}
+    .brand-divider {{ width:1px; height:62px; background:rgba(255,255,255,.28); box-shadow:0 0 0 1px rgba(0,0,0,.06); }}
+    .hero-copy {{ display:grid; gap:1px; justify-items:flex-start; }}
+    .hero-copy span {{ display:block; margin:0; color:rgba(255,255,255,.92); font-size:clamp(15px, 1.8vw, 20px); line-height:1.0; font-weight:650; letter-spacing:-0.03em; }}
+    .hero-copy .brand-tag {{ font-size:clamp(15px, 1.8vw, 20px); }}
     .hero-title {{
       position:relative;
       z-index:1;
       direction:rtl;
       text-align:right;
       display:grid;
-      gap:6px;
+      gap:4px;
       margin-inline-start:auto;
       align-self:stretch;
       justify-content:center;
-      padding-inline-start:18px;
-      min-width:min(38vw, 520px);
+      padding-inline-start:16px;
+      min-width:min(34vw, 480px);
     }}
     .hero-title h1 {{
       margin:0;
-      font-size:clamp(24px, 3vw, 34px);
-      line-height:1.1;
+      font-size:clamp(22px, 2.6vw, 30px);
+      line-height:1.08;
       letter-spacing:-0.03em;
       font-weight:800;
       color:#fff;
@@ -488,7 +488,7 @@ def build_html(data):
     .hero-title p {{
       margin:0;
       color:rgba(255,255,255,.72);
-      font-size:13px;
+      font-size:12px;
     }}
     .hero-tools {{
       display:flex;
@@ -687,8 +687,11 @@ def build_html(data):
       .metric-grid, .content-grid, .table-grid, .mini-band, .statement-summary {{ grid-template-columns:1fr; }}
       .carrier-layout {{ grid-template-columns:1fr; }}
       .hero {{ padding:14px 18px 12px; margin-bottom:6px; }}
-      .brand-logo {{ width:min(180px, 46vw); }}
+      .brand-logo {{ width:min(172px, 44vw); }}
       .hero-title {{ min-width:0; padding-inline-start:12px; }}
+      .hero-copy span {{ font-size:15px; }}
+      .hero-title h1 {{ font-size:22px; }}
+      .hero-title p {{ font-size:11px; }}
     }}
   </style>
 </head>
