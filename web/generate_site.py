@@ -1,3 +1,4 @@
+import html
 import json
 import os
 from collections import defaultdict
@@ -39,6 +40,7 @@ def load_data():
     items = []
     cod_items = []
     by_merchant = defaultdict(lambda: {"count": 0, "total": 0.0})
+    by_city = defaultdict(lambda: {"count": 0, "total": 0.0})
     by_carrier = defaultdict(lambda: {"count": 0, "total": 0.0})
     by_status = defaultdict(int)
     by_date = defaultdict(float)
@@ -88,6 +90,8 @@ def load_data():
             cod_items.append(item)
         by_merchant[item["merchant"]]["count"] += 1
         by_merchant[item["merchant"]]["total"] += item["total_profit"]
+        by_city[item["city"]]["count"] += 1
+        by_city[item["city"]]["total"] += item["total_profit"]
         by_carrier[item["carrier"]]["count"] += 1
         by_carrier[item["carrier"]]["total"] += item["total_profit"]
         by_status[item["status"]] += 1
@@ -144,6 +148,7 @@ def load_data():
 
     items.sort(key=lambda x: (x["date"], x["order_id"]), reverse=True)
     top_merchants = sorted(by_merchant.items(), key=lambda kv: kv[1]["total"], reverse=True)[:5]
+    top_cities = sorted(by_city.items(), key=lambda kv: kv[1]["total"], reverse=True)[:5]
     top_carriers = sorted(by_carrier.items(), key=lambda kv: kv[1]["total"], reverse=True)
     daily = sorted(by_date.items(), key=lambda kv: kv[0])
     daily_count = sorted(by_date_count.items(), key=lambda kv: kv[0])
@@ -160,7 +165,7 @@ def load_data():
         "excluded": len(rows) - len(items),
     }
     cod_items.sort(key=lambda x: (x["date"], x["order_id"]), reverse=True)
-    return totals, top_merchants, top_carriers, by_status, daily, daily_count, finance, cod_items, statement
+    return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_count, finance, cod_items, statement
 
 
 def fmt_money(value):
@@ -224,7 +229,7 @@ def build_step_area_chart(series, color="#8a6f68", value_formatter=None, chart_k
         label_x = max(20, min(width - label_width - 20, x + side_offset - label_width / 2))
         line_y = label_y + 18
         value_labels.append(
-            f"<g class='area-value-wrap'><line x1='{x:.1f}' y1='{y - 6:.1f}' x2='{x:.1f}' y2='{line_y:.1f}' stroke='rgba(138,111,104,0.18)' stroke-width='1' /><rect x='{label_x:.1f}' y='{label_y:.1f}' rx='9' ry='9' width='{label_width:.1f}' height='18' fill='rgba(255,253,249,0.93)' stroke='rgba(225,212,201,0.72)' stroke-width='1' /><text x='{label_x + label_width/2:.1f}' y='{label_y + 13:.1f}' text-anchor='middle' class='area-value'>{value_text}</text></g>"
+            f"<g class='area-value-wrap'><line x1='{x:.1f}' y1='{y - 6:.1f}' x2='{x:.1f}' y2='{line_y:.1f}' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='{label_x:.1f}' y='{label_y:.1f}' rx='10' ry='10' width='{label_width:.1f}' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='{label_x + label_width/2:.1f}' y='{label_y + 13:.1f}' text-anchor='middle' class='area-value'>{value_text}</text></g>"
         )
         date_labels.append(
             f"<text x='{x:.1f}' y='{height - 18}' text-anchor='middle' class='area-date'>{short_date}</text>"
@@ -272,67 +277,14 @@ def metric_card(label, value, note="", tone="navy"):
 def build_html(data):
     totals = data["totals"]
     daily = data["daily"]
-    daily_count = data["daily_count"]
-    finance = data["finance"]
-    cod_items = data["cod_items"]
+    top_merchants = data["top_merchants"]
+    top_cities = data["top_cities"]
     top_carriers = data["top_carriers"]
-    statement = data.get("statement", {"summary": {}, "rows": []})
     details_href = "/report.xlsx"
-    supplemental_cod_items = []
-    all_cod_items = cod_items + supplemental_cod_items
-    cod_overrides = {
-        "1757": {"collection_date": "2026-06-12", "transfer_date": "2026-06-13"},
-        "1756": {"collection_date": "2026-06-11", "transfer_date": "2026-06-13"},
-    }
 
-    finance_cards = f"""
-      <div class="finance-grid">
-        <article class="finance-card bank">
-          <span class="metric-label">إيداعات البنك</span>
-          <strong>{finance['bank']['count']}</strong>
-          <div class="metric-footer">{fmt_money(finance['bank']['total'])}</div>
-        </article>
-        <article class="finance-card moyasar">
-          <span class="metric-label">إيداعات ميسر</span>
-          <strong>{finance['moyasar']['count']}</strong>
-          <div class="metric-footer">{fmt_money(finance['moyasar']['total'])}</div>
-        </article>
-        <article class="finance-card other">
-          <span class="metric-label">تفصيل الخصومات والاستردادات</span>
-          <div class="metric-footer breakdown-line">خصم شحنة مرتجعة: {fmt_money(finance['shipping_return']['total'])}</div>
-          <div class="metric-footer breakdown-line">خصم الضريبة: {fmt_money(finance['tax_deduction']['total'])}</div>
-          <div class="metric-footer breakdown-line">استرداد تكلفة شحن: {fmt_money(finance['shipping_refund']['total'])}</div>
-          <div class="metric-footer">الصافي: {fmt_money(finance['other_net'])}</div>
-        </article>
-        <article class="finance-card other">
-          <span class="metric-label">إجمالي الإيداعات</span>
-          <strong>{fmt_money(finance['total'])}</strong>
-          <div class="metric-footer">البنك + ميسر</div>
-        </article>
-      </div>
-    """
-
-    chart_html = build_step_area_chart(daily[-7:], color="#8a6f68", chart_key="profit")
-
-    count_chart_html = build_step_area_chart(
-        daily_count[-7:],
-        color="#2f2628",
-        value_formatter=lambda value: str(int(value)),
-        chart_key="count",
-    )
-
-    statement_rows = "".join(
-        f"<tr class='expense-row'><td>{row['date']}</td><td>{row['expense_type'] or '-'}</td><td>{fmt_money(row['amount'])}</td></tr>"
-        for row in statement["rows"]
-        if row["move_type"] == "مصروف"
-    )
-
-    cod_rows = "".join(
-        f"<tr><td>{item['order_id']}</td><td>{item['merchant']}</td><td>{fmt_money(item['cod_amount'])}</td><td>{item.get('order_date') or item.get('date') or '-'}</td><td>{(cod_overrides.get(str(item['order_id'])) or {}).get('collection_date') or item.get('collection_date') or item.get('date') or '-'}</td><td>{(cod_overrides.get(str(item['order_id'])) or {}).get('transfer_date') or item.get('transfer_date') or '-'}</td></tr>"
-        for item in all_cod_items
-    )
-    carrier_total = sum(data['total'] for _, data in top_carriers) or 1
-    carrier_colors = ["#5b4a47", "#c59f95", "#d2b3aa", "#dfc3ba", "#ead5cf", "#a98c84"]
+    chart_html = build_step_area_chart(daily[-7:], color="#b12a5b", chart_key="profit")
+    carrier_total = sum(data["total"] for _, data in top_carriers) or 1
+    carrier_colors = ["#b12a5b", "#7a1538", "#8c5f63", "#c09aa0", "#d8c2c8", "#5f5163"]
     carrier_legend_items = []
     carrier_stops = []
     running_pct = 0.0
@@ -344,84 +296,119 @@ def build_html(data):
         carrier_stops.append(f"{color} {start:.2f}% {end:.2f}%")
         carrier_legend_items.append(
             f"""
-              <div class="carrier-legend-item">
-                <span class="carrier-swatch" style="background:{color}"></span>
-                <span class="carrier-legend-name">{("ARAMEX - ارامكس" if name == "ارامكس - ARAMEX" else name)}</span>
-                <span class="carrier-legend-meta">{pct*100:.1f}%</span>
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:{color}"></span>
+                <div class="carrier-name">{html.escape("ARAMEX - ارامكس" if name == "ارامكس - ARAMEX" else name)}</div>
+                <div class="carrier-meta">{pct*100:.1f}%</div>
               </div>
             """
         )
         running_pct += pct
+    carrier_legend_html = "".join(carrier_legend_items)
     carrier_donut_style = "; ".join([
         f"background: conic-gradient({', '.join(carrier_stops)})",
-        "box-shadow: 0 18px 32px rgba(47,38,40,0.16), inset 0 1px 0 rgba(255,255,255,0.9)",
     ])
-    carrier_legend_html = "".join(carrier_legend_items)
+
+    merchant_rows = "".join(
+        f"<tr><td>{idx + 1}</td><td>{html.escape(name or '-')}</td><td>{data['count']}</td><td>{fmt_money(data['total'])}</td></tr>"
+        for idx, (name, data) in enumerate(top_merchants)
+    )
+    city_rows = "".join(
+        f"<tr><td>{idx + 1}</td><td>{html.escape(name or '-')}</td><td>{data['count']}</td><td>{fmt_money(data['total'])}</td></tr>"
+        for idx, (name, data) in enumerate(top_cities)
+    )
     return f"""<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>lead dashboard</title>
+  <title>lead</title>
   <style>
     :root {{
-      color-scheme: light;
-      --bg: #f4efe8;
-      --surface: #fffdfb;
-      --surface-soft: #f8f3ed;
-      --text: #2a2425;
-      --muted: #7c6b68;
-      --line: #e1d4ca;
-      --teal: #8b746d;
-      --blue: #9a7f77;
-      --navy: #2f2628;
-      --green: #86756f;
-      --amber: #b39289;
-      --coral: #c5a59b;
-      --shadow: 0 14px 34px rgba(31, 41, 55, 0.07);
+      color-scheme: dark;
+      --bg: #07070b;
+      --bg-soft: #0f0b13;
+      --card: rgba(255,255,255,.075);
+      --card-strong: rgba(255,255,255,.11);
+      --border: rgba(255,255,255,.14);
+      --text: #f7f2f5;
+      --muted: #a89ca7;
+      --burgundy: #7a1538;
+      --burgundy-2: #b12a5b;
+      --purple: #6d28d9;
+      --green: #2dd4bf;
+      --red: #fb7185;
+      --shadow: 0 24px 80px rgba(0,0,0,.45);
     }}
     * {{ box-sizing: border-box; }}
     html {{ scroll-behavior:smooth; }}
-    body {{ margin:0; min-height:100vh; font-family: "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; background:
-      radial-gradient(circle at top right, rgba(255,255,255,0.72), transparent 22%),
-      radial-gradient(circle at 16% 18%, rgba(255,255,255,0.50), transparent 16%),
-      radial-gradient(circle at bottom left, rgba(47, 38, 40, 0.04), transparent 28%),
-      linear-gradient(180deg, #fffdf8 0%, #fbf7f1 52%, #f5efe8 100%); color:var(--text); }}
-    a {{ color: inherit; text-decoration: none; }}
-    .page {{ max-width: 1440px; margin: 0 auto; padding: 32px 28px 36px; }}
-    .hero {{ position:relative; display:flex; align-items:flex-start; justify-content:flex-end; margin-bottom:10px; padding:10px 24px 14px; overflow:hidden; background:linear-gradient(135deg, #6f544a 0%, #8b6f64 55%, #a3877b 100%); border-radius:0 0 28px 28px; box-shadow:0 14px 30px rgba(47,38,40,0.12); }}
-    .hero::before {{ content:''; position:absolute; inset:auto -4% -28px -4%; height:82px; background:
-      radial-gradient(circle at 14% 12%, rgba(255,255,255,0.18), transparent 26%),
-      radial-gradient(circle at 42% 0%, rgba(255,255,255,0.10), transparent 24%),
-      radial-gradient(circle at 74% 10%, rgba(255,255,255,0.14), transparent 28%),
-      radial-gradient(ellipse at center, rgba(255,255,255,0.14), rgba(255,255,255,0.04) 42%, rgba(255,255,255,0) 76%);
-      opacity:.9; pointer-events:none; }}
-    .brand-lockup {{ position:relative; z-index:1; display:flex; align-items:flex-start; justify-content:flex-end; padding:0; border:0; background:transparent; box-shadow:none; }}
-    .brand-logo {{ width:min(150px, 16vw); max-width:150px; height:auto; display:block; background:transparent; mix-blend-mode:multiply; filter: sepia(0.36) saturate(0.42) brightness(1.20) contrast(0.92); }}
-    .eyebrow {{ margin:0 0 8px; color:var(--teal); font-size:12px; font-weight:800; letter-spacing:0; font-family: "Avenir Next", "Segoe UI", "Noto Sans Arabic", sans-serif; }}
-    h1, h2, p {{ margin-top:0; }}
-    h1, h2 {{ font-family: "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; letter-spacing:0; }}
-    h2 {{ margin-bottom:0; font-size:16px; line-height:1.24; font-weight:600; }}
-    .hero p {{ margin:8px 0 0; color:var(--muted); }}
-    .hero-tools {{ display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin:0 0 12px; }}
-    .badge {{ display:inline-flex; align-items:center; min-height:38px; padding:0 12px; border:1px solid rgba(225,212,201,0.96); border-radius:999px; background:rgba(255,255,255,0.98); color:var(--muted); font-size:12px; backdrop-filter: blur(6px); box-shadow:0 8px 18px rgba(47,38,40,0.05); }}
-    .primary-button {{ display:inline-flex; align-items:center; min-height:40px; padding:0 16px; border-radius:999px; background:linear-gradient(135deg, #2f2628, #8a6f68); color:#fff; font-weight:700; box-shadow:0 10px 20px rgba(47,38,40,0.16); }}
-    .ghost-button {{ display:inline-flex; align-items:center; min-height:40px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,0.88); color:var(--text); font-weight:700; }}
-    .hero-tools .badge {{ min-height:32px; padding:0 10px; font-size:11px; }}
-    .hero-tools .primary-button {{ min-height:32px; padding:0 12px; font-size:12px; }}
-    .metric-grid {{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:16px; }}
-    .metric-card, .panel {{
+    body {{
+      margin:0;
+      min-height:100vh;
+      color:var(--text);
+      font-family: Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
       background:
-        linear-gradient(145deg, rgba(255,255,255,0.84) 0%, rgba(255,255,255,0.52) 40%, rgba(255,255,255,0.28) 100%),
-        linear-gradient(135deg, rgba(255,255,255,0.24), rgba(248,244,238,0.14));
-      border:1px solid rgba(255,255,255,0.96);
-      border-radius:18px;
+        radial-gradient(circle at 15% 5%, rgba(122,21,56,.42), transparent 28%),
+        radial-gradient(circle at 90% 0%, rgba(109,40,217,.18), transparent 24%),
+        linear-gradient(135deg, #050509 0%, #0b0810 50%, #130812 100%);
+    }}
+    a {{ color:inherit; text-decoration:none; }}
+    .page {{ width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:28px 0 36px; }}
+    .hero {{
+      margin:0 0 16px;
+      padding:24px 28px;
+      border-radius:28px;
+      background:
+        linear-gradient(135deg, rgba(122,21,56,.82), rgba(28,12,25,.74)),
+        radial-gradient(circle at 85% 30%, rgba(177,42,91,.22), transparent 35%);
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(18px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:20px;
+      flex-wrap:wrap;
+    }}
+    .brand-lockup {{ display:flex; align-items:center; gap:16px; }}
+    .brand-logo {{ width:min(170px, 20vw); max-width:170px; height:auto; display:block; filter: drop-shadow(0 12px 30px rgba(0,0,0,.22)); }}
+    .hero-copy {{ display:grid; gap:6px; }}
+    .hero-copy h1 {{ margin:0; font-size:clamp(28px, 4vw, 46px); line-height:1; letter-spacing:-0.04em; font-weight:850; }}
+    .hero-copy p {{ margin:0; color:rgba(255,255,255,.78); font-size:14px; }}
+    .hero-tools {{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }}
+    .badge {{
+      display:inline-flex;
+      align-items:center;
+      min-height:40px;
+      padding:0 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:rgba(255,255,255,.84);
+      font-size:12px;
+      backdrop-filter: blur(14px);
+    }}
+    .primary-button {{
+      display:inline-flex;
+      align-items:center;
+      min-height:40px;
+      padding:0 16px;
+      border-radius:999px;
+      background:linear-gradient(135deg, var(--burgundy), var(--purple));
+      color:#fff;
+      border:1px solid rgba(255,255,255,.14);
+      font-weight:750;
+      box-shadow:0 18px 38px rgba(122,21,56,.32);
+    }}
+    .primary-button:hover {{ transform: translateY(-1px); filter: brightness(1.06); }}
+    .metric-grid {{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:16px; }}
+    .metric-card, .panel, .mini-card {{
       position:relative;
       overflow:hidden;
-      box-shadow:
-        0 18px 32px rgba(47,38,40,0.08),
-        0 1px 0 rgba(255,255,255,0.98) inset,
-        0 -1px 0 rgba(255,255,255,0.22) inset;
+      border-radius:24px;
+      background:linear-gradient(180deg, var(--card-strong), var(--card));
+      border:1px solid var(--border);
+      box-shadow:var(--shadow);
       backdrop-filter: blur(22px) saturate(122%);
       -webkit-backdrop-filter: blur(22px) saturate(122%);
     }}
@@ -430,114 +417,121 @@ def build_html(data):
       position:absolute;
       inset:0;
       background:
-        linear-gradient(135deg, rgba(255,255,255,0.90) 0%, rgba(255,255,255,0.44) 22%, rgba(255,255,255,0.16) 44%, rgba(255,255,255,0) 60%),
-        linear-gradient(180deg, rgba(255,255,255,0.50) 0%, rgba(255,255,255,0) 24%);
+        linear-gradient(135deg, rgba(255,255,255,.13) 0%, rgba(255,255,255,.04) 18%, rgba(255,255,255,0) 42%),
+        radial-gradient(circle at 18% 10%, rgba(177,42,91,.12), transparent 28%);
       pointer-events:none;
     }}
     .metric-card > *, .panel > *, .mini-card > * {{ position:relative; z-index:1; }}
-    .metric-card {{ padding:18px; min-height:118px; display:flex; flex-direction:column; justify-content:space-between; }}
-    .metric-label {{ white-space:normal; line-height:1.45; }}
-    .metric-card strong {{ display:block; font-size:20px; line-height:1.15; margin-top:8px; font-variant-numeric: tabular-nums; }}
-    .metric-footer {{ margin-top:8px; color:var(--muted); font-size:12px; line-height:1.35; }}
-    .profit-card {{ min-height:118px; justify-content:space-between; }}
-    .panel {{ padding:18px; }}
-    .panel-header {{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:14px; }}
-    .panel-header p {{ margin:0; color:var(--muted); font-size:13px; }}
-    .panel-grid {{ display:grid; grid-template-columns:2fr 1fr; gap:14px; align-items:start; }}
-    .top-layout {{ display:grid; grid-template-columns:minmax(0, 0.9fr) minmax(0, 1.1fr); gap:14px; align-items:stretch; margin-bottom:14px; }}
-    .stack-panels {{ display:grid; gap:10px; }}
-    .chart-block + .chart-block {{ margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }}
-    .stack-panels .panel:first-child {{ min-height: 250px; }}
-    .stack-panels .panel:first-child .chart-block:last-child {{ margin-bottom: 4px; }}
-    .stack-panels > .panel:nth-child(2) {{ min-height: 176px; margin-top:-10px; }}
-    .top-layout > .stack-panels:nth-child(2) > .panel:first-child {{ min-height: 436px; display:flex; flex-direction:column; }}
-    .shipments-panel {{ text-align:right; }}
-    .chart {{ height:165px; display:flex; align-items:flex-end; gap:10px; padding-top:4px; }}
-    .area-chart {{ width:100%; height:210px; display:block; }}
-    .area-chart svg {{ width:100%; height:100%; display:block; overflow:visible; }}
-    .area-value {{ fill:var(--navy); font-size:11px; font-weight:800; letter-spacing:0; font-family:"Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }}
-    .area-date {{ fill:var(--muted); font-size:10px; font-weight:700; letter-spacing:0; font-family:"Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }}
-    .bar {{ flex:1; min-width:0; height:var(--h); display:flex; flex-direction:column; justify-content:flex-end; align-items:center; }}
-    .bar::before {{ content:''; width:100%; height:100%; border-radius:8px 8px 0 0; background:linear-gradient(180deg, #8a6f68, #2f2628); opacity:.96; }}
-    .bar strong {{ display:block; margin-bottom:6px; font-size:10px; color:var(--muted); }}
-    .bar span {{ margin-top:6px; font-size:10px; color:var(--muted); }}
-    .stack {{ display:grid; gap:14px; }}
-    .mini-grid {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; }}
-    .mini-card {{
-      padding:14px;
-      min-height:92px;
-      border:1px solid rgba(255,255,255,0.86);
-      border-radius:14px;
-      position:relative;
-      overflow:hidden;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.76), rgba(255,255,255,0.42)),
-        linear-gradient(135deg, rgba(255,255,255,0.22), rgba(248,244,238,0.14));
+    .metric-card {{
+      padding:20px;
+      min-height:120px;
       display:flex;
       flex-direction:column;
       justify-content:space-between;
-      box-shadow:
-        0 16px 28px rgba(47,38,40,0.08),
-        0 1px 0 rgba(255,255,255,0.98) inset;
-      backdrop-filter: blur(20px) saturate(122%);
-      -webkit-backdrop-filter: blur(20px) saturate(122%);
     }}
-    .mini-card strong {{ display:block; margin-top:6px; font-size:20px; line-height:1.15; font-variant-numeric: tabular-nums; }}
-    .mini-card .metric-footer {{ font-size:12px; line-height:1.35; }}
-    .mini-card.quick-card {{ min-height:92px; background:
-      linear-gradient(145deg, rgba(255,255,255,0.78), rgba(255,255,255,0.42)),
-      linear-gradient(135deg, rgba(255,255,255,0.20), rgba(248,244,238,0.14));
-      border:1px solid rgba(255,255,255,0.96); box-shadow:0 16px 28px rgba(47,38,40,0.08), 0 1px 0 rgba(255,255,255,0.98) inset; backdrop-filter: blur(20px) saturate(122%); -webkit-backdrop-filter: blur(20px) saturate(122%); }}
-    .mini-card.quick-card strong {{ font-size:18px; line-height:1.15; font-weight:800; }}
-    .mini-card.quick-card .metric-label {{ font-size:13px; line-height:1.35; }}
-    .mini-card.finance-card strong {{ font-size:18px; line-height:1.15; }}
-    .mini-card.finance-card .metric-footer {{ font-size:13px; line-height:1.45; }}
-    .mini-card.finance-card .metric-label {{ font-size:13px; line-height:1.35; }}
-    .mini-card.finance-card.bank strong,
-    .mini-card.finance-card.moyasar strong {{ font-size:18px; line-height:1.15; font-weight:800; }}
-    .mini-card.finance-total-card strong {{ font-size:16px; line-height:1.15; }}
-    .mini-card.finance-total-card .metric-label {{ font-size:12px; line-height:1.35; }}
-    .mini-card.finance-total-card .metric-footer {{ font-size:12px; line-height:1.35; }}
-    .breakdown-line {{ font-size:12px; line-height:1.55; margin-top:2px; color:var(--muted); }}
-    .finance-panel .panel-header p {{ font-size:13px; line-height:1.35; }}
-    .finance-panel .table-wrap {{ margin-top:2px; }}
-    .finance-panel th {{ font-size:13px; }}
-    .finance-panel td {{ font-size:13px; }}
-    .statement-panel {{ margin-top:14px; }}
-    .statement-summary {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:14px; }}
-    .statement-summary .mini-card strong {{ font-size:18px; }}
-    .statement-table th:nth-child(3),
-    .statement-table td:nth-child(3) {{ white-space:nowrap; font-variant-numeric: tabular-nums; font-weight:800; }}
-    .expense-row {{ background:linear-gradient(180deg, rgba(255,248,246,0.9), rgba(255,243,240,0.7)); }}
-    .expense-row td {{ color:#4a3634; }}
-    .mini-card.bank {{ background:linear-gradient(145deg, rgba(255,255,255,0.80), rgba(255,255,255,0.44)); }}
-    .mini-card.moyasar {{ background:linear-gradient(145deg, rgba(255,255,255,0.80), rgba(255,255,255,0.44)); }}
-    .mini-card.other {{ background:linear-gradient(145deg, rgba(255,255,255,0.80), rgba(255,255,255,0.44)); }}
-    .carrier-donut-panel {{ display:grid; grid-template-columns:minmax(95px, 120px) 1fr; gap:8px; align-items:center; }}
-    .carrier-donut {{ position:relative; width:min(100%, 120px); margin:0 auto; aspect-ratio:1; border-radius:50%; padding:4px; {carrier_donut_style}; }}
-    .carrier-donut-center {{ position:absolute; inset:50%; transform:translate(-50%, -50%); width:40%; height:40%; border-radius:50%; background:transparent; box-shadow:none; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0; color:#fff; }}
-    .carrier-donut-center strong {{ display:none; }}
-    .carrier-donut-center span {{ display:none; }}
-    .carrier-donut-note {{ text-align:center; color:var(--muted); font-size:12px; margin-top:8px; }}
+    .metric-label {{ display:block; color:var(--muted); font-size:13px; line-height:1.45; }}
+    .metric-card strong {{ display:block; margin-top:10px; font-size:24px; line-height:1; font-weight:850; letter-spacing:-0.04em; font-variant-numeric: tabular-nums; }}
+    .metric-footer {{ margin-top:8px; color:rgba(255,255,255,.58); font-size:12px; line-height:1.35; }}
+    .content-grid {{ display:grid; grid-template-columns:1.3fr .92fr; gap:16px; margin-bottom:16px; }}
+    .panel {{ padding:20px; }}
+    .panel-header {{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }}
+    .eyebrow {{ margin:0; color:rgba(255,255,255,.88); font-size:13px; font-weight:750; letter-spacing:.02em; }}
+    .subtle {{ margin:6px 0 0; color:var(--muted); font-size:13px; }}
+    .chart-shell {{ height:300px; }}
+    .area-chart {{ width:100%; height:100%; display:block; }}
+    .area-chart svg {{ width:100%; height:100%; display:block; overflow:visible; }}
+    .area-value {{ fill:#f8f5f7; font-size:11px; font-weight:800; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }}
+    .area-date {{ fill:rgba(255,255,255,.56); font-size:10px; font-weight:700; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }}
+    .carrier-layout {{
+      display:grid;
+      grid-template-columns:120px 1fr;
+      gap:16px;
+      align-items:center;
+    }}
+    .carrier-donut {{
+      width:120px;
+      aspect-ratio:1;
+      border-radius:50%;
+      position:relative;
+      margin:0 auto;
+      padding:10px;
+      {carrier_donut_style};
+      box-shadow:0 24px 40px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.14);
+    }}
+    .carrier-donut::after {{
+      content:'';
+      position:absolute;
+      inset:22%;
+      border-radius:50%;
+      background:linear-gradient(180deg, rgba(15,11,19,.98), rgba(7,7,11,.96));
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+    }}
+    .carrier-center {{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:1;
+      text-align:center;
+      padding:18px;
+      color:#fff;
+      pointer-events:none;
+    }}
+    .carrier-center span {{ display:block; font-size:11px; color:rgba(255,255,255,.72); }}
+    .carrier-center strong {{ display:block; font-size:18px; line-height:1; font-weight:850; }}
     .carrier-legend {{ display:grid; gap:10px; }}
-    .carrier-legend-item {{ display:grid; grid-template-columns:12px 1fr auto; gap:10px; align-items:center; padding:10px 12px; border:1px solid rgba(225,212,201,0.82); border-radius:12px; background:linear-gradient(180deg, #fffdfa, #f7f1ea); box-shadow:0 10px 20px rgba(47,38,40,0.04); }}
-    .carrier-swatch {{ width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 3px rgba(255,255,255,0.65); }}
-    .carrier-legend-name {{ font-size:12px; font-weight:800; color:var(--text); }}
-    .carrier-legend-meta {{ font-size:11px; color:var(--muted); white-space:nowrap; }}
+    .carrier-row {{
+      display:grid;
+      grid-template-columns:12px 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.045);
+    }}
+    .carrier-dot {{ width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 4px rgba(255,255,255,.04); }}
+    .carrier-name {{ font-size:13px; font-weight:700; color:var(--text); }}
+    .carrier-meta {{ font-size:12px; color:rgba(255,255,255,.62); white-space:nowrap; }}
+    .table-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }}
     .table-wrap {{ overflow:auto; }}
     table {{ width:100%; border-collapse:collapse; }}
-    th, td {{ padding:11px 10px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }}
-    th {{ color:var(--muted); font-size:13px; font-weight:700; }}
-    .status-list {{ display:grid; gap:10px; }}
-    .status-row {{ display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); }}
-    .footer-note {{ margin-top:16px; color:var(--muted); font-size:13px; }}
-    .sections {{ display:grid; grid-template-columns:1.5fr 1fr; gap:14px; margin-top:14px; }}
+    th, td {{
+      padding:12px 10px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      text-align:right;
+      white-space:nowrap;
+    }}
+    th {{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+    }}
+    td {{
+      color:rgba(255,255,255,.88);
+      font-size:13px;
+    }}
+    .rank {{
+      width:36px;
+      color:rgba(255,255,255,.56);
+      font-variant-numeric: tabular-nums;
+    }}
+    .table-card-title {{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }}
+    .table-card-title p {{ margin:6px 0 0; color:var(--muted); font-size:12px; }}
+    .footer-note {{ margin-top:16px; color:rgba(255,255,255,.48); font-size:12px; }}
     @media (max-width: 1100px) {{
-      .metric-grid, .panel-grid, .sections {{ grid-template-columns:1fr; }}
-      .top-layout {{ grid-template-columns:1fr; }}
-      .mini-grid {{ grid-template-columns:1fr; }}
-      .hero {{ flex-direction:column; align-items:stretch; }}
-      .hero-actions {{ justify-content:flex-start; }}
+      .metric-grid, .content-grid, .table-grid {{ grid-template-columns:1fr; }}
+      .carrier-layout {{ grid-template-columns:1fr; }}
+      .hero {{ padding:20px; }}
+      .brand-logo {{ width:min(150px, 38vw); }}
     }}
   </style>
 </head>
@@ -546,12 +540,16 @@ def build_html(data):
     <header class="hero">
       <div class="brand-lockup">
         <img class="brand-logo" src="gf_logo_transparent_2x.png" alt="GF Smart Accounting Solutions" />
+        <div class="hero-copy">
+          <h1>شهر 6</h1>
+          <p>لوحة تشغيل مالية مختصرة.</p>
+        </div>
+      </div>
+      <div class="hero-tools">
+        <span class="badge">1 - 13 يونيو</span>
+        <a class="primary-button" href="{details_href}">فتح ملف Excel</a>
       </div>
     </header>
-    <div class="hero-tools">
-      <span class="badge">شهر 6 | 1-13</span>
-      <a class="primary-button" href="{details_href}">فتح ملف Excel</a>
-    </div>
 
     <section class="metric-grid">
       {metric_card("إجمالي الربح", fmt_money(totals["total"]), "صافي الشحنات من 1 إلى 13")}
@@ -560,160 +558,78 @@ def build_html(data):
       {metric_card("ربح COD", fmt_money(totals["cod_profit"]), "الرسوم الصافية")}
     </section>
 
-    <section class="top-layout">
-      <div class="stack-panels">
-        <article class="panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">شركات الشحن</p>
-            </div>
+    <section class="content-grid">
+      <article class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">الأداء اليومي</p>
+            <p class="subtle">آخر 7 أيام</p>
           </div>
-          <div class="carrier-donut-panel">
-            <div>
-              <div class="carrier-donut">
-                <div class="carrier-donut-center">
-                </div>
+        </div>
+        <div class="chart-shell">
+          <div class="area-chart" aria-label="Area Chart - Step">
+            {chart_html}
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">شركات الشحن</p>
+            <p class="subtle">نسبة الربح لكل ناقل</p>
+          </div>
+        </div>
+        <div class="carrier-layout">
+          <div class="carrier-donut">
+            <div class="carrier-center">
+              <div>
+                <strong>{len(top_carriers)}</strong>
+                <span>شركات</span>
               </div>
             </div>
-            <div class="carrier-legend">
-              {carrier_legend_html}
-            </div>
           </div>
-        </article>
-
-        <article class="panel shipments-panel" style="margin-top:-6px;">
-          <div class="panel-header" style="margin-bottom:8px;">
-            <div>
-              <p class="eyebrow">الشحنات</p>
-            </div>
+          <div class="carrier-legend">
+            {carrier_legend_html}
           </div>
-          <div class="mini-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
-            <div class="mini-card finance-card bank">
-              <span class="metric-label">عدد الشحنات</span>
-              <strong>{totals["active"]}</strong>
-            </div>
-            <div class="mini-card finance-card moyasar">
-              <span class="metric-label">عدد COD</span>
-              <strong>{totals["cod"]}</strong>
-            </div>
-            <div class="mini-card finance-card other">
-              <span class="metric-label">مبلغ COD</span>
-              <strong>{fmt_money(totals["cod_amount"])}</strong>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <div class="stack-panels">
-        <article class="panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">آخر 7 أيام</p>
-            </div>
-          </div>
-          <div class="chart-block">
-            <div class="area-chart" aria-label="Area Chart - Step">
-              {chart_html}
-            </div>
-          </div>
-          <div class="chart-block">
-            <div class="area-chart" aria-label="مخطط عدد الشحنات اليومية">
-              {count_chart_html}
-            </div>
-          </div>
-        </article>
-      </div>
+        </div>
+      </article>
     </section>
 
-    <article class="panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">العمليات المالية</p>
-        </div>
-      </div>
-      <div class="mini-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));">
-        <div class="mini-card finance-card bank">
-          <span class="metric-label">إيداعات البنك</span>
-          <strong>{finance['bank']['count']}</strong>
-          <div class="metric-footer">{fmt_money(finance['bank']['total'])}</div>
-        </div>
-        <div class="mini-card finance-card moyasar">
-          <span class="metric-label">إيداعات ميسر</span>
-          <strong>{finance['moyasar']['count']}</strong>
-          <div class="metric-footer">{fmt_money(finance['moyasar']['total'])}</div>
-        </div>
-        <div class="mini-card finance-card other">
-          <span class="metric-label">تفصيل الخصومات والاستردادات</span>
-          <div class="breakdown-line">خصم شحنة مرتجعة: {fmt_money(finance['shipping_return']['total'])}</div>
-          <div class="breakdown-line">خصم الضريبة: {fmt_money(finance['tax_deduction']['total'])}</div>
-          <div class="breakdown-line">استرداد تكلفة شحن: {fmt_money(finance['shipping_refund']['total'])}</div>
-          <div class="metric-footer">الصافي: {fmt_money(finance['other_net'])}</div>
-        </div>
-        <div class="mini-card finance-card finance-total-card other">
-          <span class="metric-label">إجمالي الإيداعات</span>
-          <strong>{fmt_money(finance['total'])}</strong>
-          <div class="metric-footer">البنك + ميسر</div>
-        </div>
-      </div>
-    </article>
-
-    <section class="panel statement-panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">كشف الحساب الجاري</p>
-        </div>
-      </div>
-      <div class="statement-summary">
-        <div class="mini-card quick-card">
-          <span class="metric-label">إجمالي الإيداعات</span>
-          <strong>{fmt_money(statement["summary"].get("deposits_total", 0))}</strong>
-        </div>
-        <div class="mini-card quick-card">
-          <span class="metric-label">إجمالي المصاريف</span>
-          <strong>{fmt_money(statement["summary"].get("expenses_total", 0))}</strong>
-          <div class="metric-footer">فاتورة 12: 3,477.39 ريال | فاتورة 13: 984.14 ريال</div>
-        </div>
-        <div class="mini-card quick-card">
-          <span class="metric-label">رسوم الحوالات</span>
-          <strong>{fmt_money(statement["summary"].get("transfer_fees_total", 0))}</strong>
-        </div>
-        <div class="mini-card quick-card">
-          <span class="metric-label">صافي الحركة</span>
-          <strong>{fmt_money(statement["summary"].get("net_total", 0))}</strong>
-        </div>
-        <div class="mini-card quick-card">
-          <span class="metric-label">عدد المصاريف</span>
-          <strong>{int(statement["summary"].get("expenses_count", 0))}</strong>
-        </div>
-      </div>
-      <div class="table-wrap statement-table">
-        <table>
-          <tbody>{statement_rows}</tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel finance-panel" style="margin-top:14px;">
-          <div class="panel-header">
+    <section class="table-grid">
+      <article class="panel">
+        <div class="table-card-title">
           <div>
-            <p class="eyebrow">طلبات COD</p>
+            <p class="eyebrow">أفضل العملاء</p>
+            <p class="subtle">حسب إجمالي الربح</p>
           </div>
         </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>رقم الطلب</th>
-              <th>التاجر</th>
-              <th>مبلغ COD</th>
-              <th>تاريخ الطلب</th>
-              <th>تاريخ التحصل</th>
-              <th>تاريخ التحويل</th>
-            </tr>
-          </thead>
-          <tbody>{cod_rows}</tbody>
-        </table>
-      </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th class="rank">#</th><th>العميل</th><th>عدد</th><th>الربح</th></tr>
+            </thead>
+            <tbody>{merchant_rows}</tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="table-card-title">
+          <div>
+            <p class="eyebrow">أفضل المدن</p>
+            <p class="subtle">حسب إجمالي الربح</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th class="rank">#</th><th>المدينة</th><th>عدد</th><th>الربح</th></tr>
+            </thead>
+            <tbody>{city_rows}</tbody>
+          </table>
+        </div>
+      </article>
     </section>
 
     <div class="footer-note">
@@ -726,9 +642,11 @@ def build_html(data):
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    totals, top_merchants, top_carriers, statuses, daily, daily_count, finance, cod_items, statement = load_data()
+    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_count, finance, cod_items, statement = load_data()
     data = {
         "totals": totals,
+        "top_merchants": top_merchants,
+        "top_cities": top_cities,
         "daily": daily,
         "daily_count": daily_count,
         "finance": finance,
