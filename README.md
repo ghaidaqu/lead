@@ -22,4 +22,9 @@ This keeps the repository code-only and avoids sharing private source data.
 ## Rebuild
 1. Run `python3 scripts/build_report.py`
 2. Run `python3 web/generate_site.py`
-3. Serve the `web/` folder for the dashboard page
+3. Run `python3 app.py` to serve the dashboard locally on `http://localhost:8000`
+
+## Runtime
+- `app.py` serves the dashboard from `web/index.html` when the generated file exists.
+- `GET /report.xlsx` downloads the current workbook when `output/lead6_report.xlsx` exists.
+- `requirements.txt` lists the runtime packages for local runs and deployment.
