@@ -34,11 +34,11 @@
         linear-gradient(135deg, #050509 0%, #0b0810 50%, #130812 100%);
     }
     a { color:inherit; text-decoration:none; }
-    .page { width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:28px 0 36px; }
+    .page { width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:20px 0 34px; }
     .hero {
-      margin:0 0 16px;
-      padding:24px 28px;
-      border-radius:28px;
+      margin:0 0 8px;
+      padding:18px 28px 16px;
+      border-radius:24px;
       background:
         linear-gradient(135deg, rgba(122,21,56,.82), rgba(28,12,25,.74)),
         radial-gradient(circle at 85% 30%, rgba(177,42,91,.22), transparent 35%);
@@ -51,12 +51,19 @@
       gap:20px;
       flex-wrap:wrap;
     }
-    .brand-lockup { display:flex; align-items:center; gap:16px; }
-    .brand-logo { width:min(170px, 20vw); max-width:170px; height:auto; display:block; filter: drop-shadow(0 12px 30px rgba(0,0,0,.22)); }
+    .brand-lockup { position:relative; z-index:1; display:flex; align-items:flex-start; justify-content:flex-end; gap:16px; padding:0; border:0; background:transparent; box-shadow:none; }
+    .brand-logo { width:min(170px, 18vw); max-width:170px; height:auto; display:block; background:transparent; filter: drop-shadow(0 10px 24px rgba(0,0,0,.16)); }
     .hero-copy { display:grid; gap:6px; }
     .hero-copy h1 { margin:0; font-size:clamp(28px, 4vw, 46px); line-height:1; letter-spacing:-0.04em; font-weight:850; }
     .hero-copy p { margin:0; color:rgba(255,255,255,.78); font-size:14px; }
-    .hero-tools { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .hero-tools {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:0 0 10px;
+    }
     .badge {
       display:inline-flex;
       align-items:center;
@@ -72,24 +79,37 @@
     .primary-button {
       display:inline-flex;
       align-items:center;
-      min-height:40px;
-      padding:0 16px;
-      border-radius:999px;
-      background:linear-gradient(135deg, var(--burgundy), var(--purple));
+      min-height:38px;
+      padding:0 14px;
+      border-radius:14px;
+      background:
+        linear-gradient(135deg, rgba(122,21,56,.98), rgba(177,42,91,.84)),
+        linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.02));
       color:#fff;
-      border:1px solid rgba(255,255,255,.14);
-      font-weight:750;
-      box-shadow:0 18px 38px rgba(122,21,56,.32);
+      border:1px solid rgba(255,255,255,.20);
+      font-weight:780;
+      letter-spacing:-0.01em;
+      box-shadow:
+        0 14px 28px rgba(122,21,56,.30),
+        inset 0 1px 0 rgba(255,255,255,.18);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
     }
-    .primary-button:hover { transform: translateY(-1px); filter: brightness(1.06); }
-    .metric-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:16px; }
+    .primary-button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .subhero {
+      display:flex;
+      justify-content:flex-end;
+      margin:0 0 14px;
+    }
+    .metric-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:14px; }
+    .mini-band { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:0 0 16px; }
     .metric-card, .panel, .mini-card {
       position:relative;
       overflow:hidden;
       border-radius:24px;
-      background:linear-gradient(180deg, var(--card-strong), var(--card));
-      border:1px solid var(--border);
-      box-shadow:var(--shadow);
+      background:linear-gradient(180deg, rgba(18,13,25,.96), rgba(11,9,16,.92));
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 18px 50px rgba(0,0,0,.45);
       backdrop-filter: blur(22px) saturate(122%);
       -webkit-backdrop-filter: blur(22px) saturate(122%);
     }
@@ -103,6 +123,16 @@
       pointer-events:none;
     }
     .metric-card > *, .panel > *, .mini-card > * { position:relative; z-index:1; }
+    .mini-card {
+      padding:14px;
+      min-height:92px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      text-align:center;
+      gap:2px;
+    }
     .metric-card {
       padding:20px;
       min-height:120px;
@@ -111,8 +141,11 @@
       justify-content:space-between;
     }
     .metric-label { display:block; color:var(--muted); font-size:13px; line-height:1.45; }
-    .metric-card strong { display:block; margin-top:10px; font-size:24px; line-height:1; font-weight:850; letter-spacing:-0.04em; font-variant-numeric: tabular-nums; }
+    .metric-card strong { display:block; margin-top:10px; font-size:24px; line-height:1; font-weight:850; letter-spacing:-0.04em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 18px rgba(255,255,255,.16); }
     .metric-footer { margin-top:8px; color:rgba(255,255,255,.58); font-size:12px; line-height:1.35; }
+    .mini-card .metric-label { font-size:13px; line-height:1.35; }
+    .mini-card strong { display:block; margin-top:6px; font-size:20px; line-height:1.15; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 16px rgba(255,255,255,.14); }
+    .mini-card .metric-footer { font-size:12px; line-height:1.35; }
     .content-grid { display:grid; grid-template-columns:1.3fr .92fr; gap:16px; margin-bottom:16px; }
     .panel { padding:20px; }
     .panel-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }
@@ -121,8 +154,10 @@
     .chart-shell { height:300px; }
     .area-chart { width:100%; height:100%; display:block; }
     .area-chart svg { width:100%; height:100%; display:block; overflow:visible; }
-    .area-value { fill:#f8f5f7; font-size:11px; font-weight:800; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }
+    .area-value { fill:#fff; font-size:11px; font-weight:850; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }
     .area-date { fill:rgba(255,255,255,.56); font-size:10px; font-weight:700; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }
+    .chart-line { filter: drop-shadow(0 2px 6px rgba(177,42,91,.18)); }
+    .chart-point { filter: drop-shadow(0 2px 5px rgba(0,0,0,.18)); }
     .carrier-layout {
       display:grid;
       grid-template-columns:120px 1fr;
@@ -207,12 +242,18 @@
       margin-bottom:14px;
     }
     .table-card-title p { margin:6px 0 0; color:var(--muted); font-size:12px; }
+    .statement-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
+    .statement-summary .mini-card strong { font-size:18px; }
+    .statement-panel { margin-top:16px; }
+    .finance-card strong { font-size:18px; }
+    .finance-total-card strong { font-size:16px; }
+    .breakdown-line { color:rgba(255,255,255,.70); font-size:12px; line-height:1.5; margin-top:2px; }
     .footer-note { margin-top:16px; color:rgba(255,255,255,.48); font-size:12px; }
     @media (max-width: 1100px) {
-      .metric-grid, .content-grid, .table-grid { grid-template-columns:1fr; }
+      .metric-grid, .content-grid, .table-grid, .mini-band, .statement-summary { grid-template-columns:1fr; }
       .carrier-layout { grid-template-columns:1fr; }
-      .hero { padding:20px; }
-      .brand-logo { width:min(150px, 38vw); }
+      .hero { padding:16px 20px 14px; margin-bottom:6px; }
+      .brand-logo { width:min(185px, 46vw); }
     }
   </style>
 </head>
@@ -220,17 +261,19 @@
   <main class="page">
     <header class="hero">
       <div class="brand-lockup">
-        <img class="brand-logo" src="gf_logo_transparent_2x.png" alt="GF Smart Accounting Solutions" />
+        <img class="brand-logo" src="gf_logo_current_clean.png" alt="GF Smart Accounting Solutions" />
         <div class="hero-copy">
-          <h1>شهر 6</h1>
           <p>لوحة تشغيل مالية مختصرة.</p>
         </div>
       </div>
+    </header>
+
+    <div class="subhero">
       <div class="hero-tools">
         <span class="badge">1 - 13 يونيو</span>
-        <a class="primary-button" href="/report.xlsx">فتح ملف Excel</a>
+        <a class="primary-button" href="/report.xlsx"><span>فتح ملف Excel</span></a>
       </div>
-    </header>
+    </div>
 
     <section class="metric-grid">
       
@@ -263,6 +306,26 @@
     
     </section>
 
+    
+      <section class="mini-band">
+        <article class="mini-card">
+          <span class="metric-label">عدد الشحنات</span>
+          <strong>321</strong>
+          <div class="metric-footer">إجمالي الطلبات الداخلة في الربح</div>
+        </article>
+        <article class="mini-card">
+          <span class="metric-label">عدد COD</span>
+          <strong>2</strong>
+          <div class="metric-footer">الطلبات التي عليها تحصيل</div>
+        </article>
+        <article class="mini-card">
+          <span class="metric-label">مبلغ COD</span>
+          <strong>60.00 ريال</strong>
+          <div class="metric-footer">إجمالي مبالغ COD</div>
+        </article>
+      </section>
+    
+
     <section class="content-grid">
       <article class="panel">
         <div class="panel-header">
@@ -286,9 +349,32 @@
           </linearGradient>
         </defs>
         <path d='M 28.0 192.0 L 28.0 101.5 H 147.0 V 158.6 H 266.0 V 97.0 H 385.0 V 56.0 H 504.0 V 147.7 H 623.0 V 174.5 H 742.0 V 126.0 H 742.0 V 192.0 Z' fill='url(#areaFill-profit)' />
-        <path d='M 28.0 101.5 H 147.0 V 158.6 H 266.0 V 97.0 H 385.0 V 56.0 H 504.0 V 147.7 H 623.0 V 174.5 H 742.0 V 126.0' fill='none' stroke='url(#areaStroke-profit)' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round' />
-        <circle cx='28.0' cy='101.5' r='4.2' fill='#b12a5b' stroke='rgba(255,255,255,0.95)' stroke-width='2' /><circle cx='147.0' cy='158.6' r='4.2' fill='#b12a5b' stroke='rgba(255,255,255,0.95)' stroke-width='2' /><circle cx='266.0' cy='97.0' r='4.2' fill='#b12a5b' stroke='rgba(255,255,255,0.95)' stroke-width='2' /><circle cx='385.0' cy='56.0' r='4.2' fill='#b12a5b' stroke='rgba(255,255,255,0.95)' stroke-width='2' /><circle cx='504.0' cy='147.7' r='4.2' fill='#b12a5b' stroke='rgba(255,255,255,0.95)' stroke-width='2' /><circle cx='623.0' cy='174.5' r='4.2' fill='#b12a5b' stroke='rgba(255,255,255,0.95)' stroke-width='2' /><circle cx='742.0' cy='126.0' r='4.2' fill='#b12a5b' stroke='rgba(255,255,255,0.95)' stroke-width='2' />
+        <path class='chart-line' d='M 28.0 101.5 H 147.0 V 158.6 H 266.0 V 97.0 H 385.0 V 56.0 H 504.0 V 147.7 H 623.0 V 174.5 H 742.0 V 126.0' fill='none' stroke='url(#areaStroke-profit)' stroke-width='3.8' stroke-linecap='round' stroke-linejoin='round' />
+        <circle class='chart-point' cx='28.0' cy='101.5' r='5' fill='#b12a5b' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='147.0' cy='158.6' r='5' fill='#b12a5b' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='266.0' cy='97.0' r='5' fill='#b12a5b' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='385.0' cy='56.0' r='5' fill='#b12a5b' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='504.0' cy='147.7' r='5' fill='#b12a5b' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='623.0' cy='174.5' r='5' fill='#b12a5b' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='742.0' cy='126.0' r='5' fill='#b12a5b' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' />
         <g class='area-value-wrap'><line x1='28.0' y1='95.5' x2='28.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='20.0' y='14.0' rx='10' ry='10' width='49.2' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='44.6' y='27.0' text-anchor='middle' class='area-value'>106.87</text></g><g class='area-value-wrap'><line x1='147.0' y1='152.6' x2='147.0' y2='52.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='143.5' y='34.0' rx='10' ry='10' width='43.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='165.0' y='47.0' text-anchor='middle' class='area-value'>39.43</text></g><g class='area-value-wrap'><line x1='266.0' y1='91.0' x2='266.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='223.4' y='14.0' rx='10' ry='10' width='49.2' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='248.0' y='27.0' text-anchor='middle' class='area-value'>112.26</text></g><g class='area-value-wrap'><line x1='385.0' y1='50.0' x2='385.0' y2='52.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='378.4' y='34.0' rx='10' ry='10' width='49.2' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='403.0' y='47.0' text-anchor='middle' class='area-value'>160.63</text></g><g class='area-value-wrap'><line x1='504.0' y1='141.7' x2='504.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='464.5' y='14.0' rx='10' ry='10' width='43.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='486.0' y='27.0' text-anchor='middle' class='area-value'>52.29</text></g><g class='area-value-wrap'><line x1='623.0' y1='168.5' x2='623.0' y2='52.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='619.5' y='34.0' rx='10' ry='10' width='43.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='641.0' y='47.0' text-anchor='middle' class='area-value'>20.70</text></g><g class='area-value-wrap'><line x1='742.0' y1='120.0' x2='742.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='697.0' y='14.0' rx='10' ry='10' width='43.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='718.5' y='27.0' text-anchor='middle' class='area-value'>77.97</text></g>
+        <text x='28.0' y='222' text-anchor='middle' class='area-date'>06-07</text><text x='147.0' y='222' text-anchor='middle' class='area-date'>06-08</text><text x='266.0' y='222' text-anchor='middle' class='area-date'>06-09</text><text x='385.0' y='222' text-anchor='middle' class='area-date'>06-10</text><text x='504.0' y='222' text-anchor='middle' class='area-date'>06-11</text><text x='623.0' y='222' text-anchor='middle' class='area-date'>06-12</text><text x='742.0' y='222' text-anchor='middle' class='area-date'>06-13</text>
+      </svg>
+    
+          </div>
+        </div>
+        <div class="chart-shell" style="margin-top:16px; border-top:1px solid rgba(255,255,255,.08); padding-top:16px;">
+          <div class="area-chart" aria-label="مخطط عدد الشحنات اليومية">
+            
+      <svg viewBox='0 0 760 240' role='img' aria-label='Area Chart - Step'>
+        <defs>
+          <linearGradient id='areaFill-count' x1='0' x2='0' y1='0' y2='1'>
+            <stop offset='0%' stop-color='rgba(138,111,104,0.34)' />
+            <stop offset='100%' stop-color='rgba(138,111,104,0.06)' />
+          </linearGradient>
+          <linearGradient id='areaStroke-count' x1='0' x2='1' y1='0' y2='0'>
+            <stop offset='0%' stop-color='#7a1538' />
+            <stop offset='100%' stop-color='#2f2628' />
+          </linearGradient>
+        </defs>
+        <path d='M 28.0 192.0 L 28.0 117.2 H 147.0 V 176.7 H 266.0 V 100.2 H 385.0 V 56.0 H 504.0 V 158.0 H 623.0 V 181.8 H 742.0 V 156.3 H 742.0 V 192.0 Z' fill='url(#areaFill-count)' />
+        <path class='chart-line' d='M 28.0 117.2 H 147.0 V 176.7 H 266.0 V 100.2 H 385.0 V 56.0 H 504.0 V 158.0 H 623.0 V 181.8 H 742.0 V 156.3' fill='none' stroke='url(#areaStroke-count)' stroke-width='3.8' stroke-linecap='round' stroke-linejoin='round' />
+        <circle class='chart-point' cx='28.0' cy='117.2' r='5' fill='#7a1538' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='147.0' cy='176.7' r='5' fill='#7a1538' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='266.0' cy='100.2' r='5' fill='#7a1538' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='385.0' cy='56.0' r='5' fill='#7a1538' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='504.0' cy='158.0' r='5' fill='#7a1538' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='623.0' cy='181.8' r='5' fill='#7a1538' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' /><circle class='chart-point' cx='742.0' cy='156.3' r='5' fill='#7a1538' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' />
+        <g class='area-value-wrap'><line x1='28.0' y1='111.2' x2='28.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='20.0' y='14.0' rx='10' ry='10' width='34.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='37.0' y='27.0' text-anchor='middle' class='area-value'>44</text></g><g class='area-value-wrap'><line x1='147.0' y1='170.7' x2='147.0' y2='52.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='148.0' y='34.0' rx='10' ry='10' width='34.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='165.0' y='47.0' text-anchor='middle' class='area-value'>9</text></g><g class='area-value-wrap'><line x1='266.0' y1='94.2' x2='266.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='231.0' y='14.0' rx='10' ry='10' width='34.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='248.0' y='27.0' text-anchor='middle' class='area-value'>54</text></g><g class='area-value-wrap'><line x1='385.0' y1='50.0' x2='385.0' y2='52.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='386.0' y='34.0' rx='10' ry='10' width='34.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='403.0' y='47.0' text-anchor='middle' class='area-value'>80</text></g><g class='area-value-wrap'><line x1='504.0' y1='152.0' x2='504.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='469.0' y='14.0' rx='10' ry='10' width='34.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='486.0' y='27.0' text-anchor='middle' class='area-value'>20</text></g><g class='area-value-wrap'><line x1='623.0' y1='175.8' x2='623.0' y2='52.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='624.0' y='34.0' rx='10' ry='10' width='34.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='641.0' y='47.0' text-anchor='middle' class='area-value'>6</text></g><g class='area-value-wrap'><line x1='742.0' y1='150.3' x2='742.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='706.0' y='14.0' rx='10' ry='10' width='34.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='723.0' y='27.0' text-anchor='middle' class='area-value'>21</text></g>
         <text x='28.0' y='222' text-anchor='middle' class='area-date'>06-07</text><text x='147.0' y='222' text-anchor='middle' class='area-date'>06-08</text><text x='266.0' y='222' text-anchor='middle' class='area-date'>06-09</text><text x='385.0' y='222' text-anchor='middle' class='area-date'>06-10</text><text x='504.0' y='222' text-anchor='middle' class='area-date'>06-11</text><text x='623.0' y='222' text-anchor='middle' class='area-date'>06-12</text><text x='742.0' y='222' text-anchor='middle' class='area-date'>06-13</text>
       </svg>
     
@@ -377,6 +463,104 @@
           </table>
         </div>
       </article>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">العمليات المالية</p>
+          <p class="subtle">إيداعات ومخصومات واستردادات</p>
+        </div>
+      </div>
+      
+      <section class="mini-band">
+        <article class="mini-card finance-card bank">
+          <span class="metric-label">إيداعات البنك</span>
+          <strong>9</strong>
+          <div class="metric-footer">5,857.00 ريال</div>
+        </article>
+        <article class="mini-card finance-card moyasar">
+          <span class="metric-label">إيداعات ميسر</span>
+          <strong>8</strong>
+          <div class="metric-footer">1,924.00 ريال</div>
+        </article>
+        <article class="mini-card finance-card other">
+          <span class="metric-label">تفصيل الخصومات والاستردادات</span>
+          <div class="breakdown-line">خصم شحنة مرتجعة: 109.75 ريال</div>
+          <div class="breakdown-line">خصم الضريبة: 339.14 ريال</div>
+          <div class="breakdown-line">استرداد تكلفة شحن: 103.00 ريال</div>
+          <div class="metric-footer">الصافي: -267.61 ريال</div>
+        </article>
+        <article class="mini-card finance-card finance-total-card other">
+          <span class="metric-label">إجمالي الإيداعات</span>
+          <strong>7,781.00 ريال</strong>
+          <div class="metric-footer">البنك + ميسر</div>
+        </article>
+      </section>
+    
+    </section>
+
+    <section class="panel statement-panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">كشف الحساب الجاري</p>
+          <p class="subtle">ملخص الحركات من الشيت</p>
+        </div>
+      </div>
+      <div class="statement-summary">
+        <div class="mini-card quick-card">
+          <span class="metric-label">إجمالي الإيداعات</span>
+          <strong>5,632.00 ريال</strong>
+        </div>
+        <div class="mini-card quick-card">
+          <span class="metric-label">إجمالي المصاريف</span>
+          <strong>4,463.26 ريال</strong>
+        </div>
+        <div class="mini-card quick-card">
+          <span class="metric-label">رسوم الحوالات</span>
+          <strong>1.73 ريال</strong>
+        </div>
+        <div class="mini-card quick-card">
+          <span class="metric-label">صافي الحركة</span>
+          <strong>1,168.74 ريال</strong>
+        </div>
+        <div class="mini-card quick-card">
+          <span class="metric-label">عدد المصاريف</span>
+          <strong>4</strong>
+        </div>
+      </div>
+      <div class="table-wrap statement-table">
+        <table>
+          <thead>
+            <tr><th>التاريخ</th><th>نوع المصروف</th><th>المبلغ</th></tr>
+          </thead>
+          <tbody><tr class='expense-row'><td>2026-06-03</td><td>فاتورة 12</td><td>3,477.39 ريال</td></tr><tr class='expense-row'><td>2026-06-03</td><td>رسوم فاتورة 12</td><td>1.15 ريال</td></tr><tr class='expense-row'><td>2026-06-10</td><td>فاتورة 13</td><td>984.14 ريال</td></tr><tr class='expense-row'><td>2026-06-10</td><td>رسوم فاتورة 13</td><td>0.58 ريال</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">طلبات COD</p>
+          <p class="subtle">كل طلب على حدة</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>رقم الطلب</th>
+              <th>التاجر</th>
+              <th>مبلغ COD</th>
+              <th>تاريخ الطلب</th>
+              <th>تاريخ التحصل</th>
+              <th>تاريخ التحويل</th>
+            </tr>
+          </thead>
+          <tbody><tr><td>1757</td><td>معرض العز العالمي</td><td>30.00 ريال</td><td>2026-06-06</td><td>2026-06-12</td><td>2026-06-13</td></tr><tr><td>1756</td><td>معرض العز العالمي</td><td>30.00 ريال</td><td>2026-06-06</td><td>2026-06-11</td><td>2026-06-13</td></tr></tbody>
+        </table>
+      </div>
     </section>
 
     <div class="footer-note">

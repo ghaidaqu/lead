@@ -134,14 +134,12 @@ def load_data():
         statement["summary"]["period"] = clean(stmt["E6"].value)
         for r in range(10, stmt.max_row + 1):
             date_val = stmt.cell(r, 1).value
-            move_type = clean(stmt.cell(r, 2).value)
-            expense_type = clean(stmt.cell(r, 3).value)
-            amount = money(stmt.cell(r, 4).value)
-            if not any([date_val, move_type, expense_type, amount]):
+            expense_type = clean(stmt.cell(r, 2).value)
+            amount = money(stmt.cell(r, 3).value)
+            if not any([date_val, expense_type, amount]):
                 continue
             statement["rows"].append({
                 "date": date_val.date().isoformat() if isinstance(date_val, datetime) else clean(date_val),
-                "move_type": move_type,
                 "expense_type": expense_type,
                 "amount": amount,
             })
@@ -220,7 +218,7 @@ def build_step_area_chart(series, color="#8a6f68", value_formatter=None, chart_k
         else:
             value_text = value_formatter(value)
         point_marks.append(
-            f"<circle cx='{x:.1f}' cy='{y:.1f}' r='4.2' fill='{color}' stroke='rgba(255,255,255,0.95)' stroke-width='2' />"
+            f"<circle class='chart-point' cx='{x:.1f}' cy='{y:.1f}' r='5' fill='{color}' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' />"
         )
         label_width = max(34, min(78, 12 + len(value_text) * 6.2))
         chosen_row = idx % 2
@@ -248,7 +246,7 @@ def build_step_area_chart(series, color="#8a6f68", value_formatter=None, chart_k
           </linearGradient>
         </defs>
         <path d='{ " ".join(fill_commands) }' fill='url(#areaFill-{chart_key})' />
-        <path d='{ " ".join(line_commands) }' fill='none' stroke='url(#areaStroke-{chart_key})' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round' />
+        <path class='chart-line' d='{ " ".join(line_commands) }' fill='none' stroke='url(#areaStroke-{chart_key})' stroke-width='3.8' stroke-linecap='round' stroke-linejoin='round' />
         {''.join(point_marks)}
         {''.join(value_labels)}
         {''.join(date_labels)}
@@ -277,12 +275,26 @@ def metric_card(label, value, note="", tone="navy"):
 def build_html(data):
     totals = data["totals"]
     daily = data["daily"]
+    daily_count = data["daily_count"]
+    finance = data["finance"]
+    cod_items = data["cod_items"]
     top_merchants = data["top_merchants"]
     top_cities = data["top_cities"]
     top_carriers = data["top_carriers"]
+    statement = data.get("statement", {"summary": {}, "rows": []})
     details_href = "/report.xlsx"
+    cod_overrides = {
+        "1757": {"collection_date": "2026-06-12", "transfer_date": "2026-06-13"},
+        "1756": {"collection_date": "2026-06-11", "transfer_date": "2026-06-13"},
+    }
 
     chart_html = build_step_area_chart(daily[-7:], color="#b12a5b", chart_key="profit")
+    count_chart_html = build_step_area_chart(
+        daily_count[-7:],
+        color="#7a1538",
+        value_formatter=lambda value: str(int(value)),
+        chart_key="count",
+    )
     carrier_total = sum(data["total"] for _, data in top_carriers) or 1
     carrier_colors = ["#b12a5b", "#7a1538", "#8c5f63", "#c09aa0", "#d8c2c8", "#5f5163"]
     carrier_legend_items = []
@@ -316,6 +328,59 @@ def build_html(data):
     city_rows = "".join(
         f"<tr><td>{idx + 1}</td><td>{html.escape(name or '-')}</td><td>{data['count']}</td><td>{fmt_money(data['total'])}</td></tr>"
         for idx, (name, data) in enumerate(top_cities)
+    )
+    shipment_cards = f"""
+      <section class="mini-band">
+        <article class="mini-card">
+          <span class="metric-label">عدد الشحنات</span>
+          <strong>{totals["active"]}</strong>
+          <div class="metric-footer">إجمالي الطلبات الداخلة في الربح</div>
+        </article>
+        <article class="mini-card">
+          <span class="metric-label">عدد COD</span>
+          <strong>{totals["cod"]}</strong>
+          <div class="metric-footer">الطلبات التي عليها تحصيل</div>
+        </article>
+        <article class="mini-card">
+          <span class="metric-label">مبلغ COD</span>
+          <strong>{fmt_money(totals["cod_amount"])}</strong>
+          <div class="metric-footer">إجمالي مبالغ COD</div>
+        </article>
+      </section>
+    """
+    finance_cards = f"""
+      <section class="mini-band">
+        <article class="mini-card finance-card bank">
+          <span class="metric-label">إيداعات البنك</span>
+          <strong>{finance['bank']['count']}</strong>
+          <div class="metric-footer">{fmt_money(finance['bank']['total'])}</div>
+        </article>
+        <article class="mini-card finance-card moyasar">
+          <span class="metric-label">إيداعات ميسر</span>
+          <strong>{finance['moyasar']['count']}</strong>
+          <div class="metric-footer">{fmt_money(finance['moyasar']['total'])}</div>
+        </article>
+        <article class="mini-card finance-card other">
+          <span class="metric-label">تفصيل الخصومات والاستردادات</span>
+          <div class="breakdown-line">خصم شحنة مرتجعة: {fmt_money(finance['shipping_return']['total'])}</div>
+          <div class="breakdown-line">خصم الضريبة: {fmt_money(finance['tax_deduction']['total'])}</div>
+          <div class="breakdown-line">استرداد تكلفة شحن: {fmt_money(finance['shipping_refund']['total'])}</div>
+          <div class="metric-footer">الصافي: {fmt_money(finance['other_net'])}</div>
+        </article>
+        <article class="mini-card finance-card finance-total-card other">
+          <span class="metric-label">إجمالي الإيداعات</span>
+          <strong>{fmt_money(finance['total'])}</strong>
+          <div class="metric-footer">البنك + ميسر</div>
+        </article>
+      </section>
+    """
+    statement_rows = "".join(
+        f"<tr class='expense-row'><td>{row['date']}</td><td>{row['expense_type'] or '-'}</td><td>{fmt_money(row['amount'])}</td></tr>"
+        for row in statement["rows"]
+    )
+    cod_rows = "".join(
+        f"<tr><td>{item['order_id']}</td><td>{html.escape(item['merchant'])}</td><td>{fmt_money(item['cod_amount'])}</td><td>{item.get('date') or '-'}</td><td>{(cod_overrides.get(str(item['order_id'])) or {}).get('collection_date') or item.get('date') or '-'}</td><td>{(cod_overrides.get(str(item['order_id'])) or {}).get('transfer_date') or '-'}</td></tr>"
+        for item in cod_items
     )
     return f"""<!doctype html>
 <html lang="ar" dir="rtl">
@@ -353,11 +418,11 @@ def build_html(data):
         linear-gradient(135deg, #050509 0%, #0b0810 50%, #130812 100%);
     }}
     a {{ color:inherit; text-decoration:none; }}
-    .page {{ width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:28px 0 36px; }}
+    .page {{ width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:20px 0 34px; }}
     .hero {{
-      margin:0 0 16px;
-      padding:24px 28px;
-      border-radius:28px;
+      margin:0 0 8px;
+      padding:18px 28px 16px;
+      border-radius:24px;
       background:
         linear-gradient(135deg, rgba(122,21,56,.82), rgba(28,12,25,.74)),
         radial-gradient(circle at 85% 30%, rgba(177,42,91,.22), transparent 35%);
@@ -370,12 +435,19 @@ def build_html(data):
       gap:20px;
       flex-wrap:wrap;
     }}
-    .brand-lockup {{ display:flex; align-items:center; gap:16px; }}
-    .brand-logo {{ width:min(170px, 20vw); max-width:170px; height:auto; display:block; filter: drop-shadow(0 12px 30px rgba(0,0,0,.22)); }}
+    .brand-lockup {{ position:relative; z-index:1; display:flex; align-items:flex-start; justify-content:flex-end; gap:16px; padding:0; border:0; background:transparent; box-shadow:none; }}
+    .brand-logo {{ width:min(170px, 18vw); max-width:170px; height:auto; display:block; background:transparent; filter: drop-shadow(0 10px 24px rgba(0,0,0,.16)); }}
     .hero-copy {{ display:grid; gap:6px; }}
     .hero-copy h1 {{ margin:0; font-size:clamp(28px, 4vw, 46px); line-height:1; letter-spacing:-0.04em; font-weight:850; }}
     .hero-copy p {{ margin:0; color:rgba(255,255,255,.78); font-size:14px; }}
-    .hero-tools {{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }}
+    .hero-tools {{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:0 0 10px;
+    }}
     .badge {{
       display:inline-flex;
       align-items:center;
@@ -391,24 +463,37 @@ def build_html(data):
     .primary-button {{
       display:inline-flex;
       align-items:center;
-      min-height:40px;
-      padding:0 16px;
-      border-radius:999px;
-      background:linear-gradient(135deg, var(--burgundy), var(--purple));
+      min-height:38px;
+      padding:0 14px;
+      border-radius:14px;
+      background:
+        linear-gradient(135deg, rgba(122,21,56,.98), rgba(177,42,91,.84)),
+        linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.02));
       color:#fff;
-      border:1px solid rgba(255,255,255,.14);
-      font-weight:750;
-      box-shadow:0 18px 38px rgba(122,21,56,.32);
+      border:1px solid rgba(255,255,255,.20);
+      font-weight:780;
+      letter-spacing:-0.01em;
+      box-shadow:
+        0 14px 28px rgba(122,21,56,.30),
+        inset 0 1px 0 rgba(255,255,255,.18);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
     }}
-    .primary-button:hover {{ transform: translateY(-1px); filter: brightness(1.06); }}
-    .metric-grid {{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:16px; }}
+    .primary-button:hover {{ transform: translateY(-1px); filter: brightness(1.05); }}
+    .subhero {{
+      display:flex;
+      justify-content:flex-end;
+      margin:0 0 14px;
+    }}
+    .metric-grid {{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:14px; }}
+    .mini-band {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:0 0 16px; }}
     .metric-card, .panel, .mini-card {{
       position:relative;
       overflow:hidden;
       border-radius:24px;
-      background:linear-gradient(180deg, var(--card-strong), var(--card));
-      border:1px solid var(--border);
-      box-shadow:var(--shadow);
+      background:linear-gradient(180deg, rgba(18,13,25,.96), rgba(11,9,16,.92));
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 18px 50px rgba(0,0,0,.45);
       backdrop-filter: blur(22px) saturate(122%);
       -webkit-backdrop-filter: blur(22px) saturate(122%);
     }}
@@ -422,6 +507,16 @@ def build_html(data):
       pointer-events:none;
     }}
     .metric-card > *, .panel > *, .mini-card > * {{ position:relative; z-index:1; }}
+    .mini-card {{
+      padding:14px;
+      min-height:92px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      text-align:center;
+      gap:2px;
+    }}
     .metric-card {{
       padding:20px;
       min-height:120px;
@@ -430,8 +525,11 @@ def build_html(data):
       justify-content:space-between;
     }}
     .metric-label {{ display:block; color:var(--muted); font-size:13px; line-height:1.45; }}
-    .metric-card strong {{ display:block; margin-top:10px; font-size:24px; line-height:1; font-weight:850; letter-spacing:-0.04em; font-variant-numeric: tabular-nums; }}
+    .metric-card strong {{ display:block; margin-top:10px; font-size:24px; line-height:1; font-weight:850; letter-spacing:-0.04em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 18px rgba(255,255,255,.16); }}
     .metric-footer {{ margin-top:8px; color:rgba(255,255,255,.58); font-size:12px; line-height:1.35; }}
+    .mini-card .metric-label {{ font-size:13px; line-height:1.35; }}
+    .mini-card strong {{ display:block; margin-top:6px; font-size:20px; line-height:1.15; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 16px rgba(255,255,255,.14); }}
+    .mini-card .metric-footer {{ font-size:12px; line-height:1.35; }}
     .content-grid {{ display:grid; grid-template-columns:1.3fr .92fr; gap:16px; margin-bottom:16px; }}
     .panel {{ padding:20px; }}
     .panel-header {{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }}
@@ -440,8 +538,10 @@ def build_html(data):
     .chart-shell {{ height:300px; }}
     .area-chart {{ width:100%; height:100%; display:block; }}
     .area-chart svg {{ width:100%; height:100%; display:block; overflow:visible; }}
-    .area-value {{ fill:#f8f5f7; font-size:11px; font-weight:800; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }}
+    .area-value {{ fill:#fff; font-size:11px; font-weight:850; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }}
     .area-date {{ fill:rgba(255,255,255,.56); font-size:10px; font-weight:700; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }}
+    .chart-line {{ filter: drop-shadow(0 2px 6px rgba(177,42,91,.18)); }}
+    .chart-point {{ filter: drop-shadow(0 2px 5px rgba(0,0,0,.18)); }}
     .carrier-layout {{
       display:grid;
       grid-template-columns:120px 1fr;
@@ -526,12 +626,18 @@ def build_html(data):
       margin-bottom:14px;
     }}
     .table-card-title p {{ margin:6px 0 0; color:var(--muted); font-size:12px; }}
+    .statement-summary {{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:14px; }}
+    .statement-summary .mini-card strong {{ font-size:18px; }}
+    .statement-panel {{ margin-top:16px; }}
+    .finance-card strong {{ font-size:18px; }}
+    .finance-total-card strong {{ font-size:16px; }}
+    .breakdown-line {{ color:rgba(255,255,255,.70); font-size:12px; line-height:1.5; margin-top:2px; }}
     .footer-note {{ margin-top:16px; color:rgba(255,255,255,.48); font-size:12px; }}
     @media (max-width: 1100px) {{
-      .metric-grid, .content-grid, .table-grid {{ grid-template-columns:1fr; }}
+      .metric-grid, .content-grid, .table-grid, .mini-band, .statement-summary {{ grid-template-columns:1fr; }}
       .carrier-layout {{ grid-template-columns:1fr; }}
-      .hero {{ padding:20px; }}
-      .brand-logo {{ width:min(150px, 38vw); }}
+      .hero {{ padding:16px 20px 14px; margin-bottom:6px; }}
+      .brand-logo {{ width:min(185px, 46vw); }}
     }}
   </style>
 </head>
@@ -539,17 +645,19 @@ def build_html(data):
   <main class="page">
     <header class="hero">
       <div class="brand-lockup">
-        <img class="brand-logo" src="gf_logo_transparent_2x.png" alt="GF Smart Accounting Solutions" />
+        <img class="brand-logo" src="gf_logo_current_clean.png" alt="GF Smart Accounting Solutions" />
         <div class="hero-copy">
-          <h1>شهر 6</h1>
           <p>لوحة تشغيل مالية مختصرة.</p>
         </div>
       </div>
+    </header>
+
+    <div class="subhero">
       <div class="hero-tools">
         <span class="badge">1 - 13 يونيو</span>
-        <a class="primary-button" href="{details_href}">فتح ملف Excel</a>
+        <a class="primary-button" href="{details_href}"><span>فتح ملف Excel</span></a>
       </div>
-    </header>
+    </div>
 
     <section class="metric-grid">
       {metric_card("إجمالي الربح", fmt_money(totals["total"]), "صافي الشحنات من 1 إلى 13")}
@@ -557,6 +665,8 @@ def build_html(data):
       {metric_card("ربح الوزن الزائد", fmt_money(totals["extra"]), "بعد 15 كجم")}
       {metric_card("ربح COD", fmt_money(totals["cod_profit"]), "الرسوم الصافية")}
     </section>
+
+    {shipment_cards}
 
     <section class="content-grid">
       <article class="panel">
@@ -569,6 +679,11 @@ def build_html(data):
         <div class="chart-shell">
           <div class="area-chart" aria-label="Area Chart - Step">
             {chart_html}
+          </div>
+        </div>
+        <div class="chart-shell" style="margin-top:16px; border-top:1px solid rgba(255,255,255,.08); padding-top:16px;">
+          <div class="area-chart" aria-label="مخطط عدد الشحنات اليومية">
+            {count_chart_html}
           </div>
         </div>
       </article>
@@ -630,6 +745,79 @@ def build_html(data):
           </table>
         </div>
       </article>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">العمليات المالية</p>
+          <p class="subtle">إيداعات ومخصومات واستردادات</p>
+        </div>
+      </div>
+      {finance_cards}
+    </section>
+
+    <section class="panel statement-panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">كشف الحساب الجاري</p>
+          <p class="subtle">ملخص الحركات من الشيت</p>
+        </div>
+      </div>
+      <div class="statement-summary">
+        <div class="mini-card quick-card">
+          <span class="metric-label">إجمالي الإيداعات</span>
+          <strong>{fmt_money(statement["summary"].get("deposits_total", 0))}</strong>
+        </div>
+        <div class="mini-card quick-card">
+          <span class="metric-label">إجمالي المصاريف</span>
+          <strong>{fmt_money(statement["summary"].get("expenses_total", 0))}</strong>
+        </div>
+        <div class="mini-card quick-card">
+          <span class="metric-label">رسوم الحوالات</span>
+          <strong>{fmt_money(statement["summary"].get("transfer_fees_total", 0))}</strong>
+        </div>
+        <div class="mini-card quick-card">
+          <span class="metric-label">صافي الحركة</span>
+          <strong>{fmt_money(statement["summary"].get("net_total", 0))}</strong>
+        </div>
+        <div class="mini-card quick-card">
+          <span class="metric-label">عدد المصاريف</span>
+          <strong>{int(statement["summary"].get("expenses_count", 0))}</strong>
+        </div>
+      </div>
+      <div class="table-wrap statement-table">
+        <table>
+          <thead>
+            <tr><th>التاريخ</th><th>نوع المصروف</th><th>المبلغ</th></tr>
+          </thead>
+          <tbody>{statement_rows}</tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">طلبات COD</p>
+          <p class="subtle">كل طلب على حدة</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>رقم الطلب</th>
+              <th>التاجر</th>
+              <th>مبلغ COD</th>
+              <th>تاريخ الطلب</th>
+              <th>تاريخ التحصل</th>
+              <th>تاريخ التحويل</th>
+            </tr>
+          </thead>
+          <tbody>{cod_rows}</tbody>
+        </table>
+      </div>
     </section>
 
     <div class="footer-note">
