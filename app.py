@@ -28,7 +28,7 @@ def _fallback_page() -> str:
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>lead6</title>
+    <title>lead</title>
     <style>
       body {{
         margin: 0;
@@ -81,9 +81,9 @@ def _fallback_page() -> str:
   <body>
     <main class="wrap">
       <section class="card">
-        <h1>lead6</h1>
+        <h1>lead</h1>
         <p>Dashboard source is present when <code>web/index.html</code> exists.</p>
-        <p>Report file is present when <code>output/lead6_report.xlsx</code> exists.</p>
+        <p>Report file is present when the generated workbook exists.</p>
         <a class="btn" href="{url_for("dashboard_index")}">Open dashboard</a>
         <div class="meta">dashboard: {dashboard_status} · workbook: {report_status}</div>
       </section>
@@ -116,7 +116,7 @@ def dashboard_assets(filename: str):
 @app.get("/report.xlsx")
 def report_download():
     if REPORT_PATH.exists():
-        return send_file(REPORT_PATH, as_attachment=True, download_name="lead6_report.xlsx")
+        return send_file(REPORT_PATH, as_attachment=True, download_name="lead_report.xlsx")
     return Response("Report not found. Run scripts/build_report.py first.", status=404, mimetype="text/plain")
 
 

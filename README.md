@@ -1,6 +1,6 @@
 # lead project
 
-This folder is the canonical copy of the lead6 project.
+This folder is the canonical copy of the lead project.
 
 ## Structure
 - `scripts/build_report.py` - builds the cleaned Excel report and dashboard workbook
@@ -26,5 +26,5 @@ This keeps the repository code-only and avoids sharing private source data.
 
 ## Runtime
 - `app.py` serves the dashboard from `web/index.html` when the generated file exists.
-- `GET /report.xlsx` downloads the current workbook when `output/lead6_report.xlsx` exists.
+- `GET /report.xlsx` downloads the current workbook when it exists.
 - `requirements.txt` lists the runtime packages for local runs and deployment.

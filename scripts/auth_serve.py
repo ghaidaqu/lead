@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path("/Users/ghaida/lead6_host")
-USERNAME = os.environ.get("LEAD6_AUTH_USER", "lead6")
+USERNAME = os.environ.get("LEAD6_AUTH_USER", "lead")
 PASSWORD = os.environ.get("LEAD6_AUTH_PASS", "")
 
 
@@ -28,7 +28,7 @@ class AuthHandler(SimpleHTTPRequestHandler):
 
     def _challenge(self):
         self.send_response(HTTPStatus.UNAUTHORIZED)
-        self.send_header("WWW-Authenticate", 'Basic realm="lead6"')
+        self.send_header("WWW-Authenticate", 'Basic realm="lead"')
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.end_headers()
         self.wfile.write("Authentication required".encode("utf-8"))

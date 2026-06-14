@@ -422,7 +422,7 @@ def write_dashboard(wb, totals, by_merchant, by_carrier, shipments):
     ws["A1"].fill = PatternFill("solid", fgColor="1F9D8A")
 
     ws.merge_cells("A3:C4")
-    ws["A3"] = "lead6"
+    ws["A3"] = "lead"
     ws["A3"].font = Font(size=18, bold=True, color="FFFFFF")
     ws["A3"].alignment = Alignment(horizontal="center", vertical="center")
 
@@ -447,12 +447,12 @@ def write_dashboard(wb, totals, by_merchant, by_carrier, shipments):
 
     # Main topbar
     ws.merge_cells("D1:J2")
-    ws["D1"] = "لوحة قيادة أرباح lead6"
+    ws["D1"] = "لوحة قيادة أرباح lead"
     ws["D1"].font = Font(size=20, bold=True, color="18222D")
     ws["D1"].alignment = Alignment(horizontal="right", vertical="center")
 
     ws.merge_cells("D3:F4")
-    ws["D3"] = "ابحث في بيانات lead6"
+    ws["D3"] = "ابحث في بيانات lead"
     ws["D3"].fill = PatternFill("solid", fgColor="FFFFFF")
     ws["D3"].font = Font(color="637083", italic=True)
     ws["D3"].alignment = Alignment(horizontal="right", vertical="center")
@@ -561,7 +561,7 @@ def write_dashboard(wb, totals, by_merchant, by_carrier, shipments):
 
     # Latest shipments table
     ws.merge_cells("D40:J41")
-    ws["D40"] = "آخر الطلبات من LEAD6"
+    ws["D40"] = "آخر الطلبات من lead"
     ws["D40"].font = Font(color="FFFFFF", bold=True)
     ws["D40"].fill = PatternFill("solid", fgColor="17202B")
     headers = ["رقم التتبع", "العميل/التاجر", "المدينة", "الحالة"]
