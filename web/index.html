@@ -73,14 +73,17 @@
       mask-image: linear-gradient(90deg, transparent 0 52%, black 72% 100%);
       pointer-events:none;
     }
-    .brand-lockup { position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:12px; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; }
+    .brand-lockup { position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:0; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; }
     .brand-logo { width:min(176px, 18vw); max-width:176px; height:auto; display:block; background:transparent; filter: drop-shadow(0 10px 24px rgba(0,0,0,.18)); }
-    .brand-divider { width:1px; height:62px; background:rgba(255,255,255,.28); box-shadow:0 0 0 1px rgba(0,0,0,.06); }
-    .hero-copy { display:grid; gap:1px; justify-items:flex-start; }
-    .hero-copy span { display:block; margin:0; color:rgba(255,255,255,.92); font-size:clamp(15px, 1.8vw, 20px); line-height:1.0; font-weight:650; letter-spacing:-0.03em; }
-    .hero-copy .brand-tag { font-size:clamp(15px, 1.8vw, 20px); }
+    .brand-divider { width:1px; height:52px; background:rgba(255,255,255,.34); box-shadow:0 0 0 1px rgba(0,0,0,.05); margin:0 10px 0 -2px; }
+    .hero-copy { display:grid; gap:0; justify-items:flex-start; margin-inline-start:-1px; }
+    .hero-copy span { display:block; margin:0; color:rgba(255,255,255,.92); font-size:clamp(14px, 1.6vw, 18px); line-height:1.0; font-weight:650; letter-spacing:-0.02em; }
+    .hero-copy .brand-tag { font-size:clamp(14px, 1.6vw, 18px); }
     .hero-title {
-      position:relative;
+      position:absolute;
+      right:40px;
+      top:50%;
+      transform:translateY(-50%);
       z-index:1;
       direction:rtl;
       text-align:right;
@@ -89,21 +92,18 @@
       align-items:flex-end;
       justify-content:center;
       gap:3px;
-      margin-left:auto;
-      margin-inline-start:auto;
-      margin-inline-end:0;
-      align-self:stretch;
-      padding-right:40px;
+      margin:0;
+      padding:0;
       padding-left:0;
       padding-inline-start:0;
-      padding-inline-end:40px;
-      min-width:min(24vw, 340px);
-      width:100%;
-      flex:1 1 0;
+      padding-inline-end:0;
+      min-width:min(20vw, 300px);
+      width:max-content;
+      flex:0 0 auto;
     }
     .hero-title h1 {
       margin:0;
-      font-size:clamp(20px, 2.3vw, 26px);
+      font-size:clamp(18px, 2.0vw, 23px);
       line-height:1.08;
       letter-spacing:-0.03em;
       font-weight:800;
@@ -313,9 +313,9 @@
       .carrier-layout { grid-template-columns:1fr; }
       .hero { padding:14px 18px 12px; margin-bottom:6px; }
       .brand-logo { width:min(172px, 44vw); }
-      .hero-title { min-width:0; padding-right:24px; padding-inline-start:0; align-items:flex-end; width:100%; }
-      .hero-copy span { font-size:15px; }
-      .hero-title h1 { font-size:20px; }
+      .hero-title { min-width:0; padding-right:24px; padding-inline-start:0; align-items:flex-end; width:max-content; flex:0 0 auto; }
+      .hero-copy span { font-size:14px; }
+      .hero-title h1 { font-size:18px; }
       .hero-title p { font-size:10px; }
     }
   </style>
