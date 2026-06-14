@@ -10,7 +10,6 @@ import openpyxl
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 SOURCE = PROJECT_DIR / "output" / "lead6_report.xlsx"
 OUT_DIR = Path(__file__).resolve().parent
-REPORT_COPY = OUT_DIR / "lead6_report.xlsx"
 INDEX = OUT_DIR / "index.html"
 
 
@@ -278,7 +277,7 @@ def build_html(data):
     cod_items = data["cod_items"]
     top_carriers = data["top_carriers"]
     statement = data.get("statement", {"summary": {}, "rows": []})
-    details_href = "lead6_report.xlsx"
+    details_href = "/report.xlsx"
     supplemental_cod_items = []
     all_cod_items = cod_items + supplemental_cod_items
     cod_overrides = {
@@ -718,7 +717,7 @@ def build_html(data):
     </section>
 
     <div class="footer-note">
-      ملف Excel المرتب موجود هنا: <a href="{details_href}">{details_href}</a>
+      ملف Excel المرتب موجود هنا: <a href="{details_href}">lead_report.xlsx</a>
     </div>
   </main>
 </body>
@@ -727,9 +726,6 @@ def build_html(data):
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    if os.path.exists(SOURCE):
-        with open(REPORT_COPY, "wb") as dst, open(SOURCE, "rb") as src:
-            dst.write(src.read())
     totals, top_merchants, top_carriers, statuses, daily, daily_count, finance, cod_items, statement = load_data()
     data = {
         "totals": totals,

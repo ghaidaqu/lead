@@ -14,7 +14,6 @@ This folder is the canonical copy of the lead project.
 The raw workbook and generated outputs are intentionally kept out of version control:
 - `source/lead6.xlsx`
 - `output/lead6_report.xlsx`
-- `web/lead6_report.xlsx`
 - `lead6_host/`
 
 This keeps the repository code-only and avoids sharing private source data.

@@ -18,7 +18,6 @@ from openpyxl.utils import get_column_letter
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 INPUT = PROJECT_DIR / "source" / "lead6.xlsx"
 REPORT_OUT = PROJECT_DIR / "output" / "lead6_report.xlsx"
-DASHBOARD_OUT = PROJECT_DIR / "output" / "lead6_dashboard.xlsx"
 
 
 def money(value):
@@ -777,13 +776,7 @@ def main():
 
     subprocess.run([sys.executable, str(PROJECT_DIR / "scripts" / "update_statement.py")], check=True)
 
-    dashboard = load_workbook(REPORT_OUT)
-    write_dashboard(dashboard, totals, by_merchant, by_carrier, shipments)
-    dashboard._sheets = [dashboard["Dashboard"]]
-    dashboard.active = 0
-    dashboard.save(DASHBOARD_OUT)
     print(REPORT_OUT)
-    print(DASHBOARD_OUT)
     print(totals)
 
 
