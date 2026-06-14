@@ -3,6 +3,8 @@ import datetime as dt
 import math
 import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 from collections import defaultdict
 
@@ -772,6 +774,8 @@ def main():
     report._sheets = [report[name] for name in preferred if name in report.sheetnames]
     report.active = report.sheetnames.index("ملخصات")
     report.save(REPORT_OUT)
+
+    subprocess.run([sys.executable, str(PROJECT_DIR / "scripts" / "update_statement.py")], check=True)
 
     dashboard = load_workbook(REPORT_OUT)
     write_dashboard(dashboard, totals, by_merchant, by_carrier, shipments)
