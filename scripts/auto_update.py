@@ -195,9 +195,89 @@ def save_check_state(state: dict[str, str], source: Path | None = None, signatur
 
 
 def copy_source(src: Path) -> None:
-    if src.resolve() != CANONICAL_SOURCE.resolve():
+    if src.resolve() == CANONICAL_SOURCE.resolve():
+        return
+    merge_source(src)
+
+
+def cell_key(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
+def row_values(ws, row_idx: int) -> list:
+    return [ws.cell(row_idx, col).value for col in range(1, ws.max_column + 1)]
+
+
+def write_row(ws, row_idx: int, values: list) -> None:
+    for col_idx, value in enumerate(values, start=1):
+        ws.cell(row_idx, col_idx).value = value
+
+
+def merge_rows_by_key(target_ws, incoming_ws, key_col: int = 1) -> tuple[int, int]:
+    existing = {}
+    for row_idx in range(2, target_ws.max_row + 1):
+        key = cell_key(target_ws.cell(row_idx, key_col).value)
+        if key:
+            existing[key] = row_idx
+
+    added = 0
+    updated = 0
+    for row_idx in range(2, incoming_ws.max_row + 1):
+        key = cell_key(incoming_ws.cell(row_idx, key_col).value)
+        if not key:
+            continue
+        values = row_values(incoming_ws, row_idx)
+        if key in existing:
+            write_row(target_ws, existing[key], values)
+            updated += 1
+        else:
+            target_ws.append(values)
+            existing[key] = target_ws.max_row
+            added += 1
+    return added, updated
+
+
+def ensure_sheet(wb, title: str, source_ws=None):
+    if title in wb.sheetnames:
+        return wb[title]
+    ws = wb.create_sheet(title)
+    if source_ws is not None:
+        ws.append(row_values(source_ws, 1))
+    return ws
+
+
+def merge_source(src: Path) -> None:
+    from openpyxl import load_workbook
+
+    if not CANONICAL_SOURCE.exists():
         shutil.copy2(src, CANONICAL_SOURCE)
         log(f"Copied source: {src} -> {CANONICAL_SOURCE}")
+        return
+
+    target_wb = load_workbook(CANONICAL_SOURCE)
+    incoming_wb = load_workbook(src, data_only=False)
+
+    target_ship_name = find_sheet_name(target_wb.sheetnames, "Sheet1", "الشحنات", "شحنات") or "شحنات"
+    incoming_ship_name = find_sheet_name(incoming_wb.sheetnames, "Sheet1", "الشحنات", "شحنات")
+    target_ops_name = find_sheet_name(target_wb.sheetnames, "Sheet2", "العمليات المالية", "ايداعات", "إيداعات", "الايداعات", "الإيداعات") or "ايداعات"
+    incoming_ops_name = find_sheet_name(incoming_wb.sheetnames, "Sheet2", "العمليات المالية", "ايداعات", "إيداعات", "الايداعات", "الإيداعات")
+
+    changes = []
+    if incoming_ship_name is not None:
+        target_ws = ensure_sheet(target_wb, target_ship_name, incoming_wb[incoming_ship_name])
+        added, updated = merge_rows_by_key(target_ws, incoming_wb[incoming_ship_name])
+        changes.append(f"shipments +{added}/~{updated}")
+    if incoming_ops_name is not None:
+        target_ws = ensure_sheet(target_wb, target_ops_name, incoming_wb[incoming_ops_name])
+        added, updated = merge_rows_by_key(target_ws, incoming_wb[incoming_ops_name])
+        changes.append(f"operations +{added}/~{updated}")
+
+    target_wb.save(CANONICAL_SOURCE)
+    log(f"Merged source: {src} -> {CANONICAL_SOURCE} ({', '.join(changes)})")
 
 
 def sync_host_assets() -> None:
