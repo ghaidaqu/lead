@@ -25,6 +25,8 @@ STATE_PATH = STATE_DIR / "auto_update_state.json"
 LOCK_PATH = STATE_DIR / "auto_update.lock"
 LOG_PATH = Path.home() / "Library" / "Logs" / "lead6-auto-update.log"
 SCHEDULED_HOUR = 18
+REPORT_YEAR = 2026
+REPORT_MONTH = 6
 
 DEFAULT_SOURCE_CANDIDATES = [
     Path.home() / "Library" / "CloudStorage" / "GoogleDrive-gf.smartas@gmail.com" / "My Drive" / "lead6.xlsx",
@@ -280,6 +282,42 @@ def merge_source(src: Path) -> None:
     log(f"Merged source: {src} -> {CANONICAL_SOURCE} ({', '.join(changes)})")
 
 
+def normalize_canonical_shipment_dates() -> None:
+    from openpyxl import load_workbook
+
+    if not CANONICAL_SOURCE.exists():
+        return
+    wb = load_workbook(CANONICAL_SOURCE)
+    sheet_name = find_sheet_name(wb.sheetnames, "Sheet1", "الشحنات", "شحنات")
+    if sheet_name is None:
+        return
+
+    ws = wb[sheet_name]
+    valid_days = []
+    pending_rows = []
+    for row_idx in range(2, ws.max_row + 1):
+        value = ws.cell(row_idx, 14).value
+        if isinstance(value, dt.datetime):
+            value = value.date()
+        if not isinstance(value, dt.date) or value.month != REPORT_MONTH:
+            continue
+        if value.year == REPORT_YEAR:
+            valid_days.append(value.day)
+        else:
+            pending_rows.append(row_idx)
+
+    if not pending_rows:
+        return
+
+    next_day = min((max(valid_days) if valid_days else 0) + 1, 30)
+    normalized_date = dt.date(REPORT_YEAR, REPORT_MONTH, next_day)
+    for row_idx in pending_rows:
+        ws.cell(row_idx, 14).value = normalized_date
+        ws.cell(row_idx, 14).number_format = "yyyy-mm-dd"
+    wb.save(CANONICAL_SOURCE)
+    log(f"Normalized {len(pending_rows)} shipment dates to {normalized_date.isoformat()}.")
+
+
 def sync_host_assets() -> None:
     HOST_DIR.mkdir(parents=True, exist_ok=True)
     assets = [
@@ -364,6 +402,7 @@ def process_once(force: bool = False) -> bool:
         return False
 
     copy_source(source)
+    normalize_canonical_shipment_dates()
     build_outputs()
     commit_message = f"Automated lead6 refresh {time.strftime('%Y-%m-%d %H:%M')}"
     if git_status_has_changes():
