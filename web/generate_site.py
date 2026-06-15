@@ -38,9 +38,9 @@ def june_period_label(dates):
     })
     if not days:
         return "يونيو"
-    if days[0] == days[-1]:
-        return f"{days[0]} يونيو"
-    return f"{days[0]} - {days[-1]} يونيو"
+    if days[-1] == 1:
+        return "1 يونيو"
+    return f"1 - {days[-1]} يونيو"
 
 
 def load_data():

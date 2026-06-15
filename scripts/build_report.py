@@ -384,8 +384,8 @@ def write_summary(wb, shipments, finance_summary=None):
     totals, by_merchant, by_carrier, by_status = aggregate(shipments)
 
     dates = [s["date"] for s in shipments if s.get("date") is not None]
-    start_date = min(dates) if dates else dt.date(2026, 6, 1)
     end_date = max(dates) if dates else dt.date(2026, 6, 30)
+    start_date = end_date.replace(day=1)
     ws["A1"] = f"{start_date.isoformat()} - {end_date.isoformat()}"
     ws["A1"].font = Font(size=16, bold=True, color="FFFFFF")
     ws["A1"].fill = PatternFill("solid", fgColor="16324F")
