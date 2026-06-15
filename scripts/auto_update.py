@@ -102,14 +102,26 @@ def file_signature(path: Path) -> str:
     return f"{stat.st_mtime_ns}:{stat.st_size}"
 
 
+def normalize_sheet_name(value: str) -> str:
+    text = "".join(str(value).split())
+    return text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
+
+
+def find_sheet_name(sheet_names: Iterable[str], *aliases: str) -> str | None:
+    wanted = {normalize_sheet_name(alias) for alias in aliases}
+    for sheet_name in sheet_names:
+        if normalize_sheet_name(sheet_name) in wanted:
+            return sheet_name
+    return None
+
+
 def is_valid_raw_workbook(path: Path) -> bool:
     try:
         from openpyxl import load_workbook
 
-        wb = load_workbook(path, read_only=True, data_only=True)
-        sheet_names = set(wb.sheetnames)
-        shipment_sheet = "Sheet1" if "Sheet1" in sheet_names else "الشحنات" if "الشحنات" in sheet_names else None
-        ops_sheet = "Sheet2" if "Sheet2" in sheet_names else "العمليات المالية" if "العمليات المالية" in sheet_names else None
+        wb = load_workbook(path, data_only=True)
+        shipment_sheet = find_sheet_name(wb.sheetnames, "Sheet1", "الشحنات", "شحنات")
+        ops_sheet = find_sheet_name(wb.sheetnames, "Sheet2", "العمليات المالية", "ايداعات", "إيداعات", "الايداعات", "الإيداعات")
         if shipment_sheet is None or ops_sheet is None:
             return False
         shipment_ws = wb[shipment_sheet]
