@@ -10,23 +10,19 @@
 		<string>/Users/ghaida/Library/CloudStorage/GoogleDrive-gf.smartas@gmail.com/My Drive/lead6.xlsx</string>
 	</dict>
 	<key>Label</key>
-	<string>com.ghaida.lead6.autoupdate</string>
+	<string>com.ghaida.lead6.autoupdate.catchup</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Library/Developer/CommandLineTools/usr/bin/python3</string>
 		<string>/Users/ghaida/Library/Application Support/lead6/auto_update.py</string>
+		<string>--catch-up-missed</string>
 	</array>
+	<key>RunAtLoad</key>
+	<true/>
 	<key>StandardErrorPath</key>
 	<string>/Users/ghaida/Library/Logs/lead6-auto-update.err.log</string>
 	<key>StandardOutPath</key>
 	<string>/Users/ghaida/Library/Logs/lead6-auto-update.out.log</string>
-	<key>StartCalendarInterval</key>
-	<dict>
-		<key>Hour</key>
-		<integer>18</integer>
-		<key>Minute</key>
-		<integer>0</integer>
-	</dict>
 	<key>WorkingDirectory</key>
 	<string>/Users/ghaida/Desktop/lead</string>
 </dict>

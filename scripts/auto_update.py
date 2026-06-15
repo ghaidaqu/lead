@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import shutil
@@ -12,7 +13,7 @@ from pathlib import Path
 from typing import Iterable
 
 
-PROJECT_DIR = Path(__file__).resolve().parents[1]
+PROJECT_DIR = Path(os.environ.get("LEAD6_PROJECT_DIR", Path(__file__).resolve().parents[1])).expanduser().resolve()
 PYTHON = sys.executable
 SOURCE_DIR = PROJECT_DIR / "source"
 CANONICAL_SOURCE = SOURCE_DIR / "lead6.xlsx"
@@ -23,6 +24,7 @@ STATE_DIR = Path.home() / ".cache" / "lead6"
 STATE_PATH = STATE_DIR / "auto_update_state.json"
 LOCK_PATH = STATE_DIR / "auto_update.lock"
 LOG_PATH = Path.home() / "Library" / "Logs" / "lead6-auto-update.log"
+SCHEDULED_HOUR = 18
 
 DEFAULT_SOURCE_CANDIDATES = [
     Path.home() / "Library" / "CloudStorage" / "GoogleDrive-gf.smartas@gmail.com" / "My Drive" / "lead6.xlsx",
@@ -39,6 +41,7 @@ TRACKED_OUTPUTS = [
     PROJECT_DIR / "scripts" / "auto_update.py",
     PROJECT_DIR / "README.md",
     PROJECT_DIR / "launchd" / "com.ghaida.lead6.autoupdate.plist",
+    PROJECT_DIR / "launchd" / "com.ghaida.lead6.autoupdate.catchup.plist",
 ]
 
 
@@ -150,6 +153,33 @@ def save_state(state: dict[str, str]) -> None:
     STATE_PATH.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def local_now() -> dt.datetime:
+    return dt.datetime.now().astimezone()
+
+
+def timestamp() -> str:
+    return local_now().isoformat(timespec="seconds")
+
+
+def parse_timestamp(value: str | None) -> dt.datetime | None:
+    if not value:
+        return None
+    try:
+        return dt.datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def save_check_state(state: dict[str, str], source: Path | None = None, signature: str | None = None) -> None:
+    updated = dict(state)
+    updated["last_checked_at"] = timestamp()
+    if source is not None:
+        updated["source_path"] = str(source)
+    if signature is not None:
+        updated["signature"] = signature
+    save_state(updated)
+
+
 def copy_source(src: Path) -> None:
     if src.resolve() != CANONICAL_SOURCE.resolve():
         shutil.copy2(src, CANONICAL_SOURCE)
@@ -187,7 +217,8 @@ def git_status_has_changes() -> bool:
          "web/gf_logo_transparent_2x.png",
          "scripts/auto_update.py",
          "README.md",
-         "launchd/com.ghaida.lead6.autoupdate.plist"],
+         "launchd/com.ghaida.lead6.autoupdate.plist",
+         "launchd/com.ghaida.lead6.autoupdate.catchup.plist"],
         cwd=str(PROJECT_DIR),
         text=True,
         capture_output=True,
@@ -207,6 +238,7 @@ def git_commit_push(message: str) -> None:
         "scripts/auto_update.py",
         "README.md",
         "launchd/com.ghaida.lead6.autoupdate.plist",
+        "launchd/com.ghaida.lead6.autoupdate.catchup.plist",
     ])
     diff = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],
@@ -230,6 +262,7 @@ def process_once(force: bool = False) -> bool:
     state = load_state()
     if not force and state.get("signature") == signature:
         log("No source change detected.")
+        save_check_state(state, source=source, signature=signature)
         return False
 
     copy_source(source)
@@ -240,11 +273,9 @@ def process_once(force: bool = False) -> bool:
     else:
         log("Working tree already clean after rebuild.")
 
-    save_state({
-        "signature": signature,
-        "source_path": str(source),
-        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-    })
+    save_check_state({
+        "updated_at": timestamp(),
+    }, source=source, signature=signature)
     return True
 
 
@@ -273,12 +304,31 @@ def watch(interval: int) -> None:
         time.sleep(interval)
 
 
+def latest_scheduled_time(hour: int = SCHEDULED_HOUR) -> dt.datetime:
+    now = local_now()
+    scheduled = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+    if now < scheduled:
+        scheduled -= dt.timedelta(days=1)
+    return scheduled
+
+
+def catch_up_missed(hour: int = SCHEDULED_HOUR) -> bool:
+    scheduled = latest_scheduled_time(hour)
+    last_checked = parse_timestamp(load_state().get("last_checked_at"))
+    if last_checked is not None and last_checked >= scheduled:
+        log(f"Catch-up skipped; last check already covered {scheduled.isoformat(timespec='seconds')}.")
+        return False
+    log(f"Catch-up checking missed {hour:02d}:00 run from {scheduled.isoformat(timespec='seconds')}.")
+    return process_once(force=False)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Automate lead6 rebuilds from the raw workbook.")
     parser.add_argument("--once", action="store_true", help="Run a single rebuild cycle and exit.")
     parser.add_argument("--watch", action="store_true", help="Keep watching for source changes.")
     parser.add_argument("--interval", type=int, default=int(os.environ.get("LEAD6_POLL_SECONDS", "60")), help="Polling interval in seconds.")
     parser.add_argument("--force", action="store_true", help="Rebuild even if the source signature has not changed.")
+    parser.add_argument("--catch-up-missed", action="store_true", help="Run once if the most recent scheduled check was missed.")
     return parser.parse_args()
 
 
@@ -288,6 +338,8 @@ def main() -> int:
     try:
         if args.watch:
             watch(args.interval)
+        elif args.catch_up_missed:
+            catch_up_missed()
         else:
             changed = process_once(force=args.force or args.once)
             return 0 if changed else 0
