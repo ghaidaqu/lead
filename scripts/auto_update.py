@@ -111,7 +111,21 @@ def is_valid_raw_workbook(path: Path) -> bool:
             return False
         shipment_ws = wb[shipment_sheet]
         ops_ws = wb[ops_sheet]
-        return shipment_ws.max_row > 1 and shipment_ws.max_column >= 10 and ops_ws.max_row > 1 and ops_ws.max_column >= 5
+        shipment_required_cols = (1, 3, 7, 10, 11, 12, 13, 14)
+        ops_required_cols = (1, 2, 4, 5, 6)
+
+        def row_has_required_values(ws, row_idx, cols):
+            return all(str(ws.cell(row_idx, col).value).strip() not in ("", "None") for col in cols)
+
+        shipment_ok = any(
+            row_has_required_values(shipment_ws, row_idx, shipment_required_cols)
+            for row_idx in range(2, min(shipment_ws.max_row, 12) + 1)
+        )
+        ops_ok = any(
+            row_has_required_values(ops_ws, row_idx, ops_required_cols)
+            for row_idx in range(2, min(ops_ws.max_row, 12) + 1)
+        )
+        return shipment_ok and ops_ok
     except Exception:
         return False
 

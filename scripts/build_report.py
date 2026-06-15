@@ -38,6 +38,35 @@ def get_sheet(wb, *names):
     raise KeyError(f"No matching worksheet found for any of: {', '.join(names)}")
 
 
+def validate_raw_workbook(wb):
+    shipment_ws = get_sheet(wb, "الشحنات", "Sheet1")
+    ops_ws = get_sheet(wb, "العمليات المالية", "Sheet2")
+
+    shipment_required_cols = (1, 3, 7, 10, 11, 12, 13, 14)
+    ops_required_cols = (1, 2, 4, 5, 6)
+
+    def row_has_required_values(ws, row_idx, cols):
+        return all(normalize_text(ws.cell(row_idx, col).value) for col in cols)
+
+    shipment_ok = False
+    for row_idx in range(2, min(shipment_ws.max_row, 12) + 1):
+        if row_has_required_values(shipment_ws, row_idx, shipment_required_cols):
+            shipment_ok = True
+            break
+    if not shipment_ok:
+        raise ValueError("Raw workbook is missing the shipment columns required by the pipeline.")
+
+    ops_ok = False
+    for row_idx in range(2, min(ops_ws.max_row, 12) + 1):
+        if row_has_required_values(ops_ws, row_idx, ops_required_cols):
+            ops_ok = True
+            break
+    if not ops_ok:
+        raise ValueError("Raw workbook is missing the operations columns required by the pipeline.")
+
+    return shipment_ws, ops_ws
+
+
 def parse_ship_date(value):
     if isinstance(value, dt.datetime):
         return value.date()
@@ -774,6 +803,7 @@ def style_operations_sheet(wb):
 
 def main():
     wb = load_workbook(INPUT)
+    validate_raw_workbook(wb)
     reference_prices = None
     if REPORT_OUT.exists():
         reference_prices = load_workbook(REPORT_OUT, data_only=False)
