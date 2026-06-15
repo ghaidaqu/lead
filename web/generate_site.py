@@ -38,9 +38,11 @@ def june_period_label(dates):
     })
     if not days:
         return "يونيو"
+    arabic_digits = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+    end_day = str(days[-1]).translate(arabic_digits)
     if days[-1] == 1:
-        return "1 يونيو"
-    return f"1 - {days[-1]} يونيو"
+        return "١ يونيو"
+    return f"من ١ إلى {end_day} يونيو"
 
 
 def load_data():
