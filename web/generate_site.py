@@ -58,6 +58,7 @@ def load_data():
     by_status = defaultdict(int)
     by_date = defaultdict(float)
     by_date_count = defaultdict(int)
+    all_shipment_dates = set()
     finance = {
         "bank": {"count": 0, "total": 0.0},
         "moyasar": {"count": 0, "total": 0.0},
@@ -96,6 +97,8 @@ def load_data():
             "total_profit": money(row[22]),
             "review_diff": money(row[19]),
         }
+        if item["date"]:
+            all_shipment_dates.add(item["date"])
         if not item["included"]:
             continue
         items.append(item)
@@ -163,7 +166,7 @@ def load_data():
     top_carriers = sorted(by_carrier.items(), key=lambda kv: kv[1]["total"], reverse=True)
     daily = sorted(by_date.items(), key=lambda kv: kv[0])
     daily_count = sorted(by_date_count.items(), key=lambda kv: kv[0])
-    period_label = june_period_label(by_date_count.keys())
+    period_label = june_period_label(all_shipment_dates)
     totals = {
         "records": len(rows),
         "active": len(items),
