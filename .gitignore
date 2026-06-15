@@ -7,7 +7,9 @@ web/gf_logo_transparent_2x.png
 lead6_host/
 
 # Raw input data and local-only copies
+source/
 source/lead6.xlsx
+source/~$*
 البيانات الخام/
 Documents/lead6/
 lead6.xlsx
@@ -21,3 +23,5 @@ outputs/
 .DS_Store
 __pycache__/
 *.pyc
+*.bak-*
+web/gf_logo_current.png
