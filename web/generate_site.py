@@ -30,6 +30,19 @@ def money(value):
     return float(num)
 
 
+def june_period_label(dates):
+    days = sorted({
+        datetime.fromisoformat(str(date)).day
+        for date in dates
+        if date
+    })
+    if not days:
+        return "يونيو"
+    if days[0] == days[-1]:
+        return f"{days[0]} يونيو"
+    return f"{days[0]} - {days[-1]} يونيو"
+
+
 def load_data():
     wb = openpyxl.load_workbook(SOURCE, data_only=True)
     ws = wb["تفاصيل شهر 6"]
@@ -150,6 +163,7 @@ def load_data():
     top_carriers = sorted(by_carrier.items(), key=lambda kv: kv[1]["total"], reverse=True)
     daily = sorted(by_date.items(), key=lambda kv: kv[0])
     daily_count = sorted(by_date_count.items(), key=lambda kv: kv[0])
+    period_label = june_period_label(by_date_count.keys())
     totals = {
         "records": len(rows),
         "active": len(items),
@@ -163,7 +177,7 @@ def load_data():
         "excluded": len(rows) - len(items),
     }
     cod_items.sort(key=lambda x: (x["date"], x["order_id"]), reverse=True)
-    return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_count, finance, cod_items, statement
+    return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_count, finance, cod_items, statement, period_label
 
 
 def fmt_money(value):
@@ -281,6 +295,7 @@ def build_html(data):
     top_merchants = data["top_merchants"]
     top_cities = data["top_cities"]
     top_carriers = data["top_carriers"]
+    period_label = data["period_label"]
     statement = data.get("statement", {"summary": {}, "rows": []})
     details_href = "/report.xlsx"
     cod_overrides = {
@@ -723,13 +738,13 @@ def build_html(data):
 
     <div class="subhero">
       <div class="hero-tools">
-        <span class="badge">1 - 13 يونيو</span>
+        <span class="badge">{period_label}</span>
         <a class="primary-button" href="{details_href}"><span>فتح ملف Excel</span></a>
       </div>
     </div>
 
     <section class="metric-grid">
-      {metric_card("إجمالي الربح", fmt_money(totals["total"]), "صافي الشحنات من 1 إلى 13")}
+      {metric_card("إجمالي الربح", fmt_money(totals["total"]), f"صافي الشحنات: {period_label}")}
       {metric_card("ربح الشحنات", fmt_money(totals["base"]), "بعد الضريبة حسب شيت الأسعار")}
       {metric_card("ربح الوزن الزائد", fmt_money(totals["extra"]), "بعد 15 كجم")}
       {metric_card("ربح COD", fmt_money(totals["cod_profit"]), "الرسوم الصافية")}
@@ -899,7 +914,7 @@ def build_html(data):
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_count, finance, cod_items, statement = load_data()
+    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_count, finance, cod_items, statement, period_label = load_data()
     data = {
         "totals": totals,
         "top_merchants": top_merchants,
@@ -910,6 +925,7 @@ def main():
         "cod_items": cod_items,
         "top_carriers": top_carriers,
         "statement": statement,
+        "period_label": period_label,
     }
     with open(INDEX, "w", encoding="utf-8") as f:
         f.write(build_html(data))

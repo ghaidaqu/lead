@@ -202,7 +202,7 @@ def collect_shipments(wb, prices_ws=None):
 
         status = normalize_text(ws.cell(row, 13).value)
         ship_date = parse_ship_date(ws.cell(row, 14).value)
-        if ship_date is None or ship_date.month != 6 or not (1 <= ship_date.day <= 13):
+        if ship_date is None or ship_date.month != 6:
             continue
 
         merchant = normalize_text(ws.cell(row, 3).value)
@@ -383,8 +383,9 @@ def write_summary(wb, shipments, finance_summary=None):
     ws = reset_sheet(wb, "ملخصات", 2)
     totals, by_merchant, by_carrier, by_status = aggregate(shipments)
 
-    start_date = dt.date(2026, 6, 1)
-    end_date = dt.date(2026, 6, 13)
+    dates = [s["date"] for s in shipments if s.get("date") is not None]
+    start_date = min(dates) if dates else dt.date(2026, 6, 1)
+    end_date = max(dates) if dates else dt.date(2026, 6, 30)
     ws["A1"] = f"{start_date.isoformat()} - {end_date.isoformat()}"
     ws["A1"].font = Font(size=16, bold=True, color="FFFFFF")
     ws["A1"].fill = PatternFill("solid", fgColor="16324F")

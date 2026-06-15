@@ -230,7 +230,7 @@
       position:relative;
       margin:0 auto;
       padding:10px;
-      background: conic-gradient();
+      background: conic-gradient(#b12a5b 0.00% 95.38%, #7a1538 95.38% 100.00%);
       box-shadow:0 24px 40px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.14);
     }
     .carrier-donut::after {
@@ -339,7 +339,7 @@
 
     <div class="subhero">
       <div class="hero-tools">
-        <span class="badge">1 - 13 يونيو</span>
+        <span class="badge">26 يونيو</span>
         <a class="primary-button" href="/report.xlsx"><span>فتح ملف Excel</span></a>
       </div>
     </div>
@@ -348,14 +348,14 @@
       
       <article class="metric-card tone-navy">
         <span class="metric-label">إجمالي الربح</span>
-        <strong>0.00 ريال</strong>
-        <div class="metric-footer">صافي الشحنات من 1 إلى 13</div>
+        <strong>38.50 ريال</strong>
+        <div class="metric-footer">صافي الشحنات: 26 يونيو</div>
       </article>
     
       
       <article class="metric-card tone-navy">
         <span class="metric-label">ربح الشحنات</span>
-        <strong>0.00 ريال</strong>
+        <strong>38.50 ريال</strong>
         <div class="metric-footer">بعد الضريبة حسب شيت الأسعار</div>
       </article>
     
@@ -379,7 +379,7 @@
       <section class="mini-band">
         <article class="mini-card">
           <span class="metric-label">عدد الشحنات</span>
-          <strong>0</strong>
+          <strong>15</strong>
           <div class="metric-footer">إجمالي الطلبات الداخلة في الربح</div>
         </article>
         <article class="mini-card">
@@ -405,12 +405,48 @@
         </div>
         <div class="chart-shell">
           <div class="area-chart" aria-label="Area Chart - Step">
-            <div class='empty-state'>لا توجد بيانات كافية للرسم</div>
+            
+      <svg viewBox='0 0 760 240' role='img' aria-label='Area Chart - Step'>
+        <defs>
+          <linearGradient id='areaFill-profit' x1='0' x2='0' y1='0' y2='1'>
+            <stop offset='0%' stop-color='rgba(138,111,104,0.34)' />
+            <stop offset='100%' stop-color='rgba(138,111,104,0.06)' />
+          </linearGradient>
+          <linearGradient id='areaStroke-profit' x1='0' x2='1' y1='0' y2='0'>
+            <stop offset='0%' stop-color='#b12a5b' />
+            <stop offset='100%' stop-color='#2f2628' />
+          </linearGradient>
+        </defs>
+        <path d='M 28.0 192.0 L 28.0 56.0 H 28.0 V 192.0 Z' fill='url(#areaFill-profit)' />
+        <path class='chart-line' d='M 28.0 56.0' fill='none' stroke='url(#areaStroke-profit)' stroke-width='3.8' stroke-linecap='round' stroke-linejoin='round' />
+        <circle class='chart-point' cx='28.0' cy='56.0' r='5' fill='#b12a5b' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' />
+        <g class='area-value-wrap'><line x1='28.0' y1='50.0' x2='28.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='20.0' y='14.0' rx='10' ry='10' width='43.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='41.5' y='27.0' text-anchor='middle' class='area-value'>38.50</text></g>
+        <text x='28.0' y='222' text-anchor='middle' class='area-date'>06-26</text>
+      </svg>
+    
           </div>
         </div>
         <div class="chart-shell" style="margin-top:16px; border-top:1px solid rgba(255,255,255,.08); padding-top:16px;">
           <div class="area-chart" aria-label="مخطط عدد الشحنات اليومية">
-            <div class='empty-state'>لا توجد بيانات كافية للرسم</div>
+            
+      <svg viewBox='0 0 760 240' role='img' aria-label='Area Chart - Step'>
+        <defs>
+          <linearGradient id='areaFill-count' x1='0' x2='0' y1='0' y2='1'>
+            <stop offset='0%' stop-color='rgba(138,111,104,0.34)' />
+            <stop offset='100%' stop-color='rgba(138,111,104,0.06)' />
+          </linearGradient>
+          <linearGradient id='areaStroke-count' x1='0' x2='1' y1='0' y2='0'>
+            <stop offset='0%' stop-color='#7a1538' />
+            <stop offset='100%' stop-color='#2f2628' />
+          </linearGradient>
+        </defs>
+        <path d='M 28.0 192.0 L 28.0 56.0 H 28.0 V 192.0 Z' fill='url(#areaFill-count)' />
+        <path class='chart-line' d='M 28.0 56.0' fill='none' stroke='url(#areaStroke-count)' stroke-width='3.8' stroke-linecap='round' stroke-linejoin='round' />
+        <circle class='chart-point' cx='28.0' cy='56.0' r='5' fill='#7a1538' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' />
+        <g class='area-value-wrap'><line x1='28.0' y1='50.0' x2='28.0' y2='32.0' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='20.0' y='14.0' rx='10' ry='10' width='34.0' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='37.0' y='27.0' text-anchor='middle' class='area-value'>15</text></g>
+        <text x='28.0' y='222' text-anchor='middle' class='area-date'>06-26</text>
+      </svg>
+    
           </div>
         </div>
       </article>
@@ -426,12 +462,24 @@
           <div class="carrier-donut">
             <div class="carrier-center">
               <div>
-                <strong>0</strong>
+                <strong>2</strong>
                 <span>شركات</span>
               </div>
             </div>
           </div>
           <div class="carrier-legend">
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#b12a5b"></span>
+                <div class="carrier-name">SMSA - سمسا</div>
+                <div class="carrier-meta">95.4%</div>
+              </div>
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#7a1538"></span>
+                <div class="carrier-name">ARAMEX - ارامكس</div>
+                <div class="carrier-meta">4.6%</div>
+              </div>
             
           </div>
         </div>
@@ -451,7 +499,7 @@
             <thead>
               <tr><th class="rank">#</th><th>العميل</th><th>عدد</th><th>الربح</th></tr>
             </thead>
-            <tbody></tbody>
+            <tbody><tr><td>1</td><td>احمد محمد بن عبدالله الرزق</td><td>8</td><td>27.60 ريال</td></tr><tr><td>2</td><td>مؤسسة اواني القيصرية التجارية</td><td>6</td><td>9.12 ريال</td></tr><tr><td>3</td><td>ليد إكسبرس</td><td>1</td><td>1.78 ريال</td></tr></tbody>
           </table>
         </div>
       </article>
@@ -468,7 +516,7 @@
             <thead>
               <tr><th class="rank">#</th><th>المدينة</th><th>عدد</th><th>الربح</th></tr>
             </thead>
-            <tbody></tbody>
+            <tbody><tr><td>1</td><td>Jeddah</td><td>2</td><td>6.90 ريال</td></tr><tr><td>2</td><td>Riyadh</td><td>2</td><td>6.90 ريال</td></tr><tr><td>3</td><td>الرياض</td><td>4</td><td>6.08 ريال</td></tr><tr><td>4</td><td>Ad Dilam</td><td>1</td><td>3.45 ريال</td></tr><tr><td>5</td><td>Rabigh</td><td>1</td><td>3.45 ريال</td></tr></tbody>
           </table>
         </div>
       </article>
