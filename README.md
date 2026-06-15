@@ -27,7 +27,7 @@ This keeps the repository code-only and avoids sharing private source data.
 
 ## Automatic updates
 - The watcher script is `python3 scripts/auto_update.py --watch`
-- By default it watches the synced Google Drive copy of `lead6.xlsx` and falls back to the local source workbook
+- By default it watches the synced Google Drive copy of `lead6.xlsx` at `~/Library/CloudStorage/GoogleDrive-gf.smartas@gmail.com/My Drive/lead6.xlsx`
 - When the source changes, it copies the workbook into `source/lead6.xlsx`, rebuilds the report and dashboard, syncs `lead6_host/`, commits the tracked outputs, and pushes to GitHub
 - The LaunchAgent plist in `launchd/` is intended to keep the watcher running after login on macOS
 
