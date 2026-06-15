@@ -7,7 +7,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/Library/Developer/CommandLineTools/usr/bin/python3</string>
-    <string>/Users/ghaida/Desktop/lead/scripts/auto_update.py</string>
+    <string>/Users/ghaida/Library/Application Support/lead6/auto_update.py</string>
     <string>--watch</string>
     <string>--interval</string>
     <string>60</string>
