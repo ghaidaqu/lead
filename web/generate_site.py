@@ -710,9 +710,11 @@ def build_html(data):
     @media (max-width: 1100px) {{
       .metric-grid, .content-grid, .table-grid, .mini-band, .statement-summary {{ grid-template-columns:1fr; }}
       .carrier-layout {{ grid-template-columns:1fr; }}
-      .hero {{ padding:14px 18px 12px; margin-bottom:6px; }}
-      .brand-logo {{ width:min(172px, 44vw); }}
-      .hero-title {{ min-width:0; padding-right:24px; padding-inline-start:0; align-items:flex-end; width:max-content; flex:0 0 auto; }}
+      .hero {{ padding:14px 18px 12px; margin-bottom:6px; align-items:flex-start; }}
+      .brand-lockup {{ flex:1 1 100%; min-width:0; }}
+      .brand-logo {{ width:min(150px, 38vw); }}
+      .brand-divider {{ height:42px; margin-inline:8px; }}
+      .hero-title {{ position:relative; inset:auto; transform:none; min-width:0; padding:0; align-items:flex-end; width:100%; flex:1 1 100%; }}
       .hero-copy span {{ font-size:14px; }}
       .hero-title h1 {{ font-size:18px; }}
       .hero-title p {{ font-size:10px; }}
