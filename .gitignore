@@ -1,9 +1,15 @@
 # Generated workbooks and published copies
-output/
+output/*
+!output/lead6_report.xlsx
 web/lead6_report.xlsx
 web/index.html
 web/gf_logo_transparent.png
 web/gf_logo_transparent_2x.png
+web/gf_logo_current_clean.png
+!web/index.html
+!web/gf_logo_transparent.png
+!web/gf_logo_transparent_2x.png
+!web/gf_logo_current_clean.png
 lead6_host/
 
 # Raw input data and local-only copies
