@@ -31,6 +31,13 @@ def normalize_text(value):
     return str(value).strip() if value is not None else ""
 
 
+def get_sheet(wb, *names):
+    for name in names:
+        if name in wb.sheetnames:
+            return wb[name]
+    raise KeyError(f"No matching worksheet found for any of: {', '.join(names)}")
+
+
 def parse_ship_date(value):
     if isinstance(value, dt.datetime):
         return value.date()
@@ -134,9 +141,10 @@ def better_row(existing, candidate):
     return candidate if candidate_score >= existing_score else existing
 
 
-def collect_shipments(wb):
-    ws = wb["الشحنات"]
-    prices_ws = wb["الاسعار"]
+def collect_shipments(wb, prices_ws=None):
+    ws = get_sheet(wb, "الشحنات", "Sheet1")
+    if prices_ws is None:
+        prices_ws = get_sheet(wb, "الاسعار")
     prices = read_prices(prices_ws)
     by_order = {}
 
@@ -624,9 +632,14 @@ def style_prices_sheet(wb):
 
 
 def style_operations_sheet(wb):
-    if "العمليات المالية" not in wb.sheetnames:
+    raw_name = None
+    if "العمليات المالية" in wb.sheetnames:
+        raw_name = "العمليات المالية"
+    elif "Sheet2" in wb.sheetnames:
+        raw_name = "Sheet2"
+    if raw_name is None:
         return
-    ws = wb["العمليات المالية"]
+    ws = wb[raw_name]
     raw_rows = []
     summary = {
         "bank": {"count": 0, "total": 0.0},
@@ -680,7 +693,7 @@ def style_operations_sheet(wb):
         })
 
     # Rebuild as a clean sheet with summary + detailed table.
-    del wb["العمليات المالية"]
+    del wb[raw_name]
     ws = wb.create_sheet("العمليات المالية", 3)
     ws.sheet_view.rightToLeft = True
     ws.sheet_view.showGridLines = False
@@ -761,10 +774,45 @@ def style_operations_sheet(wb):
 
 def main():
     wb = load_workbook(INPUT)
-    style_prices_sheet(wb)
+    reference_prices = None
+    if REPORT_OUT.exists():
+        reference_prices = load_workbook(REPORT_OUT, data_only=False)
+    elif "الاسعار" in wb.sheetnames:
+        reference_prices = wb
+    if reference_prices is None or "الاسعار" not in reference_prices.sheetnames:
+        raise KeyError("Missing price sheet reference for report generation.")
+
     style_operations_sheet(wb)
-    shipments = collect_shipments(wb)
+    shipments = collect_shipments(wb, reference_prices["الاسعار"])
     report = load_workbook(INPUT)
+    if "الاسعار" not in report.sheetnames:
+        report.create_sheet("الاسعار", 2)
+        target = report["الاسعار"]
+        source = reference_prices["الاسعار"]
+        for row in source.iter_rows():
+            for cell in row:
+                new_cell = target[cell.coordinate]
+                new_cell.value = cell.value
+                if cell.has_style:
+                    new_cell._style = copy.copy(cell._style)
+                if cell.number_format:
+                    new_cell.number_format = cell.number_format
+                if cell.font:
+                    new_cell.font = copy.copy(cell.font)
+                if cell.fill:
+                    new_cell.fill = copy.copy(cell.fill)
+                if cell.border:
+                    new_cell.border = copy.copy(cell.border)
+                if cell.alignment:
+                    new_cell.alignment = copy.copy(cell.alignment)
+                if cell.protection:
+                    new_cell.protection = copy.copy(cell.protection)
+        for key, dim in source.column_dimensions.items():
+            report["الاسعار"].column_dimensions[key].width = dim.width
+        for idx, dim in source.row_dimensions.items():
+            report["الاسعار"].row_dimensions[idx].height = dim.height
+        for merged in source.merged_cells.ranges:
+            report["الاسعار"].merge_cells(str(merged))
     style_prices_sheet(report)
     finance_summary = style_operations_sheet(report)
     write_details(report, shipments)
