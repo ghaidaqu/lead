@@ -31,10 +31,28 @@ def normalize_text(value):
     return str(value).strip() if value is not None else ""
 
 
+def normalize_sheet_name(value):
+    text = normalize_text(value)
+    text = re.sub(r"\s+", "", text)
+    return text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
+
+
+SHEET_ALIASES = {
+    "الشحنات": ("الشحنات", "شحنات", "Sheet1"),
+    "Sheet1": ("الشحنات", "شحنات", "Sheet1"),
+    "العمليات المالية": ("العمليات المالية", "ايداعات", "إيداعات", "الايداعات", "الإيداعات", "Sheet2"),
+    "Sheet2": ("العمليات المالية", "ايداعات", "إيداعات", "الايداعات", "الإيداعات", "Sheet2"),
+}
+
+
 def get_sheet(wb, *names):
+    wanted = set()
     for name in names:
-        if name in wb.sheetnames:
-            return wb[name]
+        for alias in SHEET_ALIASES.get(name, (name,)):
+            wanted.add(normalize_sheet_name(alias))
+    for sheet_name in wb.sheetnames:
+        if normalize_sheet_name(sheet_name) in wanted:
+            return wb[sheet_name]
     raise KeyError(f"No matching worksheet found for any of: {', '.join(names)}")
 
 
@@ -661,12 +679,9 @@ def style_prices_sheet(wb):
 
 
 def style_operations_sheet(wb):
-    raw_name = None
-    if "العمليات المالية" in wb.sheetnames:
-        raw_name = "العمليات المالية"
-    elif "Sheet2" in wb.sheetnames:
-        raw_name = "Sheet2"
-    if raw_name is None:
+    try:
+        raw_name = get_sheet(wb, "العمليات المالية", "Sheet2").title
+    except KeyError:
         return
     ws = wb[raw_name]
     raw_rows = []
