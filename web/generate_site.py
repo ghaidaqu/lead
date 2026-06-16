@@ -72,6 +72,7 @@ def load_data():
         "summary": {},
         "rows": [],
     }
+    total_customer_shipping = 0.0
 
     for row in rows:
         if not any(v is not None for v in row):
@@ -97,6 +98,8 @@ def load_data():
             "total_profit": money(row[22]),
             "review_diff": money(row[19]),
         }
+        if item["order_id"] not in (None, ""):
+            total_customer_shipping += item["customer_shipping"]
         if item["date"]:
             all_shipment_dates.add(item["date"])
         if not item["included"]:
@@ -173,6 +176,7 @@ def load_data():
         "shipping": len(items),
         "cod": sum(1 for item in items if item["fee_profit"] > 0),
         "cod_amount": sum(item["cod_amount"] for item in items if item["included"]),
+        "revenue": total_customer_shipping,
         "base": sum(item["shipping_profit"] for item in items),
         "extra": sum(item["extra_profit"] for item in items),
         "cod_profit": sum(item["fee_profit"] for item in items),
@@ -562,7 +566,7 @@ def build_html(data):
       justify-content:flex-end;
       margin:0 0 14px;
     }}
-    .metric-grid {{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:14px; }}
+    .metric-grid {{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:14px; margin-bottom:14px; }}
     .mini-band {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:0 0 16px; }}
     .metric-card, .panel, .mini-card {{
       position:relative;
@@ -749,6 +753,7 @@ def build_html(data):
     </div>
 
     <section class="metric-grid">
+      {metric_card("إجمالي الإيرادات", fmt_money(totals["revenue"]), "قيمة الشحن على العميل")}
       {metric_card("إجمالي الربح", fmt_money(totals["total"]), f"صافي الشحنات: {period_label}")}
       {metric_card("ربح الشحنات", fmt_money(totals["base"]), "بعد الضريبة حسب شيت الأسعار")}
       {metric_card("ربح الوزن الزائد", fmt_money(totals["extra"]), "بعد 15 كجم")}
