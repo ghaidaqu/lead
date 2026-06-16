@@ -321,7 +321,6 @@ def load_data():
             typ = clean(ops.cell(r, 4).value)
             note = clean(ops.cell(r, 6).value)
             amount = money(ops.cell(r, 5).value)
-            finance["other_net"] += amount if typ != "إيداع" else 0.0
             if typ == "إيداع":
                 key = "bank" if "تحويل بنكي" in note else "moyasar" if "Moyasar" in note else "other"
                 finance[key]["count"] += 1
@@ -393,12 +392,15 @@ def load_data():
                             "status": inferred["status"],
                         })
                 elif typ == "admin_deduction" and "خصم ضريبة القيمة المضافة" in note:
+                    finance["other_net"] += amount
                     finance["tax_deduction"]["count"] += 1
                     finance["tax_deduction"]["total"] += abs(amount)
                 elif typ == "استرداد" and "استرداد تكلفة شحن" in note:
+                    finance["other_net"] += amount
                     finance["shipping_refund"]["count"] += 1
                     finance["shipping_refund"]["total"] += amount
                 else:
+                    finance["other_net"] += amount
                     finance["other"]["count"] += 1
                     finance["other"]["total"] += amount
     finance["total"] = finance["bank"]["total"] + finance["moyasar"]["total"]
@@ -651,7 +653,6 @@ def build_html(data):
         </article>
         <article class="mini-card finance-card other">
           <span class="metric-label">تفصيل الخصومات والاستردادات</span>
-          <div class="breakdown-line">خصم شحنة مرتجعة: {fmt_money(finance['shipping_return']['total'])}</div>
           <div class="breakdown-line">خصم الضريبة: {fmt_money(finance['tax_deduction']['total'])}</div>
           <div class="breakdown-line">استرداد تكلفة شحن: {fmt_money(finance['shipping_refund']['total'])}</div>
           <div class="metric-footer">الصافي: {fmt_money(finance['other_net'])}</div>
