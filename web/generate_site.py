@@ -1040,6 +1040,7 @@ def build_html(data):
       {metric_card("ربح الشحنات", fmt_money(totals["base"]), "بعد خصم الضريبة")}
       {metric_card("ربح الوزن الزائد", fmt_money(totals["extra"]), "بعد 15 كجم")}
       {metric_card("ربح COD", fmt_money(totals["cod_profit"]), "الرسوم الصافية")}
+      {metric_card("ربح المرتجعات", fmt_money(totals["return_profit"]), f"عدد المرتجعات المحصلة: {totals['return_count']}")}
     </section>
 
     {shipment_cards}
@@ -1131,34 +1132,6 @@ def build_html(data):
         </div>
       </div>
       {finance_cards}
-    </section>
-
-    <section class="panel" style="margin-top:16px;">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">مرتجعات محصلة</p>
-          <p class="subtle">مرتبطة برقم الطلب من تفاصيل العمليات المالية</p>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>رقم الطلب</th>
-              <th>التاجر</th>
-              <th>شركة الشحن</th>
-              <th>الوزن</th>
-              <th>إيراد المرتجع</th>
-              <th>تكلفتنا بدون ضريبة</th>
-              <th>ربح الشحنة</th>
-              <th>ربح الوزن الزائد</th>
-              <th>إجمالي الربح</th>
-              <th>الحالة</th>
-            </tr>
-          </thead>
-          <tbody>{return_rows}</tbody>
-        </table>
-      </div>
     </section>
 
     <section class="panel statement-panel">
