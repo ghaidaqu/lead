@@ -24,7 +24,7 @@ STATE_DIR = Path.home() / ".cache" / "lead6"
 STATE_PATH = STATE_DIR / "auto_update_state.json"
 LOCK_PATH = STATE_DIR / "auto_update.lock"
 LOG_PATH = Path.home() / "Library" / "Logs" / "lead6-auto-update.log"
-SCHEDULED_HOUR = 18
+SCHEDULED_HOUR = 19
 REPORT_YEAR = 2026
 REPORT_MONTH = 6
 
