@@ -219,7 +219,15 @@ def write_row(ws, row_idx: int, values: list) -> None:
         ws.cell(row_idx, col_idx).value = value
 
 
-def merge_rows_by_key(target_ws, incoming_ws, key_col: int = 1) -> tuple[int, int]:
+def report_date(value) -> dt.date | None:
+    if isinstance(value, dt.datetime):
+        value = value.date()
+    if isinstance(value, dt.date) and value.year == REPORT_YEAR and value.month == REPORT_MONTH:
+        return value
+    return None
+
+
+def merge_rows_by_key(target_ws, incoming_ws, key_col: int = 1, preserve_report_date_col: int | None = None) -> tuple[int, int]:
     existing = {}
     for row_idx in range(2, target_ws.max_row + 1):
         key = cell_key(target_ws.cell(row_idx, key_col).value)
@@ -234,6 +242,11 @@ def merge_rows_by_key(target_ws, incoming_ws, key_col: int = 1) -> tuple[int, in
             continue
         values = row_values(incoming_ws, row_idx)
         if key in existing:
+            if preserve_report_date_col is not None:
+                incoming_date = report_date(values[preserve_report_date_col - 1])
+                existing_date = report_date(target_ws.cell(existing[key], preserve_report_date_col).value)
+                if incoming_date is None and existing_date is not None:
+                    values[preserve_report_date_col - 1] = existing_date
             write_row(target_ws, existing[key], values)
             updated += 1
         else:
@@ -271,7 +284,7 @@ def merge_source(src: Path) -> None:
     changes = []
     if incoming_ship_name is not None:
         target_ws = ensure_sheet(target_wb, target_ship_name, incoming_wb[incoming_ship_name])
-        added, updated = merge_rows_by_key(target_ws, incoming_wb[incoming_ship_name])
+        added, updated = merge_rows_by_key(target_ws, incoming_wb[incoming_ship_name], preserve_report_date_col=14)
         changes.append(f"shipments +{added}/~{updated}")
     if incoming_ops_name is not None:
         target_ws = ensure_sheet(target_wb, target_ops_name, incoming_wb[incoming_ops_name])
@@ -309,13 +322,25 @@ def normalize_canonical_shipment_dates() -> None:
     if not pending_rows:
         return
 
-    next_day = min((max(valid_days) if valid_days else 0) + 1, 30)
-    normalized_date = dt.date(REPORT_YEAR, REPORT_MONTH, next_day)
+    pending_groups = {}
     for row_idx in pending_rows:
-        ws.cell(row_idx, 14).value = normalized_date
-        ws.cell(row_idx, 14).number_format = "yyyy-mm-dd"
+        value = ws.cell(row_idx, 14).value
+        if isinstance(value, dt.datetime):
+            value = value.date()
+        group_key = value.year if isinstance(value, dt.date) else row_idx
+        pending_groups.setdefault(group_key, []).append(row_idx)
+
+    next_day = max(valid_days) if valid_days else 0
+    normalized = []
+    for group_key in sorted(pending_groups):
+        next_day = min(next_day + 1, 30)
+        normalized_date = dt.date(REPORT_YEAR, REPORT_MONTH, next_day)
+        for row_idx in pending_groups[group_key]:
+            ws.cell(row_idx, 14).value = normalized_date
+            ws.cell(row_idx, 14).number_format = "yyyy-mm-dd"
+        normalized.append(f"{group_key}->{normalized_date.isoformat()} ({len(pending_groups[group_key])})")
     wb.save(CANONICAL_SOURCE)
-    log(f"Normalized {len(pending_rows)} shipment dates to {normalized_date.isoformat()}.")
+    log(f"Normalized shipment dates: {', '.join(normalized)}.")
 
 
 def sync_host_assets() -> None:
