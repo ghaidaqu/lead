@@ -73,10 +73,14 @@ def load_data():
         "rows": [],
     }
     total_customer_shipping = 0.0
+    total_records = 0
 
     for row in rows:
         if not any(v is not None for v in row):
             continue
+        if row[0] in (None, ""):
+            continue
+        total_records += 1
         item = {
             "order_id": row[0],
             "tracking": clean(row[1]),
@@ -171,7 +175,7 @@ def load_data():
     daily_count = sorted(by_date_count.items(), key=lambda kv: kv[0])
     period_label = june_period_label(all_shipment_dates)
     totals = {
-        "records": len(rows),
+        "records": total_records,
         "active": len(items),
         "shipping": len(items),
         "cod": sum(1 for item in items if item["fee_profit"] > 0),
@@ -181,7 +185,7 @@ def load_data():
         "extra": sum(item["extra_profit"] for item in items),
         "cod_profit": sum(item["fee_profit"] for item in items),
         "total": sum(item["total_profit"] for item in items),
-        "excluded": len(rows) - len(items),
+        "excluded": total_records - len(items),
     }
     cod_items.sort(key=lambda x: (x["date"], x["order_id"]), reverse=True)
     return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_count, finance, cod_items, statement, period_label
@@ -356,7 +360,7 @@ def build_html(data):
         <article class="mini-card">
           <span class="metric-label">عدد الشحنات</span>
           <strong>{totals["active"]}</strong>
-          <div class="metric-footer">إجمالي الطلبات الداخلة في الربح</div>
+          <div class="metric-footer">غير داخلة في الربح: {totals["excluded"]}</div>
         </article>
         <article class="mini-card">
           <span class="metric-label">عدد COD</span>
