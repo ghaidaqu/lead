@@ -847,7 +847,7 @@ def build_html(data):
       justify-content:flex-end;
       margin:0 0 14px;
     }}
-    .metric-grid {{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:14px; margin-bottom:14px; }}
+    .metric-grid {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin-bottom:14px; }}
     .mini-band {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:0 0 16px; }}
     .metric-card, .panel, .mini-card {{
       position:relative;
