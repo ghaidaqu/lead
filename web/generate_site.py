@@ -400,8 +400,17 @@ def build_html(data):
         f"<tr class='expense-row'><td>{row['date']}</td><td>{row['expense_type'] or '-'}</td><td>{fmt_money(row['amount'])}</td></tr>"
         for row in statement["rows"]
     )
+
+    def cod_collection_date(item):
+        override = cod_overrides.get(str(item["order_id"])) or {}
+        if override.get("collection_date"):
+            return override["collection_date"]
+        if item.get("date") == "2026-06-15":
+            return "-"
+        return item.get("date") or "-"
+
     cod_rows = "".join(
-        f"<tr><td>{item['order_id']}</td><td>{html.escape(item['merchant'])}</td><td>{fmt_money(item['cod_amount'])}</td><td>{item.get('date') or '-'}</td><td>{(cod_overrides.get(str(item['order_id'])) or {}).get('collection_date') or item.get('date') or '-'}</td><td>{(cod_overrides.get(str(item['order_id'])) or {}).get('transfer_date') or '-'}</td></tr>"
+        f"<tr><td>{item['order_id']}</td><td>{html.escape(item['merchant'])}</td><td>{fmt_money(item['cod_amount'])}</td><td>{item.get('date') or '-'}</td><td>{cod_collection_date(item)}</td><td>{(cod_overrides.get(str(item['order_id'])) or {}).get('transfer_date') or '-'}</td></tr>"
         for item in cod_items
     )
     return f"""<!doctype html>
