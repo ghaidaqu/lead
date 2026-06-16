@@ -1,6 +1,7 @@
 import html
 import json
 import os
+import re
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -43,12 +44,201 @@ def june_period_label(dates):
     return f"1-{days[-1]} يونيو"
 
 
+SPECIAL_MERCHANTS = {"عبدالرحمن المطيري", "مؤسسة اواني القيصرية التجارية"}
+CARRIER_PRICE_NAMES = {
+    "ارامكس - ARAMEX": "ارامكس",
+    "aramex ( استلام من الفرع )": "ارامكس استلام",
+    "SMSA - سمسا": "سمسا",
+    "SMSA ( استلام من الفرع )": "سمسا استلام",
+    "RedBox - ريدبوكس": "ريد بوكس",
+    "JT Express": "JT Express",
+}
+RETURN_DETAIL_OVERRIDES = {
+    "767": {
+        "merchant": "مؤسسة اواني القيصرية التجارية",
+        "carrier": "SMSA - سمسا",
+        "weight": 15.0,
+    },
+    "1376": {
+        "merchant": "عبدالرحمن المطيري",
+        "carrier": "ارامكس - ARAMEX",
+        "weight": 1.0,
+    },
+    "1389": {
+        "merchant": "ليد إكسبرس",
+        "carrier": "ارامكس - ARAMEX",
+        "weight": 1.0,
+    },
+    "1256": {
+        "merchant": "ليد إكسبرس",
+        "carrier": "ارامكس - ARAMEX",
+        "weight": 22.0,
+    },
+    "1315": {
+        "merchant": "عبدالرحمن المطيري",
+        "carrier": "SMSA - سمسا",
+        "weight": 1.0,
+    },
+    "1356": {
+        "merchant": "ليد إكسبرس",
+        "carrier": "ارامكس - ARAMEX",
+        "weight": 10.0,
+    },
+}
+
+
+def price_sheet_headers(ws):
+    if ws is None:
+        return {}
+    return {clean(ws.cell(1, col).value): col for col in range(1, ws.max_column + 1)}
+
+
+def platform_cost_net_from_prices(prices_ws, headers, merchant, carrier, fallback=0.0):
+    if prices_ws is None:
+        return fallback
+    if merchant in SPECIAL_MERCHANTS and merchant in headers:
+        return money(prices_ws.cell(5, headers[merchant]).value) or fallback
+    carrier_key = CARRIER_PRICE_NAMES.get(carrier)
+    if carrier_key and carrier_key in headers:
+        return money(prices_ws.cell(5, headers[carrier_key]).value) or fallback
+    return fallback
+
+
+def infer_return_profit_from_prices(prices_ws, headers, revenue):
+    if prices_ws is None:
+        revenue_net = revenue * 0.85
+        return {
+            "merchant": "مقدر",
+            "carrier": "مقدر",
+            "weight": 0.0,
+            "revenue_net": revenue_net,
+            "platform_shipping": 0.0,
+            "base_profit": revenue_net,
+            "extra_profit": 0.0,
+            "total_profit": revenue_net,
+            "status": "مقدر بدون شيت الأسعار",
+        }
+
+    extra_col = headers.get("السعر لكل كيلو  زيادة")
+    extra_customer_gross = money(prices_ws.cell(2, extra_col).value) if extra_col else 0.0
+    extra_customer_net = money(prices_ws.cell(3, extra_col).value) if extra_col else 0.0
+    extra_platform_gross = money(prices_ws.cell(4, extra_col).value) if extra_col else 0.0
+    extra_platform_net = money(prices_ws.cell(5, extra_col).value) if extra_col else 0.0
+    if not extra_customer_net and extra_customer_gross:
+        extra_customer_net = extra_customer_gross * 0.85
+    if not extra_platform_net and extra_platform_gross:
+        extra_platform_net = extra_platform_gross * 0.85
+
+    exact_candidates = []
+    fallback_candidates = []
+    skip_names = {"السعر لكل كيلو  زيادة", "سعر توصيل cod", ""}
+    for name, col in headers.items():
+        if name in skip_names:
+            continue
+        customer_gross = money(prices_ws.cell(2, col).value)
+        platform_net = money(prices_ws.cell(5, col).value)
+        if not customer_gross or not platform_net or revenue + 0.001 < customer_gross:
+            continue
+
+        customer_net = money(prices_ws.cell(3, col).value)
+        if not customer_net:
+            customer_net = customer_gross if name in SPECIAL_MERCHANTS else customer_gross * 0.85
+
+        extra_charge = max(revenue - customer_gross, 0.0)
+        extra_kg = extra_charge / extra_customer_gross if extra_customer_gross else 0.0
+        revenue_net = customer_net + (extra_kg * extra_customer_net)
+        platform_shipping = platform_net + (extra_kg * extra_platform_net)
+        base_profit = customer_net - platform_net
+        extra_profit = extra_kg * (extra_customer_net - extra_platform_net)
+        total_profit = revenue_net - platform_shipping
+        row = {
+            "merchant": name if name in SPECIAL_MERCHANTS else "مقدر",
+            "carrier": name if name not in SPECIAL_MERCHANTS else "مقدر",
+            "weight": 15 + extra_kg if extra_kg else 0.0,
+            "revenue_net": revenue_net,
+            "platform_shipping": platform_shipping,
+            "base_profit": base_profit,
+            "extra_profit": extra_profit,
+            "total_profit": total_profit,
+            "status": f"مقدر حسب {name}",
+        }
+        if abs(revenue - customer_gross) < 0.001:
+            exact_candidates.append(row)
+        else:
+            fallback_candidates.append(row)
+
+    candidates = exact_candidates or fallback_candidates
+    if not candidates:
+        revenue_net = revenue * 0.85
+        return {
+            "merchant": "مقدر",
+            "carrier": "غير موجود في شيت الأسعار",
+            "weight": 0.0,
+            "revenue_net": revenue_net,
+            "platform_shipping": 0.0,
+            "base_profit": revenue_net,
+            "extra_profit": 0.0,
+            "total_profit": revenue_net,
+            "status": "مقدر بدون مطابقة سعر",
+        }
+    return min(candidates, key=lambda item: item["total_profit"])
+
+
+def return_profit_from_details(prices_ws, headers, revenue, merchant, carrier, weight):
+    if prices_ws is None:
+        return infer_return_profit_from_prices(prices_ws, headers, revenue)
+
+    extra_col = headers.get("السعر لكل كيلو  زيادة")
+    extra_customer_gross = money(prices_ws.cell(2, extra_col).value) if extra_col else 0.0
+    extra_platform_gross = money(prices_ws.cell(4, extra_col).value) if extra_col else 0.0
+    extra_platform_net = money(prices_ws.cell(5, extra_col).value) if extra_col else 0.0
+    if not extra_platform_net and extra_platform_gross:
+        extra_platform_net = extra_platform_gross * 0.85
+
+    price_key = merchant if merchant in SPECIAL_MERCHANTS and merchant in headers else CARRIER_PRICE_NAMES.get(carrier, carrier)
+    col = headers.get(price_key)
+    if col is None:
+        inferred = infer_return_profit_from_prices(prices_ws, headers, revenue)
+        inferred.update({
+            "merchant": merchant,
+            "carrier": carrier,
+            "weight": weight,
+            "status": "محسوب بمطابقة سعر تقديرية",
+        })
+        return inferred
+
+    base_customer_gross = money(prices_ws.cell(2, col).value)
+    platform_base_net = money(prices_ws.cell(5, col).value)
+    extra_kg = max(weight - 15, 0.0)
+    extra_charge_gross = max(revenue - base_customer_gross, 0.0)
+    extra_charge_net = extra_charge_gross if merchant in SPECIAL_MERCHANTS else extra_charge_gross * 0.85
+    revenue_net = revenue if merchant in SPECIAL_MERCHANTS else revenue * 0.85
+    platform_extra_net = extra_kg * extra_platform_net
+    platform_shipping = platform_base_net + platform_extra_net
+    total_profit = revenue_net - platform_shipping
+    extra_profit = extra_charge_net - platform_extra_net
+    base_profit = total_profit - extra_profit
+    return {
+        "merchant": merchant,
+        "carrier": carrier,
+        "weight": weight,
+        "revenue_net": revenue_net,
+        "platform_shipping": platform_shipping,
+        "base_profit": base_profit,
+        "extra_profit": extra_profit,
+        "total_profit": total_profit,
+        "status": "محسوب من المحفظة والشحنات",
+    }
+
+
 def load_data():
     wb = openpyxl.load_workbook(SOURCE, data_only=True)
     ws = wb["تفاصيل شهر 6"]
     rows = list(ws.iter_rows(min_row=2, values_only=True))
     ops = wb["العمليات المالية"] if "العمليات المالية" in wb.sheetnames else None
     stmt = wb["كشف الحساب"] if "كشف الحساب" in wb.sheetnames else None
+    prices_ws = wb["الاسعار"] if "الاسعار" in wb.sheetnames else None
+    prices_headers = price_sheet_headers(prices_ws)
 
     items = []
     cod_items = []
@@ -74,6 +264,8 @@ def load_data():
     }
     total_customer_shipping = 0.0
     total_records = 0
+    all_items_by_order = {}
+    return_items = []
 
     for row in rows:
         if not any(v is not None for v in row):
@@ -94,6 +286,7 @@ def load_data():
             "included": clean(row[14]) == "نعم",
             "customer_shipping": money(row[6]),
             "cod_amount": money(row[7]),
+            "customer_gross": money(row[15]),
             "customer_net": money(row[16]),
             "platform_shipping": money(row[17]),
             "shipping_profit": money(row[19]),
@@ -104,6 +297,7 @@ def load_data():
         }
         if item["order_id"] not in (None, ""):
             total_customer_shipping += item["customer_shipping"]
+            all_items_by_order[str(item["order_id"])] = item
         if item["date"]:
             all_shipment_dates.add(item["date"])
         if not item["included"]:
@@ -136,6 +330,68 @@ def load_data():
                 if typ == "admin_deduction" and "خصم تكلفة شحنة مرتجعة" in note:
                     finance["shipping_return"]["count"] += 1
                     finance["shipping_return"]["total"] += abs(amount)
+                    order_match = re.search(r"طلب\s*#?\s*(\d+)", note)
+                    order_id = order_match.group(1) if order_match else ""
+                    linked_item = all_items_by_order.get(order_id)
+                    revenue = abs(amount)
+                    if linked_item is not None:
+                        net_ratio = (
+                            linked_item["customer_net"] / linked_item["customer_gross"]
+                            if linked_item["customer_gross"]
+                            else 0.85
+                        )
+                        revenue_net = revenue * net_ratio
+                        platform_cost_net = platform_cost_net_from_prices(
+                            prices_ws,
+                            prices_headers,
+                            linked_item["merchant"],
+                            linked_item["carrier"],
+                            linked_item["platform_shipping"],
+                        )
+                        base_profit = revenue_net - platform_cost_net
+                        extra_profit = linked_item["extra_profit"]
+                        total_profit = base_profit + extra_profit
+                        return_items.append({
+                            "order_id": order_id,
+                            "merchant": linked_item["merchant"],
+                            "carrier": linked_item["carrier"],
+                            "weight": linked_item["weight"],
+                            "revenue": revenue,
+                            "revenue_net": revenue_net,
+                            "platform_shipping": platform_cost_net,
+                            "base_profit": base_profit,
+                            "extra_profit": extra_profit,
+                            "total_profit": total_profit,
+                            "matched": True,
+                            "status": "محسوب",
+                        })
+                    else:
+                        override = RETURN_DETAIL_OVERRIDES.get(order_id)
+                        if override:
+                            inferred = return_profit_from_details(
+                                prices_ws,
+                                prices_headers,
+                                revenue,
+                                override["merchant"],
+                                override["carrier"],
+                                override["weight"],
+                            )
+                        else:
+                            inferred = infer_return_profit_from_prices(prices_ws, prices_headers, revenue)
+                        return_items.append({
+                            "order_id": order_id or "-",
+                            "merchant": inferred["merchant"],
+                            "carrier": inferred["carrier"],
+                            "weight": inferred["weight"],
+                            "revenue": revenue,
+                            "revenue_net": inferred["revenue_net"],
+                            "platform_shipping": inferred["platform_shipping"],
+                            "base_profit": inferred["base_profit"],
+                            "extra_profit": inferred["extra_profit"],
+                            "total_profit": inferred["total_profit"],
+                            "matched": False,
+                            "status": inferred["status"],
+                        })
                 elif typ == "admin_deduction" and "خصم ضريبة القيمة المضافة" in note:
                     finance["tax_deduction"]["count"] += 1
                     finance["tax_deduction"]["total"] += abs(amount)
@@ -174,21 +430,27 @@ def load_data():
     daily = sorted(by_date.items(), key=lambda kv: kv[0])
     daily_count = sorted(by_date_count.items(), key=lambda kv: kv[0])
     period_label = june_period_label(all_shipment_dates)
+    return_revenue = sum(item["revenue"] for item in return_items)
+    return_profit = sum(item["total_profit"] for item in return_items)
     totals = {
         "records": total_records,
         "active": len(items),
         "shipping": len(items),
         "cod": sum(1 for item in items if item["fee_profit"] > 0),
         "cod_amount": sum(item["cod_amount"] for item in items if item["included"]),
-        "revenue": total_customer_shipping,
+        "revenue": total_customer_shipping + return_revenue,
         "base": sum(item["shipping_profit"] for item in items),
         "extra": sum(item["extra_profit"] for item in items),
         "cod_profit": sum(item["fee_profit"] for item in items),
-        "total": sum(item["total_profit"] for item in items),
+        "return_revenue": return_revenue,
+        "return_profit": return_profit,
+        "return_count": len(return_items),
+        "total": sum(item["total_profit"] for item in items) + return_profit,
         "excluded": total_records - len(items),
     }
     cod_items.sort(key=lambda x: (x["date"], x["order_id"]), reverse=True)
-    return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_count, finance, cod_items, statement, period_label
+    return_items.sort(key=lambda x: (x["matched"], x["order_id"]), reverse=True)
+    return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_count, finance, cod_items, return_items, statement, period_label
 
 
 def fmt_money(value):
@@ -303,6 +565,7 @@ def build_html(data):
     daily_count = data["daily_count"]
     finance = data["finance"]
     cod_items = data["cod_items"]
+    return_items = data["return_items"]
     top_merchants = data["top_merchants"]
     top_cities = data["top_cities"]
     top_carriers = data["top_carriers"]
@@ -416,6 +679,10 @@ def build_html(data):
     cod_rows = "".join(
         f"<tr><td>{item['order_id']}</td><td>{html.escape(item['merchant'])}</td><td>{fmt_money(item['cod_amount'])}</td><td>{item.get('date') or '-'}</td><td>{cod_collection_date(item)}</td><td>{(cod_overrides.get(str(item['order_id'])) or {}).get('transfer_date') or '-'}</td></tr>"
         for item in cod_items
+    )
+    return_rows = "".join(
+        f"<tr><td>{item['order_id']}</td><td>{html.escape(item['merchant'])}</td><td>{html.escape(item['carrier'])}</td><td>{item['weight']:.2f} كجم</td><td>{fmt_money(item['revenue'])}</td><td>{fmt_money(item['platform_shipping'])}</td><td>{fmt_money(item['base_profit'])}</td><td>{fmt_money(item['extra_profit'])}</td><td>{fmt_money(item['total_profit'])}</td><td>{item['status']}</td></tr>"
+        for item in return_items
     )
     return f"""<!doctype html>
 <html lang="ar" dir="rtl">
@@ -766,11 +1033,12 @@ def build_html(data):
     </div>
 
     <section class="metric-grid">
-      {metric_card("إجمالي الإيرادات", fmt_money(totals["revenue"]), "قيمة الشحن على العميل")}
-      {metric_card("إجمالي الربح", fmt_money(totals["total"]), f"صافي الشحنات: {period_label}")}
+      {metric_card("إجمالي الإيرادات", fmt_money(totals["revenue"]), "الشحنات + إيرادات المرتجعات")}
+      {metric_card("إجمالي الربح", fmt_money(totals["total"]), f"الشحنات المحسوبة: {period_label}")}
       {metric_card("ربح الشحنات", fmt_money(totals["base"]), "بعد خصم الضريبة")}
       {metric_card("ربح الوزن الزائد", fmt_money(totals["extra"]), "بعد 15 كجم")}
       {metric_card("ربح COD", fmt_money(totals["cod_profit"]), "الرسوم الصافية")}
+      {metric_card("ربح المرتجعات", fmt_money(totals["return_profit"]), f"عدد المرتجعات المحصلة: {totals['return_count']}")}
     </section>
 
     {shipment_cards}
@@ -864,6 +1132,34 @@ def build_html(data):
       {finance_cards}
     </section>
 
+    <section class="panel" style="margin-top:16px;">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">مرتجعات محصلة</p>
+          <p class="subtle">مرتبطة برقم الطلب من تفاصيل العمليات المالية</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>رقم الطلب</th>
+              <th>التاجر</th>
+              <th>شركة الشحن</th>
+              <th>الوزن</th>
+              <th>إيراد المرتجع</th>
+              <th>تكلفتنا بدون ضريبة</th>
+              <th>ربح الشحنة</th>
+              <th>ربح الوزن الزائد</th>
+              <th>إجمالي الربح</th>
+              <th>الحالة</th>
+            </tr>
+          </thead>
+          <tbody>{return_rows}</tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="panel statement-panel">
       <div class="panel-header">
         <div>
@@ -937,7 +1233,7 @@ def build_html(data):
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_count, finance, cod_items, statement, period_label = load_data()
+    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_count, finance, cod_items, return_items, statement, period_label = load_data()
     data = {
         "totals": totals,
         "top_merchants": top_merchants,
@@ -946,6 +1242,7 @@ def main():
         "daily_count": daily_count,
         "finance": finance,
         "cod_items": cod_items,
+        "return_items": return_items,
         "top_carriers": top_carriers,
         "statement": statement,
         "period_label": period_label,
