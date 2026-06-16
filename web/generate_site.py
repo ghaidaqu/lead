@@ -654,8 +654,7 @@ def build_html(data):
         <article class="mini-card finance-card other">
           <span class="metric-label">تفصيل الخصومات والاستردادات</span>
           <div class="breakdown-line">خصم الضريبة: {fmt_money(finance['tax_deduction']['total'])}</div>
-          <div class="breakdown-line">استرداد تكلفة شحن: {fmt_money(finance['shipping_refund']['total'])}</div>
-          <div class="metric-footer">الصافي: {fmt_money(finance['other_net'])}</div>
+          <div class="breakdown-line">العمليات الملغية: {fmt_money(finance['shipping_refund']['total'])}</div>
         </article>
         <article class="mini-card finance-card finance-total-card other">
           <span class="metric-label">إجمالي الإيداعات</span>
