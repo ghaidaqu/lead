@@ -640,7 +640,7 @@ def build_html(data):
       </section>
     """
     finance_cards = f"""
-      <section class="mini-band">
+      <section class="mini-band finance-band">
         <article class="mini-card finance-card bank">
           <span class="metric-label">إيداعات البنك</span>
           <strong>{finance['bank']['count']}</strong>
@@ -849,6 +849,7 @@ def build_html(data):
     }}
     .metric-grid {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin-bottom:14px; }}
     .mini-band {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:0 0 16px; }}
+    .finance-band {{ grid-template-columns:repeat(4, minmax(0,1fr)); }}
     .metric-card, .panel, .mini-card {{
       position:relative;
       overflow:hidden;
@@ -996,7 +997,7 @@ def build_html(data):
     .breakdown-line {{ color:rgba(255,255,255,.70); font-size:12px; line-height:1.5; margin-top:2px; }}
     .footer-note {{ margin-top:16px; color:rgba(255,255,255,.48); font-size:12px; }}
     @media (max-width: 1100px) {{
-      .metric-grid, .content-grid, .table-grid, .mini-band, .statement-summary {{ grid-template-columns:1fr; }}
+      .metric-grid, .content-grid, .table-grid, .mini-band, .finance-band, .statement-summary {{ grid-template-columns:1fr; }}
       .carrier-layout {{ grid-template-columns:1fr; }}
       .hero {{ padding:14px 18px 12px; margin-bottom:6px; align-items:flex-start; }}
       .brand-lockup {{ flex:1 1 100%; min-width:0; }}
@@ -1039,7 +1040,6 @@ def build_html(data):
       {metric_card("ربح الشحنات", fmt_money(totals["base"]), "بعد خصم الضريبة")}
       {metric_card("ربح الوزن الزائد", fmt_money(totals["extra"]), "بعد 15 كجم")}
       {metric_card("ربح COD", fmt_money(totals["cod_profit"]), "الرسوم الصافية")}
-      {metric_card("ربح المرتجعات", fmt_money(totals["return_profit"]), f"عدد المرتجعات المحصلة: {totals['return_count']}")}
     </section>
 
     {shipment_cards}
