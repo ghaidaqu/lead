@@ -486,6 +486,7 @@ def build_html(data):
     period_label = data["period_label"]
     statement = data.get("statement", {"summary": {}, "rows": []})
     details_href = "/report.xlsx"
+    last_updated = datetime.fromtimestamp(SOURCE.stat().st_mtime).strftime("%d %b %Y - %I:%M %p") if SOURCE.exists() else datetime.now().strftime("%d %b %Y - %I:%M %p")
     cod_overrides = {
         "1757": {"collection_date": "2026-06-12", "transfer_date": "2026-06-13"},
         "1756": {"collection_date": "2026-06-11", "transfer_date": "2026-06-13"},
@@ -508,7 +509,7 @@ def build_html(data):
         for date, _ in daily_profit_points
     ]
     carrier_total = sum(data["total"] for _, data in top_carriers) or 1
-    carrier_colors = ["#48d7d0", "#7257d9", "#c79a50", "#62718a", "#a8557a", "#9aa8ba"]
+    carrier_colors = ["#7A2438", "#B04A64", "#D8CABE", "#8FBF9F", "#C86B6B", "#6F6A66"]
     carrier_legend_items = []
     carrier_chart_labels = []
     carrier_chart_values = []
@@ -612,28 +613,50 @@ def build_html(data):
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {{
-      color-scheme: dark;
-      --bg: #04070d;
-      --bg-soft: #0b101c;
-      --card: rgba(18,24,38,.72);
-      --card-strong: rgba(28,35,54,.82);
-      --border: rgba(150,169,196,.24);
-      --text: #f6fbff;
-      --muted: #a8b5c7;
-      --accent-soft: #a8557a;
-      --purple: #7257d9;
-      --cyan: #48d7d0;
-      --amber: #c79a50;
-      --shadow: 0 22px 70px rgba(0,0,0,.50);
+      color-scheme: light;
+      --bg: #F6F1EA;
+      --sidebar: #FBF8F3;
+      --card: #FFFFFF;
+      --card-strong: #FFFFFF;
+      --border: #E7DDD3;
+      --text: #1C1C1C;
+      --muted: #6F6A66;
+      --accent: #7A2438;
+      --accent-light: #B04A64;
+      --beige: #D8CABE;
+      --grid: #E8DED5;
+      --positive: #587F63;
+      --negative: #A24D4D;
+      --shadow: 0 18px 45px rgba(45, 31, 25, .08);
     }}
-    * {{ box-sizing: border-box; }}
+    body.dark {{
+      color-scheme: dark;
+      --bg: #0F1113;
+      --sidebar: #0B0D0F;
+      --card: #171A1F;
+      --card-strong: #1C2027;
+      --border: #252932;
+      --text: #F5F2EE;
+      --muted: #A7A7A7;
+      --accent: #7A2438;
+      --accent-light: #B04A64;
+      --beige: #D8CABE;
+      --grid: #2A2D33;
+      --positive: #8FBF9F;
+      --negative: #C86B6B;
+      --shadow: 0 18px 52px rgba(0,0,0,.28);
+    }}
+    *, *::before, *::after {{
+      box-sizing: border-box;
+      transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease, fill .35s ease, stroke .35s ease;
+    }}
     html {{ scroll-behavior:smooth; }}
     body {{
       margin:0;
       min-height:100vh;
       color:var(--text);
       font-family: Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
-      background:linear-gradient(135deg, #030812 0%, #081322 52%, #050914 100%);
+      background:var(--bg);
     }}
     a {{ color:inherit; text-decoration:none; }}
     .page {{ width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:20px 0 34px; }}
@@ -657,7 +680,7 @@ def build_html(data):
     .hero::before, .hero::after {{ content:none; }}
     .brand-lockup {{ position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:0; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; flex:0 0 auto; }}
     .brand-logo {{ width:min(128px, 15vw); max-width:128px; height:auto; display:block; background:transparent; filter: drop-shadow(0 8px 18px rgba(0,0,0,.20)); }}
-    .brand-divider {{ width:1px; height:38px; background:rgba(142,157,178,.30); box-shadow:0 0 18px rgba(72,215,208,.10); margin:0 8px 0 -2px; }}
+    .brand-divider {{ width:1px; height:38px; background:rgba(142,157,178,.30); box-shadow:0 0 18px rgba(122,36,56,.10); margin:0 8px 0 -2px; }}
     .hero-copy {{ display:grid; gap:0; justify-items:flex-start; margin-inline-start:-1px; }}
     .hero-copy span {{ display:block; margin:0; color:rgba(255,255,255,.92); font-size:clamp(14px, 1.6vw, 18px); line-height:1.0; font-weight:650; letter-spacing:-0.02em; }}
     .hero-copy .brand-tag {{ font-size:clamp(14px, 1.6vw, 18px); }}
@@ -708,7 +731,7 @@ def build_html(data):
       min-height:40px;
       padding:0 14px;
       border-radius:10px;
-      border:1px solid rgba(150,169,196,.24);
+      border:1px solid #E7DDD3;
       background:rgba(17,28,45,.78);
       color:rgba(230,238,248,.88);
       font-size:12px;
@@ -721,14 +744,14 @@ def build_html(data):
       padding:0 14px;
       border-radius:10px;
       background:
-        linear-gradient(135deg, rgba(72,215,208,.20), rgba(114,87,217,.28)),
+        linear-gradient(135deg, rgba(122,36,56,.20), rgba(176,74,100,.28)),
         linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.02));
       color:#fff;
-      border:1px solid rgba(72,215,208,.22);
+      border:1px solid rgba(122,36,56,.22);
       font-weight:780;
       letter-spacing:-0.01em;
       box-shadow:
-        0 14px 28px rgba(72,215,208,.08),
+        0 14px 28px rgba(122,36,56,.08),
         inset 0 1px 0 rgba(255,255,255,.12);
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
@@ -768,8 +791,8 @@ def build_html(data):
       right:14px;
       height:2px;
       border-radius:999px;
-      background:linear-gradient(90deg, rgba(72,215,208,.42), rgba(114,87,217,.34), rgba(199,154,80,.28));
-      box-shadow:0 0 10px rgba(72,215,208,.08);
+      background:linear-gradient(90deg, rgba(122,36,56,.42), rgba(176,74,100,.34), rgba(216,202,190,.28));
+      box-shadow:0 0 10px rgba(122,36,56,.08);
       pointer-events:none;
     }}
     .mini-card {{
@@ -790,10 +813,10 @@ def build_html(data):
       justify-content:space-between;
     }}
     .metric-label {{ display:block; color:var(--muted); font-size:13px; line-height:1.45; font-weight:560; }}
-    .metric-card strong {{ display:block; margin-top:8px; font-size:22px; line-height:1; font-weight:880; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 14px rgba(72,215,208,.12), 0 1px 0 rgba(255,255,255,.08); }}
+    .metric-card strong {{ display:block; margin-top:8px; font-size:22px; line-height:1; font-weight:880; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 14px rgba(122,36,56,.12), 0 1px 0 rgba(255,255,255,.08); }}
     .metric-footer {{ margin-top:7px; color:rgba(211,222,235,.66); font-size:12px; line-height:1.35; }}
     .mini-card .metric-label {{ font-size:13px; line-height:1.35; }}
-    .mini-card strong {{ display:block; margin-top:6px; font-size:20px; line-height:1.15; font-variant-numeric: tabular-nums; color:#fff; font-weight:850; text-shadow:0 2px 14px rgba(72,215,208,.10); }}
+    .mini-card strong {{ display:block; margin-top:6px; font-size:20px; line-height:1.15; font-variant-numeric: tabular-nums; color:#fff; font-weight:850; text-shadow:0 2px 14px rgba(122,36,56,.10); }}
     .mini-card .metric-footer {{ font-size:12px; line-height:1.35; }}
     .profit-details-card {{ margin:0 0 14px; }}
     .details-panel {{ padding:16px; }}
@@ -813,7 +836,7 @@ def build_html(data):
       gap:6px;
     }}
     .detail-chip span {{ color:var(--muted); font-size:12px; font-weight:560; }}
-    .detail-chip strong {{ color:#fff; font-size:18px; line-height:1.1; font-weight:850; font-variant-numeric:tabular-nums; text-shadow:0 2px 12px rgba(72,215,208,.09); }}
+    .detail-chip strong {{ color:#fff; font-size:18px; line-height:1.1; font-weight:850; font-variant-numeric:tabular-nums; text-shadow:0 2px 12px rgba(122,36,56,.09); }}
     .content-grid {{ display:grid; grid-template-columns:1.3fr .92fr; gap:14px; margin-bottom:14px; }}
     .panel {{ padding:18px; }}
     .panel-header {{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }}
@@ -842,7 +865,7 @@ def build_html(data):
       padding:0;
       background:linear-gradient(180deg, rgba(33,47,70,.94), rgba(17,29,46,.90));
       border:1px solid rgba(135,154,180,.12);
-      box-shadow:0 20px 34px rgba(0,0,0,.34), 0 0 24px rgba(72,215,208,.05), inset 0 1px 0 rgba(255,255,255,.08);
+      box-shadow:0 20px 34px rgba(0,0,0,.34), 0 0 24px rgba(122,36,56,.05), inset 0 1px 0 rgba(255,255,255,.08);
     }}
     .carrier-donut canvas {{
       position:absolute;
@@ -875,7 +898,7 @@ def build_html(data):
       border:1px solid rgba(150,169,196,.18);
       background:rgba(24,38,58,.72);
     }}
-    .carrier-dot {{ width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 4px rgba(72,215,208,.045); }}
+    .carrier-dot {{ width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 4px rgba(122,36,56,.045); }}
     .carrier-name {{ font-size:13px; font-weight:700; color:var(--text); }}
     .carrier-meta {{ font-size:12px; color:rgba(220,231,242,.70); white-space:nowrap; }}
     .table-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }}
@@ -916,6 +939,148 @@ def build_html(data):
     .finance-total-card strong {{ font-size:16px; }}
     .breakdown-line {{ color:rgba(255,255,255,.70); font-size:12px; line-height:1.5; margin-top:2px; }}
     .footer-note {{ margin-top:16px; color:rgba(255,255,255,.48); font-size:12px; }}
+
+    .login-screen {{
+      min-height:100vh;
+      background:radial-gradient(circle at top, rgba(122,36,56,.22), transparent 35%), #0F1113;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      color:#F5F2EE;
+    }}
+    .login-screen.is-hidden {{ display:none; }}
+    .login-screen.is-hiding {{ opacity:0; transition:opacity .25s ease; }}
+    .login-card {{
+      width:100%;
+      max-width:420px;
+      background:rgba(23,26,31,.92);
+      border:1px solid #252932;
+      border-radius:20px;
+      box-shadow:0 24px 80px rgba(0,0,0,.35);
+      padding:32px;
+      color:#F5F2EE;
+      opacity:0;
+      transform:translateY(12px) scale(.98);
+      animation:loginCardIn .35s ease-out forwards;
+    }}
+    @keyframes loginCardIn {{ to {{ opacity:1; transform:translateY(0) scale(1); }} }}
+    .login-brand {{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:18px; text-align:center; }}
+    .login-brand img {{ width:118px; height:auto; filter:drop-shadow(0 14px 28px rgba(0,0,0,.30)); }}
+    .login-card h2 {{ margin:8px 0 4px; font-size:24px; line-height:1.2; }}
+    .login-card p {{ margin:0; color:#A7A7A7; font-size:13px; line-height:1.7; }}
+    .login-form {{ display:grid; gap:14px; margin-top:22px; }}
+    .login-field {{ display:grid; gap:8px; }}
+    .login-field label {{ color:#D8CABE; font-size:13px; font-weight:650; }}
+    .login-input-wrap {{ position:relative; }}
+    .login-card input {{
+      width:100%;
+      background:#0F1113;
+      border:1px solid #252932;
+      border-radius:14px;
+      color:#F5F2EE;
+      padding:14px 16px;
+      outline:none;
+      font:inherit;
+    }}
+    .login-card input:focus {{ border-color:#7A2438; box-shadow:0 0 0 4px rgba(122,36,56,.18); }}
+    .password-toggle {{
+      position:absolute;
+      left:8px;
+      top:50%;
+      transform:translateY(-50%);
+      width:auto !important;
+      min-height:34px;
+      padding:0 10px !important;
+      border-radius:10px !important;
+      background:transparent !important;
+      border:1px solid #252932 !important;
+      color:#A7A7A7 !important;
+      font-size:12px;
+    }}
+    .login-button {{
+      width:100%;
+      background:#7A2438;
+      color:#F5F2EE;
+      border:none;
+      border-radius:14px;
+      padding:14px 16px;
+      cursor:pointer;
+      font-weight:700;
+      font:inherit;
+    }}
+    .login-button:hover {{ background:#B04A64; }}
+    .login-error {{
+      display:none;
+      color:#C86B6B;
+      background:rgba(200,107,107,.10);
+      border:1px solid rgba(200,107,107,.20);
+      border-radius:12px;
+      padding:10px 12px;
+      margin-top:12px;
+      font-size:14px;
+    }}
+    .login-error.is-visible {{ display:block; }}
+    .dashboard-shell {{ opacity:0; transform:scale(.98); pointer-events:none; }}
+    .dashboard-shell.is-visible {{ opacity:1; transform:scale(1); pointer-events:auto; transition:opacity .35s ease-out, transform .35s ease-out; }}
+    .hero, .metric-card, .panel, .mini-card, .detail-chip, .carrier-row, .carrier-donut {{
+      background:var(--card);
+      border-color:var(--border);
+      box-shadow:var(--shadow);
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+    }}
+    .hero {{ border-radius:18px; min-height:78px; }}
+    .brand-identity {{ display:grid; gap:2px; justify-items:start; }}
+    .brand-identity strong {{ color:var(--text); font-size:14px; line-height:1.1; letter-spacing:.02em; }}
+    .brand-identity span {{ color:var(--muted); font-size:11px; line-height:1.2; }}
+    .header-actions {{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }}
+    .theme-toggle, .logout-button {{
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:var(--sidebar);
+      color:var(--text);
+      padding:0 12px;
+      font:inherit;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+    }}
+    .logout-button {{ color:var(--muted); }}
+    .primary-button {{
+      background:var(--accent);
+      border-color:var(--accent);
+      color:#F5F2EE;
+      box-shadow:0 10px 22px rgba(122,36,56,.14);
+    }}
+    .primary-button:hover {{ background:var(--accent-light); filter:none; }}
+    .badge {{ background:var(--sidebar); border-color:var(--border); color:var(--muted); }}
+    .metric-card::before, .panel::before, .mini-card::before {{ background:none; }}
+    .metric-card::after, .mini-card::after, .detail-chip::after {{
+      background:linear-gradient(90deg, var(--accent), var(--accent-light), var(--beige));
+      opacity:.55;
+      box-shadow:none;
+    }}
+    .hero-title h1, .metric-card strong, .mini-card strong, .detail-chip strong, .carrier-center strong {{ color:var(--text); text-shadow:none; }}
+    .hero-title p, .metric-footer, .subtle, .carrier-meta, .breakdown-line, th, .rank {{ color:var(--muted); }}
+    .eyebrow, td, .carrier-name {{ color:var(--text); }}
+    th, td {{ border-bottom-color:var(--grid); }}
+    .carrier-center {{ color:var(--text); }}
+    .carrier-center span {{ color:var(--muted); }}
+    .dashboard-footer {{
+      margin-top:18px;
+      padding:16px 0 2px;
+      border-top:1px solid var(--border);
+      color:var(--muted);
+      text-align:center;
+      font-size:12px;
+      line-height:1.7;
+    }}
+    .dashboard-footer strong {{ display:block; color:var(--muted); font-size:13px; font-weight:700; }}
+    body:not(.dark) .brand-logo {{ filter:none; }}
+    body:not(.dark) .login-screen {{ background:#0F1113; }}
+
     @media (max-width: 1100px) {{
       .metric-grid, .content-grid, .table-grid, .mini-band, .finance-band, .statement-summary, .details-grid {{ grid-template-columns:1fr; }}
       .carrier-layout {{ grid-template-columns:1fr; }}
@@ -930,11 +1095,45 @@ def build_html(data):
       .metric-card {{ min-height:88px; }}
       .mini-card {{ min-height:78px; }}
       .detail-chip {{ min-height:64px; }}
+      .header-actions {{ width:100%; justify-content:flex-start; }}
+      .theme-toggle, .logout-button {{ flex:1 1 auto; }}
     }}
   </style>
 </head>
-<body>
-  <main class="page">
+<body class="dark">
+  <script>
+    (function () {{
+      const savedTheme = localStorage.getItem('gfTheme') || 'dark';
+      document.body.classList.toggle('dark', savedTheme !== 'day');
+    }})();
+  </script>
+  <section class="login-screen" id="loginScreen" aria-label="تسجيل الدخول">
+    <div class="login-card">
+      <div class="login-brand">
+        <img src="gf_logo_current_clean.png" alt="GF" />
+        <div>
+          <h2>تسجيل الدخول</h2>
+          <p>أدخل بيانات الدخول للوصول إلى لوحة التحكم</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <div class="login-field">
+          <label for="loginUsername">اسم المستخدم</label>
+          <input id="loginUsername" name="username" autocomplete="username" required />
+        </div>
+        <div class="login-field">
+          <label for="loginPassword">كلمة المرور</label>
+          <div class="login-input-wrap">
+            <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
+            <button class="password-toggle" id="passwordToggle" type="button">إظهار</button>
+          </div>
+        </div>
+        <button class="login-button" type="submit">دخول</button>
+        <div class="login-error" id="loginError">بيانات الدخول غير صحيحة</div>
+      </form>
+    </div>
+  </section>
+  <main class="page dashboard-shell" id="dashboardShell" aria-hidden="true">
     <header class="hero">
       <div class="hero-title">
         <h1>لوحة التحكم المالية المختصرة</h1>
@@ -943,10 +1142,14 @@ def build_html(data):
       <div class="brand-lockup">
         <img class="brand-logo" src="gf_logo_current_clean.png" alt="GF Smart Accounting Solutions" />
         <div class="brand-divider" aria-hidden="true"></div>
-        <div class="hero-copy">
-          <span class="brand-tag">Smart Accounting</span>
-          <span>Solutions</span>
+        <div class="hero-copy brand-identity">
+          <strong>GF Analytics</strong>
+          <span>Financial Intelligence Dashboard</span>
         </div>
+      </div>
+      <div class="header-actions">
+        <button class="theme-toggle" id="themeToggle" type="button">🌙 Night Mode</button>
+        <button class="logout-button" id="logoutButton" type="button">تسجيل خروج</button>
       </div>
     </header>
 
@@ -1112,11 +1315,86 @@ def build_html(data):
       </div>
     </section>
 
-    <div class="footer-note">
-      ملف Excel المرتب موجود هنا: <a href="{details_href}">lead_report.xlsx</a>
-    </div>
+    <footer class="dashboard-footer">
+      <strong>GF Smart Accounting Solutions</strong>
+      <span>Last Updated: {last_updated}</span>
+    </footer>
   </main>
   <script>
+
+    const loginScreen = document.getElementById('loginScreen');
+    const dashboardShell = document.getElementById('dashboardShell');
+    const loginForm = document.getElementById('loginForm');
+    const loginError = document.getElementById('loginError');
+    const passwordInput = document.getElementById('loginPassword');
+    const passwordToggle = document.getElementById('passwordToggle');
+    const themeToggle = document.getElementById('themeToggle');
+    const logoutButton = document.getElementById('logoutButton');
+
+    function setDashboardVisible(visible) {{
+      if (visible) {{
+        loginScreen.classList.add('is-hidden');
+        dashboardShell.classList.add('is-visible');
+        dashboardShell.setAttribute('aria-hidden', 'false');
+      }} else {{
+        loginScreen.classList.remove('is-hidden', 'is-hiding');
+        dashboardShell.classList.remove('is-visible');
+        dashboardShell.setAttribute('aria-hidden', 'true');
+      }}
+    }}
+
+    function completeLogin() {{
+      localStorage.setItem('gfLeadAuthenticated', 'true');
+      loginScreen.classList.add('is-hiding');
+      setTimeout(() => setDashboardVisible(true), 250);
+    }}
+
+    function applyTheme(theme) {{
+      const isDark = theme !== 'day';
+      document.body.classList.toggle('dark', isDark);
+      localStorage.setItem('gfTheme', isDark ? 'dark' : 'day');
+      themeToggle.textContent = isDark ? '☀️ Day Mode' : '🌙 Night Mode';
+    }}
+
+    applyTheme(localStorage.getItem('gfTheme') || 'dark');
+    if (localStorage.getItem('gfLeadAuthenticated') === 'true') setDashboardVisible(true);
+
+    passwordToggle.addEventListener('click', () => {{
+      const showing = passwordInput.type === 'text';
+      passwordInput.type = showing ? 'password' : 'text';
+      passwordToggle.textContent = showing ? 'إظهار' : 'إخفاء';
+    }});
+
+    loginForm.addEventListener('submit', async (event) => {{
+      event.preventDefault();
+      loginError.classList.remove('is-visible');
+      const payload = {{
+        username: document.getElementById('loginUsername').value,
+        password: passwordInput.value
+      }};
+      try {{
+        const response = await fetch('/api/login', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify(payload)
+        }});
+        if (!response.ok) throw new Error('invalid');
+        completeLogin();
+      }} catch (error) {{
+        loginError.classList.add('is-visible');
+      }}
+    }});
+
+    themeToggle.addEventListener('click', () => {{
+      applyTheme(document.body.classList.contains('dark') ? 'day' : 'dark');
+    }});
+
+    logoutButton.addEventListener('click', async () => {{
+      localStorage.removeItem('gfLeadAuthenticated');
+      try {{ await fetch('/api/logout', {{ method: 'POST' }}); }} catch (error) {{}}
+      setDashboardVisible(false);
+    }});
+
     const dailyLabels = {json.dumps(daily_chart_labels, ensure_ascii=False)};
     const dailyProfit = {json.dumps(daily_chart_profit, ensure_ascii=False)};
     const dailyRevenue = {json.dumps(daily_chart_revenue, ensure_ascii=False)};
@@ -1159,11 +1437,11 @@ def build_html(data):
       const step = plotW / Math.max(labels.length, 1);
       const barW = Math.min(18, step * 0.27);
       const profitGradient = ctx.createLinearGradient(0, pad.top, 0, height - pad.bottom);
-      profitGradient.addColorStop(0, 'rgba(199,154,80,.88)');
-      profitGradient.addColorStop(1, 'rgba(199,154,80,.20)');
+      profitGradient.addColorStop(0, 'rgba(216,202,190,.88)');
+      profitGradient.addColorStop(1, 'rgba(216,202,190,.20)');
       const revenueGradient = ctx.createLinearGradient(0, pad.top, 0, height - pad.bottom);
-      revenueGradient.addColorStop(0, 'rgba(114,87,217,.86)');
-      revenueGradient.addColorStop(1, 'rgba(114,87,217,.20)');
+      revenueGradient.addColorStop(0, 'rgba(176,74,100,.86)');
+      revenueGradient.addColorStop(1, 'rgba(176,74,100,.20)');
 
       labels.forEach((label, index) => {{
         const centerX = pad.left + step * index + step / 2;
@@ -1188,7 +1466,7 @@ def build_html(data):
         const y = height - pad.bottom - ((count / maxCount) * plotH);
         return [centerX, y];
       }});
-      ctx.strokeStyle = 'rgba(72,215,208,.95)';
+      ctx.strokeStyle = 'rgba(122,36,56,.95)';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       linePoints.forEach(([x, y], index) => {{
@@ -1197,11 +1475,11 @@ def build_html(data):
       }});
       ctx.stroke();
       linePoints.forEach(([x, y]) => {{
-        ctx.fillStyle = 'rgba(72,215,208,.95)';
+        ctx.fillStyle = 'rgba(122,36,56,.95)';
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#07111d';
+        ctx.strokeStyle = '#0F1113';
         ctx.lineWidth = 2;
         ctx.stroke();
       }});
@@ -1209,9 +1487,9 @@ def build_html(data):
       ctx.textAlign = 'right';
       ctx.fillStyle = 'rgba(246,251,255,.68)';
       ctx.fillText('صافي الربح', width - pad.right, 16);
-      ctx.fillStyle = 'rgba(114,87,217,.78)';
+      ctx.fillStyle = 'rgba(176,74,100,.78)';
       ctx.fillText('الإيراد', width - pad.right - 82, 16);
-      ctx.fillStyle = 'rgba(72,215,208,.78)';
+      ctx.fillStyle = 'rgba(122,36,56,.78)';
       ctx.fillText('عدد الطلبات', width - pad.right - 142, 16);
     }}
 
@@ -1256,11 +1534,11 @@ def build_html(data):
     if (chartCanvas && window.Chart) {{
       const chartContext = chartCanvas.getContext('2d');
       const profitGradient = chartContext.createLinearGradient(0, 0, 0, 280);
-      profitGradient.addColorStop(0, 'rgba(199,154,80,0.88)');
-      profitGradient.addColorStop(1, 'rgba(199,154,80,0.20)');
+      profitGradient.addColorStop(0, 'rgba(216,202,190,0.88)');
+      profitGradient.addColorStop(1, 'rgba(216,202,190,0.20)');
       const revenueGradient = chartContext.createLinearGradient(0, 0, 0, 280);
-      revenueGradient.addColorStop(0, 'rgba(114,87,217,0.86)');
-      revenueGradient.addColorStop(1, 'rgba(114,87,217,0.20)');
+      revenueGradient.addColorStop(0, 'rgba(176,74,100,0.86)');
+      revenueGradient.addColorStop(1, 'rgba(176,74,100,0.20)');
       new Chart(chartCanvas, {{
         data: {{
           labels: dailyLabels,
@@ -1271,7 +1549,7 @@ def build_html(data):
               data: dailyProfit,
               yAxisID: 'money',
               backgroundColor: profitGradient,
-              borderColor: 'rgba(199,154,80,.95)',
+              borderColor: 'rgba(216,202,190,.95)',
               borderWidth: 1,
               borderRadius: 6,
               maxBarThickness: 20
@@ -1282,7 +1560,7 @@ def build_html(data):
               data: dailyRevenue,
               yAxisID: 'money',
               backgroundColor: revenueGradient,
-              borderColor: 'rgba(114,87,217,.96)',
+              borderColor: 'rgba(176,74,100,.96)',
               borderWidth: 1,
               borderRadius: 6,
               maxBarThickness: 20
@@ -1292,14 +1570,14 @@ def build_html(data):
               label: 'عدد الطلبات',
               data: dailyCount,
               yAxisID: 'count',
-              borderColor: 'rgba(72,215,208,.95)',
-              backgroundColor: 'rgba(72,215,208,0.12)',
+              borderColor: 'rgba(122,36,56,.95)',
+              backgroundColor: 'rgba(122,36,56,0.12)',
               borderWidth: 2.5,
               tension: 0.38,
               pointRadius: 3.5,
               pointHoverRadius: 5,
-              pointBackgroundColor: 'rgba(72,215,208,.95)',
-              pointBorderColor: '#07111d',
+              pointBackgroundColor: 'rgba(122,36,56,.95)',
+              pointBorderColor: '#0F1113',
               pointBorderWidth: 2
             }}
           ]
@@ -1343,7 +1621,7 @@ def build_html(data):
             count: {{
               position: 'right',
               grid: {{ drawOnChartArea: false }},
-              ticks: {{ color: 'rgba(72,215,208,.72)', precision: 0, font: {{ size: 10 }} }}
+              ticks: {{ color: 'rgba(122,36,56,.72)', precision: 0, font: {{ size: 10 }} }}
             }}
           }}
         }}

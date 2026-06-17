@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import os
-from base64 import b64decode
-from functools import wraps
 from pathlib import Path
 
-from flask import Flask, Response, redirect, request, send_file, send_from_directory, url_for
+from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory, session, url_for
 
 
 ROOT = Path(__file__).resolve().parent
@@ -15,37 +13,40 @@ AUTH_USER = os.environ.get("LEAD_AUTH_USER", "")
 AUTH_PASS = os.environ.get("LEAD_AUTH_PASS", "")
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("LEAD_SESSION_SECRET", os.environ.get("SECRET_KEY", "lead-local-session"))
 
 
 def _auth_enabled() -> bool:
     return bool(AUTH_USER and AUTH_PASS)
 
 
-def _check_basic_auth() -> bool:
-    header = request.headers.get("Authorization", "")
-    if not header.startswith("Basic "):
-        return False
-    try:
-        raw = b64decode(header.split(" ", 1)[1]).decode("utf-8")
-    except Exception:
-        return False
-    user, _, password = raw.partition(":")
+def _check_credentials(user: str, password: str) -> bool:
+    if not _auth_enabled():
+        return bool(user.strip() and password.strip())
     return user == AUTH_USER and password == AUTH_PASS
 
 
-def _basic_auth_required():
-    response = Response("Authentication required", status=401, mimetype="text/plain")
-    response.headers["WWW-Authenticate"] = 'Basic realm="lead"'
-    return response
+@app.post("/api/login")
+def api_login():
+    payload = request.get_json(silent=True) or {}
+    user = str(payload.get("username", ""))
+    password = str(payload.get("password", ""))
+    if _check_credentials(user, password):
+        session["lead_authenticated"] = True
+        session["lead_user"] = user
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "invalid_credentials"}), 401
 
 
-@app.before_request
-def enforce_basic_auth():
-    if request.path == "/health" or not _auth_enabled():
-        return None
-    if _check_basic_auth():
-        return None
-    return _basic_auth_required()
+@app.post("/api/logout")
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/session")
+def api_session():
+    return jsonify({"authenticated": bool(session.get("lead_authenticated"))})
 
 
 def _dashboard_dir() -> Path | None:
