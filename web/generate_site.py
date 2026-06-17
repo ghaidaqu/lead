@@ -459,99 +459,7 @@ def fmt_money(value):
     return f"{value:,.2f} ريال"
 
 
-def build_step_area_chart(series, color="#8a6f68", value_formatter=None, chart_key="chart"):
-    if not series:
-        return "<div class='empty-state'>لا توجد بيانات كافية للرسم</div>"
-
-    points = [(str(date), float(value)) for date, value in series]
-    max_val = max(value for _, value in points) or 1
-    width = 760
-    height = 240
-    pad_left = 28
-    pad_right = 18
-    pad_top = 56
-    pad_bottom = 48
-    chart_width = width - pad_left - pad_right
-    chart_height = height - pad_top - pad_bottom
-    step = chart_width / max(len(points) - 1, 1)
-
-    xs = [pad_left + step * idx for idx in range(len(points))]
-    ys = [pad_top + (1 - (value / max_val)) * chart_height for _, value in points]
-    base_y = height - pad_bottom
-
-    line_commands = [f"M {xs[0]:.1f} {ys[0]:.1f}"]
-    for idx in range(1, len(points)):
-        line_commands.append(f"H {xs[idx]:.1f}")
-        line_commands.append(f"V {ys[idx]:.1f}")
-
-    fill_commands = [
-        f"M {xs[0]:.1f} {base_y:.1f}",
-        f"L {xs[0]:.1f} {ys[0]:.1f}",
-    ]
-    for idx in range(1, len(points)):
-        fill_commands.append(f"H {xs[idx]:.1f}")
-        fill_commands.append(f"V {ys[idx]:.1f}")
-    fill_commands.extend([
-        f"H {xs[-1]:.1f}",
-        f"V {base_y:.1f}",
-        "Z",
-    ])
-
-    point_marks = []
-    value_labels = []
-    date_labels = []
-    for idx, ((date, value), x, y) in enumerate(zip(points, xs, ys)):
-        short_date = date[5:] if len(date) >= 10 else date
-        if value_formatter is None:
-            value_text = fmt_money(value).replace(" ريال", "")
-        else:
-            value_text = value_formatter(value)
-        point_marks.append(
-            f"<circle class='chart-point' cx='{x:.1f}' cy='{y:.1f}' r='5' fill='{color}' stroke='rgba(255,255,255,0.96)' stroke-width='2.2' />"
-        )
-        label_width = max(34, min(78, 12 + len(value_text) * 6.2))
-        chosen_row = idx % 2
-        label_y = 14 + (chosen_row * 20)
-        side_offset = -18 if chosen_row == 0 else 18
-        label_x = max(20, min(width - label_width - 20, x + side_offset - label_width / 2))
-        line_y = label_y + 18
-        value_labels.append(
-            f"<g class='area-value-wrap'><line x1='{x:.1f}' y1='{y - 6:.1f}' x2='{x:.1f}' y2='{line_y:.1f}' stroke='rgba(177,42,91,0.22)' stroke-width='1' /><rect x='{label_x:.1f}' y='{label_y:.1f}' rx='10' ry='10' width='{label_width:.1f}' height='18' fill='rgba(15,11,19,0.88)' stroke='rgba(255,255,255,0.12)' stroke-width='1' /><text x='{label_x + label_width/2:.1f}' y='{label_y + 13:.1f}' text-anchor='middle' class='area-value'>{value_text}</text></g>"
-        )
-        date_labels.append(
-            f"<text x='{x:.1f}' y='{height - 18}' text-anchor='middle' class='area-date'>{short_date}</text>"
-        )
-
-    return f"""
-      <svg viewBox='0 0 {width} {height}' role='img' aria-label='Area Chart - Step'>
-        <defs>
-          <linearGradient id='areaFill-{chart_key}' x1='0' x2='0' y1='0' y2='1'>
-            <stop offset='0%' stop-color='rgba(138,111,104,0.34)' />
-            <stop offset='100%' stop-color='rgba(138,111,104,0.06)' />
-          </linearGradient>
-          <linearGradient id='areaStroke-{chart_key}' x1='0' x2='1' y1='0' y2='0'>
-            <stop offset='0%' stop-color='{color}' />
-            <stop offset='100%' stop-color='#2f2628' />
-          </linearGradient>
-        </defs>
-        <path d='{ " ".join(fill_commands) }' fill='url(#areaFill-{chart_key})' />
-        <path class='chart-line' d='{ " ".join(line_commands) }' fill='none' stroke='url(#areaStroke-{chart_key})' stroke-width='3.8' stroke-linecap='round' stroke-linejoin='round' />
-        {''.join(point_marks)}
-        {''.join(value_labels)}
-        {''.join(date_labels)}
-      </svg>
-    """
-
-
 def metric_card(label, value, note="", tone="navy"):
-    if label == "إجمالي الربح":
-        return f"""
-      <article class="metric-card tone-{tone}">
-        <span class="metric-label">{label}</span>
-        <strong>{value}</strong>
-        <div class="metric-footer">{note}</div>
-      </article>
-    """
     return f"""
       <article class="metric-card tone-{tone}">
         <span class="metric-label">{label}</span>
@@ -579,13 +487,17 @@ def build_html(data):
         "1756": {"collection_date": "2026-06-11", "transfer_date": "2026-06-13"},
     }
 
-    chart_html = build_step_area_chart(daily[-7:], color="#b12a5b", chart_key="profit")
-    count_chart_html = build_step_area_chart(
-        daily_count[-7:],
-        color="#7a1538",
-        value_formatter=lambda value: str(int(value)),
-        chart_key="count",
-    )
+    daily_profit_points = daily[-7:]
+    daily_count_map = {date: count for date, count in daily_count}
+    daily_chart_labels = [
+        str(date)[5:] if len(str(date)) >= 10 else str(date)
+        for date, _ in daily_profit_points
+    ]
+    daily_chart_profit = [round(float(value), 2) for _, value in daily_profit_points]
+    daily_chart_count = [
+        int(daily_count_map.get(date, 0))
+        for date, _ in daily_profit_points
+    ]
     carrier_total = sum(data["total"] for _, data in top_carriers) or 1
     carrier_colors = ["#b12a5b", "#7a1538", "#8c5f63", "#c09aa0", "#d8c2c8", "#5f5163"]
     carrier_legend_items = []
@@ -614,28 +526,28 @@ def build_html(data):
 
     merchant_rows = "".join(
         f"<tr><td>{idx + 1}</td><td>{html.escape(name or '-')}</td><td>{data['count']}</td><td>{fmt_money(data['total'])}</td></tr>"
-        for idx, (name, data) in enumerate(top_merchants)
+        for idx, (name, data) in enumerate(top_merchants[:4])
     )
     city_rows = "".join(
         f"<tr><td>{idx + 1}</td><td>{html.escape(name or '-')}</td><td>{data['count']}</td><td>{fmt_money(data['total'])}</td></tr>"
-        for idx, (name, data) in enumerate(top_cities)
+        for idx, (name, data) in enumerate(top_cities[:4])
     )
-    shipment_cards = f"""
-      <section class="mini-band">
-        <article class="mini-card">
-          <span class="metric-label">عدد الشحنات</span>
-          <strong>{totals["active"]}</strong>
-          <div class="metric-footer">غير داخلة في الربح: {totals["excluded"]}</div>
-        </article>
-        <article class="mini-card">
-          <span class="metric-label">عدد COD</span>
-          <strong>{totals["cod"]}</strong>
-          <div class="metric-footer">الطلبات التي عليها تحصيل</div>
-        </article>
-        <article class="mini-card">
-          <span class="metric-label">مبلغ COD</span>
-          <strong>{fmt_money(totals["cod_amount"])}</strong>
-          <div class="metric-footer">إجمالي مبالغ COD</div>
+    profit_details = f"""
+      <section class="profit-details-card">
+        <article class="panel details-panel">
+          <div class="panel-header compact-header">
+            <div>
+              <p class="eyebrow">تفاصيل الأرباح</p>
+              <p class="subtle">تفصيل القيم الداخلة في إجمالي الربح</p>
+            </div>
+          </div>
+          <div class="details-grid">
+            <div class="detail-chip"><span>ربح الشحنات</span><strong>{fmt_money(totals["base"])}</strong></div>
+            <div class="detail-chip"><span>ربح المرتجعات</span><strong>{fmt_money(totals["return_profit"])}</strong></div>
+            <div class="detail-chip"><span>ربح الوزن الزائد</span><strong>{fmt_money(totals["extra"])}</strong></div>
+            <div class="detail-chip"><span>ربح COD</span><strong>{fmt_money(totals["cod_profit"])}</strong></div>
+            <div class="detail-chip"><span>عدد COD</span><strong>{totals["cod"]}</strong></div>
+          </div>
         </article>
       </section>
     """
@@ -690,22 +602,23 @@ def build_html(data):
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>lead</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {{
       color-scheme: dark;
-      --bg: #07070b;
-      --bg-soft: #0f0b13;
-      --card: rgba(255,255,255,.075);
-      --card-strong: rgba(255,255,255,.11);
-      --border: rgba(255,255,255,.14);
-      --text: #f7f2f5;
-      --muted: #a89ca7;
-      --burgundy: #7a1538;
-      --burgundy-2: #b12a5b;
-      --purple: #6d28d9;
-      --green: #2dd4bf;
-      --red: #fb7185;
-      --shadow: 0 24px 80px rgba(0,0,0,.45);
+      --bg: #04070d;
+      --bg-soft: #0b101c;
+      --card: rgba(18,24,38,.72);
+      --card-strong: rgba(28,35,54,.82);
+      --border: rgba(255,255,255,.12);
+      --text: #f6fbff;
+      --muted: #9aa8ba;
+      --burgundy: #8b1744;
+      --burgundy-2: #e43f80;
+      --purple: #7c4dff;
+      --cyan: #20e7d6;
+      --amber: #f3b354;
+      --shadow: 0 24px 80px rgba(0,0,0,.52);
     }}
     * {{ box-sizing: border-box; }}
     html {{ scroll-behavior:smooth; }}
@@ -715,21 +628,22 @@ def build_html(data):
       color:var(--text);
       font-family: Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
       background:
-        radial-gradient(circle at 15% 5%, rgba(122,21,56,.42), transparent 28%),
-        radial-gradient(circle at 90% 0%, rgba(109,40,217,.18), transparent 24%),
-        linear-gradient(135deg, #050509 0%, #0b0810 50%, #130812 100%);
+        radial-gradient(circle at 16% 8%, rgba(228,63,128,.20), transparent 30%),
+        radial-gradient(circle at 84% 0%, rgba(32,231,214,.12), transparent 26%),
+        radial-gradient(circle at 50% 105%, rgba(124,77,255,.16), transparent 34%),
+        linear-gradient(135deg, #02050a 0%, #08111d 48%, #0b0713 100%);
     }}
     a {{ color:inherit; text-decoration:none; }}
     .page {{ width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:20px 0 34px; }}
     .hero {{
-      margin:0 0 8px;
-      padding:16px 28px 14px;
-      border-radius:26px;
+      margin:0 0 10px;
+      padding:14px 26px 12px;
+      border-radius:16px;
       background:
-        linear-gradient(90deg, #050509 0%, #150811 35%, #4a0c2b 70%, #b1125a 100%);
+        linear-gradient(100deg, rgba(4,7,13,.96) 0%, rgba(21,16,38,.90) 44%, rgba(139,23,68,.68) 100%);
       border:1px solid rgba(255,255,255,.16);
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(18px);
+      box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.08);
+      backdrop-filter: blur(22px) saturate(130%);
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -814,9 +728,9 @@ def build_html(data):
       align-items:center;
       min-height:40px;
       padding:0 14px;
-      border-radius:999px;
+      border-radius:10px;
       border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.08);
+      background:rgba(18,24,38,.70);
       color:rgba(255,255,255,.84);
       font-size:12px;
       backdrop-filter: blur(14px);
@@ -826,9 +740,9 @@ def build_html(data):
       align-items:center;
       min-height:38px;
       padding:0 14px;
-      border-radius:14px;
+      border-radius:10px;
       background:
-        linear-gradient(135deg, rgba(122,21,56,.98), rgba(177,42,91,.84)),
+        linear-gradient(135deg, rgba(139,23,68,.98), rgba(228,63,128,.82)),
         linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.02));
       color:#fff;
       border:1px solid rgba(255,255,255,.20);
@@ -846,26 +760,28 @@ def build_html(data):
       justify-content:flex-end;
       margin:0 0 14px;
     }}
-    .metric-grid {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin-bottom:14px; }}
+    .metric-grid {{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-bottom:10px; }}
     .mini-band {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:0 0 16px; }}
     .finance-band {{ grid-template-columns:repeat(4, minmax(0,1fr)); }}
     .metric-card, .panel, .mini-card {{
       position:relative;
       overflow:hidden;
-      border-radius:24px;
-      background:linear-gradient(180deg, rgba(18,13,25,.96), rgba(11,9,16,.92));
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 18px 50px rgba(0,0,0,.45);
-      backdrop-filter: blur(22px) saturate(122%);
-      -webkit-backdrop-filter: blur(22px) saturate(122%);
+      border-radius:10px;
+      background:
+        linear-gradient(180deg, rgba(17,24,39,.74), rgba(8,13,23,.68)),
+        radial-gradient(circle at 12% 8%, rgba(255,255,255,.10), transparent 26%);
+      border:1px solid rgba(255,255,255,.11);
+      box-shadow:0 18px 44px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.06);
+      backdrop-filter: blur(24px) saturate(135%);
+      -webkit-backdrop-filter: blur(24px) saturate(135%);
     }}
     .metric-card::before, .panel::before, .mini-card::before {{
       content:'';
       position:absolute;
       inset:0;
       background:
-        linear-gradient(135deg, rgba(255,255,255,.13) 0%, rgba(255,255,255,.04) 18%, rgba(255,255,255,0) 42%),
-        radial-gradient(circle at 18% 10%, rgba(177,42,91,.12), transparent 28%);
+        linear-gradient(90deg, rgba(228,63,128,.62), rgba(124,77,255,.50), rgba(32,231,214,.58)) top / 100% 2px no-repeat,
+        linear-gradient(135deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.035) 22%, rgba(255,255,255,0) 48%);
       pointer-events:none;
     }}
     .metric-card > *, .panel > *, .mini-card > * {{ position:relative; z-index:1; }}
@@ -880,24 +796,42 @@ def build_html(data):
       gap:2px;
     }}
     .metric-card {{
-      padding:20px;
-      min-height:120px;
+      padding:16px 18px;
+      min-height:102px;
       display:flex;
       flex-direction:column;
       justify-content:space-between;
     }}
     .metric-label {{ display:block; color:var(--muted); font-size:13px; line-height:1.45; }}
-    .metric-card strong {{ display:block; margin-top:10px; font-size:24px; line-height:1; font-weight:850; letter-spacing:-0.04em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 18px rgba(255,255,255,.16); }}
+    .metric-card strong {{ display:block; margin-top:8px; font-size:22px; line-height:1; font-weight:850; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 18px rgba(32,231,214,.14); }}
     .metric-footer {{ margin-top:8px; color:rgba(255,255,255,.58); font-size:12px; line-height:1.35; }}
     .mini-card .metric-label {{ font-size:13px; line-height:1.35; }}
     .mini-card strong {{ display:block; margin-top:6px; font-size:20px; line-height:1.15; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 16px rgba(255,255,255,.14); }}
     .mini-card .metric-footer {{ font-size:12px; line-height:1.35; }}
-    .content-grid {{ display:grid; grid-template-columns:1.3fr .92fr; gap:16px; margin-bottom:16px; }}
-    .panel {{ padding:20px; }}
+    .profit-details-card {{ margin:0 0 14px; }}
+    .details-panel {{ padding:16px; }}
+    .compact-header {{ margin-bottom:12px; }}
+    .details-grid {{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:10px; }}
+    .detail-chip {{
+      min-height:74px;
+      padding:12px;
+      border-radius:10px;
+      background:rgba(255,255,255,.045);
+      border:1px solid rgba(255,255,255,.09);
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:6px;
+    }}
+    .detail-chip span {{ color:var(--muted); font-size:12px; }}
+    .detail-chip strong {{ color:#fff; font-size:18px; line-height:1.1; font-variant-numeric:tabular-nums; }}
+    .content-grid {{ display:grid; grid-template-columns:1.3fr .92fr; gap:14px; margin-bottom:14px; }}
+    .panel {{ padding:18px; }}
     .panel-header {{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }}
     .eyebrow {{ margin:0; color:rgba(255,255,255,.88); font-size:13px; font-weight:750; letter-spacing:.02em; }}
     .subtle {{ margin:6px 0 0; color:var(--muted); font-size:13px; }}
     .chart-shell {{ height:300px; }}
+    .combo-chart {{ width:100%; height:100%; display:block; }}
     .area-chart {{ width:100%; height:100%; display:block; }}
     .area-chart svg {{ width:100%; height:100%; display:block; overflow:visible; }}
     .area-value {{ fill:#fff; font-size:11px; font-weight:850; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }}
@@ -950,7 +884,7 @@ def build_html(data):
       gap:10px;
       align-items:center;
       padding:12px 14px;
-      border-radius:16px;
+      border-radius:10px;
       border:1px solid rgba(255,255,255,.10);
       background:rgba(255,255,255,.045);
     }}
@@ -996,7 +930,7 @@ def build_html(data):
     .breakdown-line {{ color:rgba(255,255,255,.70); font-size:12px; line-height:1.5; margin-top:2px; }}
     .footer-note {{ margin-top:16px; color:rgba(255,255,255,.48); font-size:12px; }}
     @media (max-width: 1100px) {{
-      .metric-grid, .content-grid, .table-grid, .mini-band, .finance-band, .statement-summary {{ grid-template-columns:1fr; }}
+      .metric-grid, .content-grid, .table-grid, .mini-band, .finance-band, .statement-summary, .details-grid {{ grid-template-columns:1fr; }}
       .carrier-layout {{ grid-template-columns:1fr; }}
       .hero {{ padding:14px 18px 12px; margin-bottom:6px; align-items:flex-start; }}
       .brand-lockup {{ flex:1 1 100%; min-width:0; }}
@@ -1036,13 +970,11 @@ def build_html(data):
     <section class="metric-grid">
       {metric_card("إجمالي الإيرادات", fmt_money(totals["revenue"]), "الشحنات + إيرادات المرتجعات")}
       {metric_card("إجمالي الربح", fmt_money(totals["total"]), f"الشحنات المحسوبة: {period_label}")}
-      {metric_card("ربح الشحنات", fmt_money(totals["base"]), "بعد خصم الضريبة")}
-      {metric_card("ربح الوزن الزائد", fmt_money(totals["extra"]), "بعد 15 كجم")}
-      {metric_card("ربح COD", fmt_money(totals["cod_profit"]), "الرسوم الصافية")}
-      {metric_card("ربح المرتجعات", fmt_money(totals["return_profit"]), f"عدد المرتجعات المحصلة: {totals['return_count']}")}
+      {metric_card("عدد الشحنات", totals["active"], f"غير داخلة في الربح: {totals['excluded']}")}
+      {metric_card("مبلغ COD", fmt_money(totals["cod_amount"]), "إجمالي مبالغ COD")}
     </section>
 
-    {shipment_cards}
+    {profit_details}
 
     <section class="content-grid">
       <article class="panel">
@@ -1053,14 +985,7 @@ def build_html(data):
           </div>
         </div>
         <div class="chart-shell">
-          <div class="area-chart" aria-label="Area Chart - Step">
-            {chart_html}
-          </div>
-        </div>
-        <div class="chart-shell" style="margin-top:16px; border-top:1px solid rgba(255,255,255,.08); padding-top:16px;">
-          <div class="area-chart" aria-label="مخطط عدد الشحنات اليومية">
-            {count_chart_html}
-          </div>
+          <canvas id="dailyComboChart" class="combo-chart" aria-label="الأداء اليومي"></canvas>
         </div>
       </article>
 
@@ -1200,6 +1125,174 @@ def build_html(data):
       ملف Excel المرتب موجود هنا: <a href="{details_href}">lead_report.xlsx</a>
     </div>
   </main>
+  <script>
+    const dailyLabels = {json.dumps(daily_chart_labels, ensure_ascii=False)};
+    const dailyProfit = {json.dumps(daily_chart_profit, ensure_ascii=False)};
+    const dailyCount = {json.dumps(daily_chart_count, ensure_ascii=False)};
+    const chartCanvas = document.getElementById('dailyComboChart');
+    function drawCanvasComboChart(canvas, labels, profit, counts) {{
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const width = rect.width;
+      const height = rect.height;
+      const pad = {{ top: 34, right: 36, bottom: 34, left: 44 }};
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+      const maxProfit = Math.max(...profit, 1);
+      const maxCount = Math.max(...counts, 1);
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.font = '10px Inter, "Noto Sans Arabic", system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      for (let i = 0; i <= 4; i += 1) {{
+        const y = pad.top + (plotH * i / 4);
+        ctx.strokeStyle = 'rgba(255,255,255,.06)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
+        ctx.stroke();
+      }}
+
+      const step = plotW / Math.max(labels.length, 1);
+      const barW = Math.min(30, step * 0.46);
+      const gradient = ctx.createLinearGradient(0, pad.top, 0, height - pad.bottom);
+      gradient.addColorStop(0, 'rgba(228,63,128,.92)');
+      gradient.addColorStop(1, 'rgba(228,63,128,.24)');
+
+      labels.forEach((label, index) => {{
+        const centerX = pad.left + step * index + step / 2;
+        const barH = (profit[index] / maxProfit) * plotH;
+        const x = centerX - barW / 2;
+        const y = height - pad.bottom - barH;
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.roundRect(x, y, barW, barH, 6);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(246,251,255,.58)';
+        ctx.fillText(label, centerX, height - 16);
+      }});
+
+      const linePoints = counts.map((count, index) => {{
+        const centerX = pad.left + step * index + step / 2;
+        const y = height - pad.bottom - ((count / maxCount) * plotH);
+        return [centerX, y];
+      }});
+      ctx.strokeStyle = 'rgba(32,231,214,1)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      linePoints.forEach(([x, y], index) => {{
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }});
+      ctx.stroke();
+      linePoints.forEach(([x, y]) => {{
+        ctx.fillStyle = 'rgba(32,231,214,1)';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#07111d';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }});
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(246,251,255,.68)';
+      ctx.fillText('الربح اليومي', width - pad.right, 16);
+      ctx.fillStyle = 'rgba(32,231,214,.78)';
+      ctx.fillText('عدد الشحنات', width - pad.right - 88, 16);
+    }}
+
+    if (chartCanvas && window.Chart) {{
+      const chartGradient = chartCanvas.getContext('2d').createLinearGradient(0, 0, 0, 280);
+      chartGradient.addColorStop(0, 'rgba(228,63,128,0.92)');
+      chartGradient.addColorStop(1, 'rgba(228,63,128,0.22)');
+      new Chart(chartCanvas, {{
+        data: {{
+          labels: dailyLabels,
+          datasets: [
+            {{
+              type: 'bar',
+              label: 'الربح اليومي',
+              data: dailyProfit,
+              yAxisID: 'profit',
+              backgroundColor: chartGradient,
+              borderColor: 'rgba(228,63,128,1)',
+              borderWidth: 1,
+              borderRadius: 6,
+              maxBarThickness: 30
+            }},
+            {{
+              type: 'line',
+              label: 'عدد الشحنات',
+              data: dailyCount,
+              yAxisID: 'count',
+              borderColor: 'rgba(32,231,214,1)',
+              backgroundColor: 'rgba(32,231,214,0.16)',
+              borderWidth: 2.5,
+              tension: 0.38,
+              pointRadius: 3.5,
+              pointHoverRadius: 5,
+              pointBackgroundColor: 'rgba(32,231,214,1)',
+              pointBorderColor: '#07111d',
+              pointBorderWidth: 2
+            }}
+          ]
+        }},
+        options: {{
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {{ mode: 'index', intersect: false }},
+          plugins: {{
+            legend: {{
+              position: 'top',
+              align: 'end',
+              labels: {{
+                color: 'rgba(246,251,255,.76)',
+                boxWidth: 10,
+                boxHeight: 10,
+                usePointStyle: true,
+                font: {{ family: 'Inter, "Noto Sans Arabic", system-ui', size: 11 }}
+              }}
+            }},
+            tooltip: {{
+              rtl: true,
+              textDirection: 'rtl',
+              backgroundColor: 'rgba(5,8,14,.94)',
+              borderColor: 'rgba(255,255,255,.14)',
+              borderWidth: 1,
+              titleColor: '#fff',
+              bodyColor: 'rgba(246,251,255,.82)'
+            }}
+          }},
+          scales: {{
+            x: {{
+              grid: {{ color: 'rgba(255,255,255,.05)' }},
+              ticks: {{ color: 'rgba(246,251,255,.58)', font: {{ size: 10 }} }}
+            }},
+            profit: {{
+              position: 'left',
+              grid: {{ color: 'rgba(255,255,255,.06)' }},
+              ticks: {{ color: 'rgba(246,251,255,.58)', font: {{ size: 10 }} }}
+            }},
+            count: {{
+              position: 'right',
+              grid: {{ drawOnChartArea: false }},
+              ticks: {{ color: 'rgba(32,231,214,.72)', precision: 0, font: {{ size: 10 }} }}
+            }}
+          }}
+        }}
+      }});
+    }} else if (chartCanvas) {{
+      drawCanvasComboChart(chartCanvas, dailyLabels, dailyProfit, dailyCount);
+    }}
+  </script>
 </body>
 </html>"""
 
