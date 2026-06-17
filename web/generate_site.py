@@ -633,11 +633,7 @@ def build_html(data):
       min-height:100vh;
       color:var(--text);
       font-family: Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
-      background:
-        radial-gradient(circle at 18% 4%, rgba(72,215,208,.10), transparent 28%),
-        radial-gradient(circle at 86% 0%, rgba(114,87,217,.13), transparent 26%),
-        radial-gradient(circle at 50% 105%, rgba(72,215,208,.055), transparent 34%),
-        linear-gradient(135deg, #02060d 0%, #07111d 48%, #050811 100%);
+      background:linear-gradient(135deg, #030812 0%, #081322 52%, #050914 100%);
     }}
     a {{ color:inherit; text-decoration:none; }}
     .page {{ width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:20px 0 34px; }}
@@ -645,13 +641,10 @@ def build_html(data):
       margin:0 0 12px;
       padding:12px 18px;
       border-radius:12px;
-      background:
-        linear-gradient(180deg, rgba(20,30,47,.90), rgba(12,20,34,.86)),
-        radial-gradient(circle at 12% 0%, rgba(72,215,208,.09), transparent 32%),
-        radial-gradient(circle at 84% 18%, rgba(114,87,217,.11), transparent 34%);
+      background:linear-gradient(180deg, rgba(24,36,55,.95), rgba(14,24,40,.92));
       border:1px solid var(--border);
       box-shadow:0 16px 48px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.055);
-      backdrop-filter: blur(14px) saturate(112%);
+      backdrop-filter: blur(6px) saturate(104%);
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -661,25 +654,7 @@ def build_html(data):
       position:relative;
       overflow:hidden;
     }}
-    .hero::before {{
-      content:'';
-      position:absolute;
-      inset:0;
-      background:
-        linear-gradient(120deg, rgba(255,255,255,.06), transparent 22%),
-        linear-gradient(90deg, transparent, rgba(72,215,208,.035), transparent);
-      pointer-events:none;
-    }}
-    .hero::after {{
-      content:'';
-      position:absolute;
-      inset:0;
-      background:
-        repeating-linear-gradient(110deg, rgba(255,255,255,.03) 0 1px, transparent 1px 26px);
-      opacity:.08;
-      mask-image: linear-gradient(90deg, transparent 0 20%, black 50% 100%);
-      pointer-events:none;
-    }}
+    .hero::before, .hero::after {{ content:none; }}
     .brand-lockup {{ position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:0; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; flex:0 0 auto; }}
     .brand-logo {{ width:min(128px, 15vw); max-width:128px; height:auto; display:block; background:transparent; filter: drop-shadow(0 8px 18px rgba(0,0,0,.20)); }}
     .brand-divider {{ width:1px; height:38px; background:rgba(142,157,178,.30); box-shadow:0 0 18px rgba(72,215,208,.10); margin:0 8px 0 -2px; }}
@@ -737,7 +712,7 @@ def build_html(data):
       background:rgba(17,28,45,.78);
       color:rgba(230,238,248,.88);
       font-size:12px;
-      backdrop-filter: blur(14px);
+      backdrop-filter: blur(4px);
     }}
     .primary-button {{
       display:inline-flex;
@@ -755,8 +730,8 @@ def build_html(data):
       box-shadow:
         0 14px 28px rgba(72,215,208,.08),
         inset 0 1px 0 rgba(255,255,255,.12);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
     }}
     .primary-button:hover {{ transform: translateY(-1px); filter: brightness(1.05); }}
     .subhero {{
@@ -771,22 +746,17 @@ def build_html(data):
       position:relative;
       overflow:hidden;
       border-radius:10px;
-      background:
-        linear-gradient(180deg, rgba(29,42,64,.92), rgba(15,25,41,.88)),
-        radial-gradient(circle at 12% 8%, rgba(72,215,208,.055), transparent 30%),
-        radial-gradient(circle at 90% 0%, rgba(114,87,217,.055), transparent 26%);
+      background:linear-gradient(180deg, rgba(33,47,70,.95), rgba(17,29,46,.92));
       border:1px solid var(--border);
-      box-shadow:0 16px 38px rgba(0,0,0,.34), 0 0 30px rgba(72,215,208,.045), inset 0 1px 0 rgba(255,255,255,.07);
-      backdrop-filter: blur(12px) saturate(112%);
-      -webkit-backdrop-filter: blur(12px) saturate(112%);
+      box-shadow:0 16px 38px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.06);
+      backdrop-filter: blur(6px) saturate(104%);
+      -webkit-backdrop-filter: blur(6px) saturate(104%);
     }}
     .metric-card::before, .panel::before, .mini-card::before {{
       content:'';
       position:absolute;
       inset:0;
-      background:
-        linear-gradient(135deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.025) 24%, rgba(255,255,255,0) 52%),
-        radial-gradient(circle at 18% 4%, rgba(72,215,208,.045), transparent 30%);
+      background:linear-gradient(135deg, rgba(255,255,255,.045) 0%, rgba(255,255,255,.012) 30%, rgba(255,255,255,0) 58%);
       pointer-events:none;
     }}
     .metric-card > *, .panel > *, .mini-card > * {{ position:relative; z-index:1; }}
@@ -870,10 +840,7 @@ def build_html(data):
       position:relative;
       margin:0 auto;
       padding:0;
-      background:
-        radial-gradient(circle at 50% 50%, rgba(12,20,34,.94) 0 36%, transparent 37%),
-        radial-gradient(circle at 28% 18%, rgba(72,215,208,.08), transparent 30%),
-        linear-gradient(180deg, rgba(28,42,64,.88), rgba(14,24,40,.82));
+      background:linear-gradient(180deg, rgba(33,47,70,.94), rgba(17,29,46,.90));
       border:1px solid rgba(135,154,180,.12);
       box-shadow:0 20px 34px rgba(0,0,0,.34), 0 0 24px rgba(72,215,208,.05), inset 0 1px 0 rgba(255,255,255,.08);
     }}

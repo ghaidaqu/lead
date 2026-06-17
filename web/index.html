@@ -28,11 +28,7 @@
       min-height:100vh;
       color:var(--text);
       font-family: Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
-      background:
-        radial-gradient(circle at 18% 4%, rgba(72,215,208,.10), transparent 28%),
-        radial-gradient(circle at 86% 0%, rgba(114,87,217,.13), transparent 26%),
-        radial-gradient(circle at 50% 105%, rgba(72,215,208,.055), transparent 34%),
-        linear-gradient(135deg, #02060d 0%, #07111d 48%, #050811 100%);
+      background:linear-gradient(135deg, #030812 0%, #081322 52%, #050914 100%);
     }
     a { color:inherit; text-decoration:none; }
     .page { width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:20px 0 34px; }
@@ -40,13 +36,10 @@
       margin:0 0 12px;
       padding:12px 18px;
       border-radius:12px;
-      background:
-        linear-gradient(180deg, rgba(20,30,47,.90), rgba(12,20,34,.86)),
-        radial-gradient(circle at 12% 0%, rgba(72,215,208,.09), transparent 32%),
-        radial-gradient(circle at 84% 18%, rgba(114,87,217,.11), transparent 34%);
+      background:linear-gradient(180deg, rgba(24,36,55,.95), rgba(14,24,40,.92));
       border:1px solid var(--border);
       box-shadow:0 16px 48px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.055);
-      backdrop-filter: blur(14px) saturate(112%);
+      backdrop-filter: blur(6px) saturate(104%);
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -56,25 +49,7 @@
       position:relative;
       overflow:hidden;
     }
-    .hero::before {
-      content:'';
-      position:absolute;
-      inset:0;
-      background:
-        linear-gradient(120deg, rgba(255,255,255,.06), transparent 22%),
-        linear-gradient(90deg, transparent, rgba(72,215,208,.035), transparent);
-      pointer-events:none;
-    }
-    .hero::after {
-      content:'';
-      position:absolute;
-      inset:0;
-      background:
-        repeating-linear-gradient(110deg, rgba(255,255,255,.03) 0 1px, transparent 1px 26px);
-      opacity:.08;
-      mask-image: linear-gradient(90deg, transparent 0 20%, black 50% 100%);
-      pointer-events:none;
-    }
+    .hero::before, .hero::after { content:none; }
     .brand-lockup { position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:0; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; flex:0 0 auto; }
     .brand-logo { width:min(128px, 15vw); max-width:128px; height:auto; display:block; background:transparent; filter: drop-shadow(0 8px 18px rgba(0,0,0,.20)); }
     .brand-divider { width:1px; height:38px; background:rgba(142,157,178,.30); box-shadow:0 0 18px rgba(72,215,208,.10); margin:0 8px 0 -2px; }
@@ -132,7 +107,7 @@
       background:rgba(17,28,45,.78);
       color:rgba(230,238,248,.88);
       font-size:12px;
-      backdrop-filter: blur(14px);
+      backdrop-filter: blur(4px);
     }
     .primary-button {
       display:inline-flex;
@@ -150,8 +125,8 @@
       box-shadow:
         0 14px 28px rgba(72,215,208,.08),
         inset 0 1px 0 rgba(255,255,255,.12);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
     }
     .primary-button:hover { transform: translateY(-1px); filter: brightness(1.05); }
     .subhero {
@@ -166,22 +141,17 @@
       position:relative;
       overflow:hidden;
       border-radius:10px;
-      background:
-        linear-gradient(180deg, rgba(29,42,64,.92), rgba(15,25,41,.88)),
-        radial-gradient(circle at 12% 8%, rgba(72,215,208,.055), transparent 30%),
-        radial-gradient(circle at 90% 0%, rgba(114,87,217,.055), transparent 26%);
+      background:linear-gradient(180deg, rgba(33,47,70,.95), rgba(17,29,46,.92));
       border:1px solid var(--border);
-      box-shadow:0 16px 38px rgba(0,0,0,.34), 0 0 30px rgba(72,215,208,.045), inset 0 1px 0 rgba(255,255,255,.07);
-      backdrop-filter: blur(12px) saturate(112%);
-      -webkit-backdrop-filter: blur(12px) saturate(112%);
+      box-shadow:0 16px 38px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.06);
+      backdrop-filter: blur(6px) saturate(104%);
+      -webkit-backdrop-filter: blur(6px) saturate(104%);
     }
     .metric-card::before, .panel::before, .mini-card::before {
       content:'';
       position:absolute;
       inset:0;
-      background:
-        linear-gradient(135deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.025) 24%, rgba(255,255,255,0) 52%),
-        radial-gradient(circle at 18% 4%, rgba(72,215,208,.045), transparent 30%);
+      background:linear-gradient(135deg, rgba(255,255,255,.045) 0%, rgba(255,255,255,.012) 30%, rgba(255,255,255,0) 58%);
       pointer-events:none;
     }
     .metric-card > *, .panel > *, .mini-card > * { position:relative; z-index:1; }
@@ -265,10 +235,7 @@
       position:relative;
       margin:0 auto;
       padding:0;
-      background:
-        radial-gradient(circle at 50% 50%, rgba(12,20,34,.94) 0 36%, transparent 37%),
-        radial-gradient(circle at 28% 18%, rgba(72,215,208,.08), transparent 30%),
-        linear-gradient(180deg, rgba(28,42,64,.88), rgba(14,24,40,.82));
+      background:linear-gradient(180deg, rgba(33,47,70,.94), rgba(17,29,46,.90));
       border:1px solid rgba(135,154,180,.12);
       box-shadow:0 20px 34px rgba(0,0,0,.34), 0 0 24px rgba(72,215,208,.05), inset 0 1px 0 rgba(255,255,255,.08);
     }
@@ -380,7 +347,7 @@
 
     <div class="subhero">
       <div class="hero-tools">
-        <span class="badge">1-15 يونيو</span>
+        <span class="badge">1-16 يونيو</span>
         <a class="primary-button" href="/report.xlsx"><span>فتح ملف Excel</span></a>
       </div>
     </div>
@@ -389,22 +356,22 @@
       
       <article class="metric-card tone-navy">
         <span class="metric-label">إجمالي الإيرادات</span>
-        <strong>9,441.50 ريال</strong>
+        <strong>9,828.50 ريال</strong>
         <div class="metric-footer">الشحنات + إيرادات المرتجعات</div>
       </article>
     
       
       <article class="metric-card tone-navy">
         <span class="metric-label">إجمالي الربح</span>
-        <strong>1,178.88 ريال</strong>
-        <div class="metric-footer">الشحنات المحسوبة: 1-15 يونيو</div>
+        <strong>1,245.43 ريال</strong>
+        <div class="metric-footer">الشحنات المحسوبة: 1-16 يونيو</div>
       </article>
     
       
       <article class="metric-card tone-navy">
         <span class="metric-label">عدد الشحنات</span>
-        <strong>428</strong>
-        <div class="metric-footer">غير داخلة في الربح: 12</div>
+        <strong>442</strong>
+        <div class="metric-footer">غير داخلة في الربح: 17</div>
       </article>
     
       
@@ -426,7 +393,7 @@
             </div>
           </div>
           <div class="details-grid">
-            <div class="detail-chip"><span>ربح الشحنات</span><strong>1,143.63 ريال</strong></div>
+            <div class="detail-chip"><span>ربح الشحنات</span><strong>1,210.18 ريال</strong></div>
             <div class="detail-chip"><span>ربح المرتجعات</span><strong>23.00 ريال</strong></div>
             <div class="detail-chip"><span>ربح الوزن الزائد</span><strong>4.25 ريال</strong></div>
             <div class="detail-chip"><span>ربح COD</span><strong>8.00 ريال</strong></div>
@@ -461,7 +428,7 @@
             <canvas id="carrierDonutChart" aria-label="شركات الشحن"></canvas>
             <div class="carrier-center">
               <div>
-                <strong>4</strong>
+                <strong>5</strong>
                 <span>شركات</span>
               </div>
             </div>
@@ -471,13 +438,13 @@
               <div class="carrier-row">
                 <span class="carrier-dot" style="background:#48d7d0"></span>
                 <div class="carrier-name">SMSA - سمسا</div>
-                <div class="carrier-meta">96.2%</div>
+                <div class="carrier-meta">96.3%</div>
               </div>
             
               <div class="carrier-row">
                 <span class="carrier-dot" style="background:#7257d9"></span>
                 <div class="carrier-name">ARAMEX - ارامكس</div>
-                <div class="carrier-meta">2.9%</div>
+                <div class="carrier-meta">2.7%</div>
               </div>
             
               <div class="carrier-row">
@@ -488,6 +455,12 @@
             
               <div class="carrier-row">
                 <span class="carrier-dot" style="background:#62718a"></span>
+                <div class="carrier-name">aramex ( استلام من الفرع )</div>
+                <div class="carrier-meta">0.2%</div>
+              </div>
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#a8557a"></span>
                 <div class="carrier-name">SMSA ( استلام من الفرع )</div>
                 <div class="carrier-meta">0.2%</div>
               </div>
@@ -510,7 +483,7 @@
             <thead>
               <tr><th class="rank">#</th><th>العميل</th><th>عدد</th><th>الربح</th></tr>
             </thead>
-            <tbody><tr><td>1</td><td>عبدالرحمن المطيري</td><td>90</td><td>586.80 ريال</td></tr><tr><td>2</td><td>فارس احمد</td><td>211</td><td>270.08 ريال</td></tr><tr><td>3</td><td>احمد محمد بن عبدالله الرزق</td><td>38</td><td>131.10 ريال</td></tr><tr><td>4</td><td>مؤسسة اواني القيصرية التجارية</td><td>61</td><td>92.72 ريال</td></tr></tbody>
+            <tbody><tr><td>1</td><td>عبدالرحمن المطيري</td><td>97</td><td>632.44 ريال</td></tr><tr><td>2</td><td>فارس احمد</td><td>211</td><td>270.08 ريال</td></tr><tr><td>3</td><td>احمد محمد بن عبدالله الرزق</td><td>43</td><td>148.35 ريال</td></tr><tr><td>4</td><td>مؤسسة اواني القيصرية التجارية</td><td>62</td><td>94.24 ريال</td></tr></tbody>
           </table>
         </div>
       </article>
@@ -527,7 +500,7 @@
             <thead>
               <tr><th class="rank">#</th><th>المدينة</th><th>عدد</th><th>الربح</th></tr>
             </thead>
-            <tbody><tr><td>1</td><td>Jeddah</td><td>32</td><td>80.18 ريال</td></tr><tr><td>2</td><td>Mecca</td><td>27</td><td>77.75 ريال</td></tr><tr><td>3</td><td>Medina</td><td>18</td><td>76.71 ريال</td></tr><tr><td>4</td><td>Dammam</td><td>24</td><td>64.33 ريال</td></tr></tbody>
+            <tbody><tr><td>1</td><td>Jeddah</td><td>33</td><td>86.70 ريال</td></tr><tr><td>2</td><td>Mecca</td><td>27</td><td>77.75 ريال</td></tr><tr><td>3</td><td>Medina</td><td>18</td><td>76.71 ريال</td></tr><tr><td>4</td><td>Dammam</td><td>25</td><td>70.85 ريال</td></tr></tbody>
           </table>
         </div>
       </article>
@@ -544,8 +517,8 @@
       <section class="mini-band finance-band">
         <article class="mini-card finance-card bank">
           <span class="metric-label">إيداعات البنك</span>
-          <strong>11</strong>
-          <div class="metric-footer">6,609.00 ريال</div>
+          <strong>13</strong>
+          <div class="metric-footer">6,859.00 ريال</div>
         </article>
         <article class="mini-card finance-card moyasar">
           <span class="metric-label">إيداعات ميسر</span>
@@ -555,11 +528,11 @@
         <article class="mini-card finance-card other">
           <span class="metric-label">تفصيل الخصومات والاستردادات</span>
           <div class="breakdown-line">خصم الضريبة: 339.14 ريال</div>
-          <div class="breakdown-line">العمليات الملغية: 103.00 ريال</div>
+          <div class="breakdown-line">العمليات الملغية: 169.50 ريال</div>
         </article>
         <article class="mini-card finance-card finance-total-card other">
           <span class="metric-label">إجمالي الإيداعات</span>
-          <strong>8,533.00 ريال</strong>
+          <strong>8,783.00 ريال</strong>
           <div class="metric-footer">البنك + ميسر</div>
         </article>
       </section>
@@ -634,13 +607,13 @@
     </div>
   </main>
   <script>
-    const dailyLabels = ["06-09", "06-10", "06-11", "06-12", "06-13", "06-14", "06-15"];
-    const dailyProfit = [112.26, 160.63, 52.29, 20.7, 77.97, 38.5, 88.02];
-    const dailyRevenue = [1149.0, 1703.0, 414.5, 141.0, 448.5, 322.5, 660.0];
-    const dailyCount = [54, 80, 20, 6, 21, 15, 30];
-    const carrierLabels = ["SMSA - سمسا", "ARAMEX - ارامكس", "RedBox - ريدبوكس", "SMSA ( استلام من الفرع )"];
-    const carrierValues = [1112.3, 33.17, 8.4, 2.01];
-    const carrierColors = ["#48d7d0", "#7257d9", "#c79a50", "#62718a"];
+    const dailyLabels = ["06-10", "06-11", "06-12", "06-13", "06-14", "06-15", "06-16"];
+    const dailyProfit = [160.63, 52.29, 20.7, 77.97, 38.5, 88.02, 66.55];
+    const dailyRevenue = [1703.0, 414.5, 141.0, 448.5, 322.5, 660.0, 320.5];
+    const dailyCount = [80, 20, 6, 21, 15, 30, 14];
+    const carrierLabels = ["SMSA - سمسا", "ARAMEX - ارامكس", "RedBox - ريدبوكس", "aramex ( استلام من الفرع )", "SMSA ( استلام من الفرع )"];
+    const carrierValues = [1176.71, 33.17, 8.4, 2.14, 2.01];
+    const carrierColors = ["#48d7d0", "#7257d9", "#c79a50", "#62718a", "#a8557a"];
     const chartCanvas = document.getElementById('dailyComboChart');
     const carrierCanvas = document.getElementById('carrierDonutChart');
     function drawCanvasComboChart(canvas, labels, profit, revenue, counts) {
