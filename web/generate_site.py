@@ -679,7 +679,7 @@ def build_html(data):
     }}
     .hero::before, .hero::after {{ content:none; }}
     .brand-lockup {{ position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:0; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; flex:0 0 auto; }}
-    .brand-logo {{ width:min(128px, 15vw); max-width:128px; height:auto; display:block; background:transparent; filter: drop-shadow(0 8px 18px rgba(0,0,0,.20)); }}
+    .brand-logo {{ width:min(96px, 12vw); max-width:96px; height:auto; display:block; background:transparent; filter:none; }}
     .brand-divider {{ width:1px; height:38px; background:rgba(142,157,178,.30); box-shadow:0 0 18px rgba(122,36,56,.10); margin:0 8px 0 -2px; }}
     .hero-copy {{ display:grid; gap:0; justify-items:flex-start; margin-inline-start:-1px; }}
     .hero-copy span {{ display:block; margin:0; color:rgba(255,255,255,.92); font-size:clamp(14px, 1.6vw, 18px); line-height:1.0; font-weight:650; letter-spacing:-0.02em; }}
@@ -966,7 +966,7 @@ def build_html(data):
     }}
     @keyframes loginCardIn {{ to {{ opacity:1; transform:translateY(0) scale(1); }} }}
     .login-brand {{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:18px; text-align:center; }}
-    .login-brand img {{ width:118px; height:auto; filter:drop-shadow(0 14px 28px rgba(0,0,0,.30)); }}
+    .login-brand img {{ width:132px; height:auto; filter:none; }}
     .login-card h2 {{ margin:8px 0 4px; font-size:24px; line-height:1.2; }}
     .login-card p {{ margin:0; color:#A7A7A7; font-size:13px; line-height:1.7; }}
     .login-form {{ display:grid; gap:14px; margin-top:22px; }}
@@ -1078,7 +1078,6 @@ def build_html(data):
       line-height:1.7;
     }}
     .dashboard-footer strong {{ display:block; color:var(--muted); font-size:13px; font-weight:700; }}
-    body:not(.dark) .brand-logo {{ filter:none; }}
     body:not(.dark) .login-screen {{ background:#0F1113; }}
 
     @media (max-width: 1100px) {{
@@ -1086,7 +1085,7 @@ def build_html(data):
       .carrier-layout {{ grid-template-columns:1fr; }}
       .hero {{ padding:12px 14px; margin-bottom:8px; align-items:center; gap:12px; }}
       .brand-lockup {{ flex:0 1 auto; min-width:0; }}
-      .brand-logo {{ width:min(104px, 31vw); }}
+      .brand-logo {{ width:min(82px, 24vw); }}
       .brand-divider {{ height:32px; margin-inline:7px; }}
       .hero-title {{ position:relative; inset:auto; transform:none; min-width:0; padding:0; align-items:flex-end; width:auto; flex:0 1 auto; }}
       .hero-copy span {{ font-size:12px; }}
@@ -1110,7 +1109,7 @@ def build_html(data):
   <section class="login-screen" id="loginScreen" aria-label="تسجيل الدخول">
     <div class="login-card">
       <div class="login-brand">
-        <img src="gf_logo_current_clean.png" alt="GF" />
+        <img src="gf_logo_mark_clean.png" alt="GF" />
         <div>
           <h2>تسجيل الدخول</h2>
           <p>أدخل بيانات الدخول للوصول إلى لوحة التحكم</p>
@@ -1140,7 +1139,7 @@ def build_html(data):
         <p>نظرة عامة على أداء الأعمال</p>
       </div>
       <div class="brand-lockup">
-        <img class="brand-logo" src="gf_logo_current_clean.png" alt="GF Smart Accounting Solutions" />
+        <img class="brand-logo" src="gf_logo_mark_clean.png" alt="GF Smart Accounting Solutions" />
         <div class="brand-divider" aria-hidden="true"></div>
         <div class="hero-copy brand-identity">
           <strong>GF Analytics</strong>
