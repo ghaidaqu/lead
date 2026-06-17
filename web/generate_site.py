@@ -247,6 +247,7 @@ def load_data():
     by_carrier = defaultdict(lambda: {"count": 0, "total": 0.0})
     by_status = defaultdict(int)
     by_date = defaultdict(float)
+    by_date_revenue = defaultdict(float)
     by_date_count = defaultdict(int)
     all_shipment_dates = set()
     finance = {
@@ -314,6 +315,7 @@ def load_data():
         by_status[item["status"]] += 1
         if item["date"]:
             by_date[item["date"]] += item["total_profit"]
+            by_date_revenue[item["date"]] += item["customer_shipping"]
             by_date_count[item["date"]] += 1
 
     if ops is not None:
@@ -430,6 +432,7 @@ def load_data():
     top_cities = sorted(by_city.items(), key=lambda kv: kv[1]["total"], reverse=True)[:5]
     top_carriers = sorted(by_carrier.items(), key=lambda kv: kv[1]["total"], reverse=True)
     daily = sorted(by_date.items(), key=lambda kv: kv[0])
+    daily_revenue = sorted(by_date_revenue.items(), key=lambda kv: kv[0])
     daily_count = sorted(by_date_count.items(), key=lambda kv: kv[0])
     period_label = june_period_label(all_shipment_dates)
     return_revenue = sum(item["revenue"] for item in return_items)
@@ -452,7 +455,7 @@ def load_data():
     }
     cod_items.sort(key=lambda x: (x["date"], x["order_id"]), reverse=True)
     return_items.sort(key=lambda x: (x["matched"], x["order_id"]), reverse=True)
-    return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_count, finance, cod_items, return_items, statement, period_label
+    return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label
 
 
 def fmt_money(value):
@@ -472,6 +475,7 @@ def metric_card(label, value, note="", tone="navy"):
 def build_html(data):
     totals = data["totals"]
     daily = data["daily"]
+    daily_revenue = data["daily_revenue"]
     daily_count = data["daily_count"]
     finance = data["finance"]
     cod_items = data["cod_items"]
@@ -488,41 +492,44 @@ def build_html(data):
     }
 
     daily_profit_points = daily[-7:]
+    daily_revenue_map = {date: revenue for date, revenue in daily_revenue}
     daily_count_map = {date: count for date, count in daily_count}
     daily_chart_labels = [
         str(date)[5:] if len(str(date)) >= 10 else str(date)
         for date, _ in daily_profit_points
     ]
     daily_chart_profit = [round(float(value), 2) for _, value in daily_profit_points]
+    daily_chart_revenue = [
+        round(float(daily_revenue_map.get(date, 0)), 2)
+        for date, _ in daily_profit_points
+    ]
     daily_chart_count = [
         int(daily_count_map.get(date, 0))
         for date, _ in daily_profit_points
     ]
     carrier_total = sum(data["total"] for _, data in top_carriers) or 1
-    carrier_colors = ["#b12a5b", "#7a1538", "#8c5f63", "#c09aa0", "#d8c2c8", "#5f5163"]
+    carrier_colors = ["#48d7d0", "#7257d9", "#c79a50", "#62718a", "#a8557a", "#9aa8ba"]
     carrier_legend_items = []
-    carrier_stops = []
-    running_pct = 0.0
+    carrier_chart_labels = []
+    carrier_chart_values = []
+    carrier_chart_colors = []
     for idx, (name, data) in enumerate(top_carriers):
         pct = data["total"] / carrier_total
         color = carrier_colors[idx % len(carrier_colors)]
-        start = running_pct * 100
-        end = (running_pct + pct) * 100
-        carrier_stops.append(f"{color} {start:.2f}% {end:.2f}%")
+        display_name = "ARAMEX - ارامكس" if name == "ارامكس - ARAMEX" else name
+        carrier_chart_labels.append(display_name)
+        carrier_chart_values.append(round(float(data["total"]), 2))
+        carrier_chart_colors.append(color)
         carrier_legend_items.append(
             f"""
               <div class="carrier-row">
                 <span class="carrier-dot" style="background:{color}"></span>
-                <div class="carrier-name">{html.escape("ARAMEX - ارامكس" if name == "ارامكس - ARAMEX" else name)}</div>
+                <div class="carrier-name">{html.escape(display_name)}</div>
                 <div class="carrier-meta">{pct*100:.1f}%</div>
               </div>
             """
         )
-        running_pct += pct
     carrier_legend_html = "".join(carrier_legend_items)
-    carrier_donut_style = "; ".join([
-        f"background: conic-gradient({', '.join(carrier_stops)})",
-    ])
 
     merchant_rows = "".join(
         f"<tr><td>{idx + 1}</td><td>{html.escape(name or '-')}</td><td>{data['count']}</td><td>{fmt_money(data['total'])}</td></tr>"
@@ -610,15 +617,14 @@ def build_html(data):
       --bg-soft: #0b101c;
       --card: rgba(18,24,38,.72);
       --card-strong: rgba(28,35,54,.82);
-      --border: rgba(255,255,255,.12);
+      --border: rgba(150,169,196,.24);
       --text: #f6fbff;
-      --muted: #9aa8ba;
-      --burgundy: #8b1744;
-      --burgundy-2: #e43f80;
-      --purple: #7c4dff;
-      --cyan: #20e7d6;
-      --amber: #f3b354;
-      --shadow: 0 24px 80px rgba(0,0,0,.52);
+      --muted: #a8b5c7;
+      --accent-soft: #a8557a;
+      --purple: #7257d9;
+      --cyan: #48d7d0;
+      --amber: #c79a50;
+      --shadow: 0 22px 70px rgba(0,0,0,.50);
     }}
     * {{ box-sizing: border-box; }}
     html {{ scroll-behavior:smooth; }}
@@ -628,28 +634,30 @@ def build_html(data):
       color:var(--text);
       font-family: Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
       background:
-        radial-gradient(circle at 16% 8%, rgba(228,63,128,.20), transparent 30%),
-        radial-gradient(circle at 84% 0%, rgba(32,231,214,.12), transparent 26%),
-        radial-gradient(circle at 50% 105%, rgba(124,77,255,.16), transparent 34%),
-        linear-gradient(135deg, #02050a 0%, #08111d 48%, #0b0713 100%);
+        radial-gradient(circle at 18% 4%, rgba(72,215,208,.10), transparent 28%),
+        radial-gradient(circle at 86% 0%, rgba(114,87,217,.13), transparent 26%),
+        radial-gradient(circle at 50% 105%, rgba(72,215,208,.055), transparent 34%),
+        linear-gradient(135deg, #02060d 0%, #07111d 48%, #050811 100%);
     }}
     a {{ color:inherit; text-decoration:none; }}
     .page {{ width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:20px 0 34px; }}
     .hero {{
-      margin:0 0 10px;
-      padding:14px 26px 12px;
-      border-radius:16px;
+      margin:0 0 12px;
+      padding:12px 18px;
+      border-radius:12px;
       background:
-        linear-gradient(100deg, rgba(4,7,13,.96) 0%, rgba(21,16,38,.90) 44%, rgba(139,23,68,.68) 100%);
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.08);
-      backdrop-filter: blur(22px) saturate(130%);
+        linear-gradient(180deg, rgba(20,30,47,.90), rgba(12,20,34,.86)),
+        radial-gradient(circle at 12% 0%, rgba(72,215,208,.09), transparent 32%),
+        radial-gradient(circle at 84% 18%, rgba(114,87,217,.11), transparent 34%);
+      border:1px solid var(--border);
+      box-shadow:0 16px 48px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.055);
+      backdrop-filter: blur(14px) saturate(112%);
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:18px;
+      gap:16px;
       flex-wrap:wrap;
-      direction:ltr;
+      direction:rtl;
       position:relative;
       overflow:hidden;
     }}
@@ -658,9 +666,8 @@ def build_html(data):
       position:absolute;
       inset:0;
       background:
-        radial-gradient(circle at 72% 22%, rgba(255,255,255,.08), transparent 18%),
-        radial-gradient(circle at 88% 20%, rgba(255,255,255,.06), transparent 16%),
-        linear-gradient(100deg, transparent 0 56%, rgba(255,255,255,.02) 56% 100%);
+        linear-gradient(120deg, rgba(255,255,255,.06), transparent 22%),
+        linear-gradient(90deg, transparent, rgba(72,215,208,.035), transparent);
       pointer-events:none;
     }}
     .hero::after {{
@@ -669,21 +676,18 @@ def build_html(data):
       inset:0;
       background:
         repeating-linear-gradient(110deg, rgba(255,255,255,.03) 0 1px, transparent 1px 26px);
-      opacity:.18;
-      mask-image: linear-gradient(90deg, transparent 0 52%, black 72% 100%);
+      opacity:.08;
+      mask-image: linear-gradient(90deg, transparent 0 20%, black 50% 100%);
       pointer-events:none;
     }}
-    .brand-lockup {{ position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:0; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; }}
-    .brand-logo {{ width:min(176px, 18vw); max-width:176px; height:auto; display:block; background:transparent; filter: drop-shadow(0 10px 24px rgba(0,0,0,.18)); }}
-    .brand-divider {{ width:1px; height:52px; background:rgba(255,255,255,.34); box-shadow:0 0 0 1px rgba(0,0,0,.05); margin:0 10px 0 -2px; }}
+    .brand-lockup {{ position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:0; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; flex:0 0 auto; }}
+    .brand-logo {{ width:min(128px, 15vw); max-width:128px; height:auto; display:block; background:transparent; filter: drop-shadow(0 8px 18px rgba(0,0,0,.20)); }}
+    .brand-divider {{ width:1px; height:38px; background:rgba(142,157,178,.30); box-shadow:0 0 18px rgba(72,215,208,.10); margin:0 8px 0 -2px; }}
     .hero-copy {{ display:grid; gap:0; justify-items:flex-start; margin-inline-start:-1px; }}
     .hero-copy span {{ display:block; margin:0; color:rgba(255,255,255,.92); font-size:clamp(14px, 1.6vw, 18px); line-height:1.0; font-weight:650; letter-spacing:-0.02em; }}
     .hero-copy .brand-tag {{ font-size:clamp(14px, 1.6vw, 18px); }}
     .hero-title {{
-      position:absolute;
-      right:40px;
-      top:50%;
-      transform:translateY(-50%);
+      position:relative;
       z-index:1;
       direction:rtl;
       text-align:right;
@@ -697,22 +701,22 @@ def build_html(data):
       padding-left:0;
       padding-inline-start:0;
       padding-inline-end:0;
-      min-width:min(20vw, 300px);
-      width:max-content;
-      flex:0 0 auto;
+      min-width:0;
+      width:auto;
+      flex:0 1 auto;
     }}
     .hero-title h1 {{
       margin:0;
-      font-size:clamp(18px, 2.0vw, 23px);
+      font-size:clamp(17px, 1.8vw, 22px);
       line-height:1.08;
       letter-spacing:-0.03em;
       font-weight:800;
       color:#fff;
-      text-shadow:0 2px 18px rgba(0,0,0,.28);
+      text-shadow:0 2px 16px rgba(0,0,0,.32);
     }}
     .hero-title p {{
       margin:0;
-      color:rgba(255,255,255,.72);
+      color:rgba(196,207,222,.72);
       font-size:11px;
     }}
     .hero-tools {{
@@ -729,9 +733,9 @@ def build_html(data):
       min-height:40px;
       padding:0 14px;
       border-radius:10px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(18,24,38,.70);
-      color:rgba(255,255,255,.84);
+      border:1px solid rgba(150,169,196,.24);
+      background:rgba(17,28,45,.78);
+      color:rgba(230,238,248,.88);
       font-size:12px;
       backdrop-filter: blur(14px);
     }}
@@ -742,15 +746,15 @@ def build_html(data):
       padding:0 14px;
       border-radius:10px;
       background:
-        linear-gradient(135deg, rgba(139,23,68,.98), rgba(228,63,128,.82)),
+        linear-gradient(135deg, rgba(72,215,208,.20), rgba(114,87,217,.28)),
         linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.02));
       color:#fff;
-      border:1px solid rgba(255,255,255,.20);
+      border:1px solid rgba(72,215,208,.22);
       font-weight:780;
       letter-spacing:-0.01em;
       box-shadow:
-        0 14px 28px rgba(122,21,56,.30),
-        inset 0 1px 0 rgba(255,255,255,.18);
+        0 14px 28px rgba(72,215,208,.08),
+        inset 0 1px 0 rgba(255,255,255,.12);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
     }}
@@ -768,26 +772,39 @@ def build_html(data):
       overflow:hidden;
       border-radius:10px;
       background:
-        linear-gradient(180deg, rgba(17,24,39,.74), rgba(8,13,23,.68)),
-        radial-gradient(circle at 12% 8%, rgba(255,255,255,.10), transparent 26%);
-      border:1px solid rgba(255,255,255,.11);
-      box-shadow:0 18px 44px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.06);
-      backdrop-filter: blur(24px) saturate(135%);
-      -webkit-backdrop-filter: blur(24px) saturate(135%);
+        linear-gradient(180deg, rgba(29,42,64,.92), rgba(15,25,41,.88)),
+        radial-gradient(circle at 12% 8%, rgba(72,215,208,.055), transparent 30%),
+        radial-gradient(circle at 90% 0%, rgba(114,87,217,.055), transparent 26%);
+      border:1px solid var(--border);
+      box-shadow:0 16px 38px rgba(0,0,0,.34), 0 0 30px rgba(72,215,208,.045), inset 0 1px 0 rgba(255,255,255,.07);
+      backdrop-filter: blur(12px) saturate(112%);
+      -webkit-backdrop-filter: blur(12px) saturate(112%);
     }}
     .metric-card::before, .panel::before, .mini-card::before {{
       content:'';
       position:absolute;
       inset:0;
       background:
-        linear-gradient(90deg, rgba(228,63,128,.62), rgba(124,77,255,.50), rgba(32,231,214,.58)) top / 100% 2px no-repeat,
-        linear-gradient(135deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.035) 22%, rgba(255,255,255,0) 48%);
+        linear-gradient(135deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.025) 24%, rgba(255,255,255,0) 52%),
+        radial-gradient(circle at 18% 4%, rgba(72,215,208,.045), transparent 30%);
       pointer-events:none;
     }}
     .metric-card > *, .panel > *, .mini-card > * {{ position:relative; z-index:1; }}
+    .metric-card::after, .mini-card::after, .detail-chip::after {{
+      content:'';
+      position:absolute;
+      top:0;
+      left:14px;
+      right:14px;
+      height:2px;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(72,215,208,.42), rgba(114,87,217,.34), rgba(199,154,80,.28));
+      box-shadow:0 0 10px rgba(72,215,208,.08);
+      pointer-events:none;
+    }}
     .mini-card {{
-      padding:14px;
-      min-height:92px;
+      padding:12px 14px;
+      min-height:84px;
       display:flex;
       flex-direction:column;
       justify-content:center;
@@ -796,40 +813,42 @@ def build_html(data):
       gap:2px;
     }}
     .metric-card {{
-      padding:16px 18px;
-      min-height:102px;
+      padding:14px 16px;
+      min-height:94px;
       display:flex;
       flex-direction:column;
       justify-content:space-between;
     }}
-    .metric-label {{ display:block; color:var(--muted); font-size:13px; line-height:1.45; }}
-    .metric-card strong {{ display:block; margin-top:8px; font-size:22px; line-height:1; font-weight:850; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 18px rgba(32,231,214,.14); }}
-    .metric-footer {{ margin-top:8px; color:rgba(255,255,255,.58); font-size:12px; line-height:1.35; }}
+    .metric-label {{ display:block; color:var(--muted); font-size:13px; line-height:1.45; font-weight:560; }}
+    .metric-card strong {{ display:block; margin-top:8px; font-size:22px; line-height:1; font-weight:880; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 14px rgba(72,215,208,.12), 0 1px 0 rgba(255,255,255,.08); }}
+    .metric-footer {{ margin-top:7px; color:rgba(211,222,235,.66); font-size:12px; line-height:1.35; }}
     .mini-card .metric-label {{ font-size:13px; line-height:1.35; }}
-    .mini-card strong {{ display:block; margin-top:6px; font-size:20px; line-height:1.15; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 16px rgba(255,255,255,.14); }}
+    .mini-card strong {{ display:block; margin-top:6px; font-size:20px; line-height:1.15; font-variant-numeric: tabular-nums; color:#fff; font-weight:850; text-shadow:0 2px 14px rgba(72,215,208,.10); }}
     .mini-card .metric-footer {{ font-size:12px; line-height:1.35; }}
     .profit-details-card {{ margin:0 0 14px; }}
     .details-panel {{ padding:16px; }}
     .compact-header {{ margin-bottom:12px; }}
     .details-grid {{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:10px; }}
     .detail-chip {{
-      min-height:74px;
+      position:relative;
+      overflow:hidden;
+      min-height:68px;
       padding:12px;
       border-radius:10px;
-      background:rgba(255,255,255,.045);
-      border:1px solid rgba(255,255,255,.09);
+      background:rgba(24,38,58,.76);
+      border:1px solid rgba(150,169,196,.18);
       display:flex;
       flex-direction:column;
       justify-content:center;
       gap:6px;
     }}
-    .detail-chip span {{ color:var(--muted); font-size:12px; }}
-    .detail-chip strong {{ color:#fff; font-size:18px; line-height:1.1; font-variant-numeric:tabular-nums; }}
+    .detail-chip span {{ color:var(--muted); font-size:12px; font-weight:560; }}
+    .detail-chip strong {{ color:#fff; font-size:18px; line-height:1.1; font-weight:850; font-variant-numeric:tabular-nums; text-shadow:0 2px 12px rgba(72,215,208,.09); }}
     .content-grid {{ display:grid; grid-template-columns:1.3fr .92fr; gap:14px; margin-bottom:14px; }}
     .panel {{ padding:18px; }}
     .panel-header {{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }}
-    .eyebrow {{ margin:0; color:rgba(255,255,255,.88); font-size:13px; font-weight:750; letter-spacing:.02em; }}
-    .subtle {{ margin:6px 0 0; color:var(--muted); font-size:13px; }}
+    .eyebrow {{ margin:0; color:rgba(238,245,252,.88); font-size:13px; font-weight:750; letter-spacing:.02em; }}
+    .subtle {{ margin:6px 0 0; color:rgba(184,198,214,.78); font-size:13px; }}
     .chart-shell {{ height:300px; }}
     .combo-chart {{ width:100%; height:100%; display:block; }}
     .area-chart {{ width:100%; height:100%; display:block; }}
@@ -840,28 +859,29 @@ def build_html(data):
     .chart-point {{ filter: drop-shadow(0 2px 5px rgba(0,0,0,.18)); }}
     .carrier-layout {{
       display:grid;
-      grid-template-columns:120px 1fr;
+      grid-template-columns:156px 1fr;
       gap:16px;
       align-items:center;
     }}
     .carrier-donut {{
-      width:120px;
+      width:min(156px, 48vw);
       aspect-ratio:1;
       border-radius:50%;
       position:relative;
       margin:0 auto;
-      padding:10px;
-      {carrier_donut_style};
-      box-shadow:0 24px 40px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.14);
+      padding:0;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(12,20,34,.94) 0 36%, transparent 37%),
+        radial-gradient(circle at 28% 18%, rgba(72,215,208,.08), transparent 30%),
+        linear-gradient(180deg, rgba(28,42,64,.88), rgba(14,24,40,.82));
+      border:1px solid rgba(135,154,180,.12);
+      box-shadow:0 20px 34px rgba(0,0,0,.34), 0 0 24px rgba(72,215,208,.05), inset 0 1px 0 rgba(255,255,255,.08);
     }}
-    .carrier-donut::after {{
-      content:'';
+    .carrier-donut canvas {{
       position:absolute;
-      inset:22%;
-      border-radius:50%;
-      background:linear-gradient(180deg, rgba(15,11,19,.98), rgba(7,7,11,.96));
-      border:1px solid rgba(255,255,255,.08);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+      inset:0;
+      width:100%;
+      height:100%;
     }}
     .carrier-center {{
       position:absolute;
@@ -876,7 +896,7 @@ def build_html(data):
       pointer-events:none;
     }}
     .carrier-center span {{ display:block; font-size:11px; color:rgba(255,255,255,.72); }}
-    .carrier-center strong {{ display:block; font-size:18px; line-height:1; font-weight:850; }}
+    .carrier-center strong {{ display:block; font-size:22px; line-height:1; font-weight:850; }}
     .carrier-legend {{ display:grid; gap:10px; }}
     .carrier-row {{
       display:grid;
@@ -885,33 +905,33 @@ def build_html(data):
       align-items:center;
       padding:12px 14px;
       border-radius:10px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.045);
+      border:1px solid rgba(150,169,196,.18);
+      background:rgba(24,38,58,.72);
     }}
-    .carrier-dot {{ width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 4px rgba(255,255,255,.04); }}
+    .carrier-dot {{ width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 4px rgba(72,215,208,.045); }}
     .carrier-name {{ font-size:13px; font-weight:700; color:var(--text); }}
-    .carrier-meta {{ font-size:12px; color:rgba(255,255,255,.62); white-space:nowrap; }}
+    .carrier-meta {{ font-size:12px; color:rgba(220,231,242,.70); white-space:nowrap; }}
     .table-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }}
     .table-wrap {{ overflow:auto; }}
     table {{ width:100%; border-collapse:collapse; }}
     th, td {{
       padding:12px 10px;
-      border-bottom:1px solid rgba(255,255,255,.08);
+      border-bottom:1px solid rgba(150,169,196,.14);
       text-align:right;
       white-space:nowrap;
     }}
     th {{
-      color:var(--muted);
+      color:rgba(184,198,214,.82);
       font-size:12px;
       font-weight:700;
     }}
     td {{
-      color:rgba(255,255,255,.88);
+      color:rgba(244,248,252,.92);
       font-size:13px;
     }}
     .rank {{
       width:36px;
-      color:rgba(255,255,255,.56);
+      color:rgba(202,215,229,.66);
       font-variant-numeric: tabular-nums;
     }}
     .table-card-title {{
@@ -932,20 +952,27 @@ def build_html(data):
     @media (max-width: 1100px) {{
       .metric-grid, .content-grid, .table-grid, .mini-band, .finance-band, .statement-summary, .details-grid {{ grid-template-columns:1fr; }}
       .carrier-layout {{ grid-template-columns:1fr; }}
-      .hero {{ padding:14px 18px 12px; margin-bottom:6px; align-items:flex-start; }}
-      .brand-lockup {{ flex:1 1 100%; min-width:0; }}
-      .brand-logo {{ width:min(150px, 38vw); }}
-      .brand-divider {{ height:42px; margin-inline:8px; }}
-      .hero-title {{ position:relative; inset:auto; transform:none; min-width:0; padding:0; align-items:flex-end; width:100%; flex:1 1 100%; }}
-      .hero-copy span {{ font-size:14px; }}
-      .hero-title h1 {{ font-size:18px; }}
+      .hero {{ padding:12px 14px; margin-bottom:8px; align-items:center; gap:12px; }}
+      .brand-lockup {{ flex:0 1 auto; min-width:0; }}
+      .brand-logo {{ width:min(104px, 31vw); }}
+      .brand-divider {{ height:32px; margin-inline:7px; }}
+      .hero-title {{ position:relative; inset:auto; transform:none; min-width:0; padding:0; align-items:flex-end; width:auto; flex:0 1 auto; }}
+      .hero-copy span {{ font-size:12px; }}
+      .hero-title h1 {{ font-size:16px; }}
       .hero-title p {{ font-size:10px; }}
+      .metric-card {{ min-height:88px; }}
+      .mini-card {{ min-height:78px; }}
+      .detail-chip {{ min-height:64px; }}
     }}
   </style>
 </head>
 <body>
   <main class="page">
     <header class="hero">
+      <div class="hero-title">
+        <h1>لوحة التحكم المالية المختصرة</h1>
+        <p>نظرة عامة على أداء الأعمال</p>
+      </div>
       <div class="brand-lockup">
         <img class="brand-logo" src="gf_logo_current_clean.png" alt="GF Smart Accounting Solutions" />
         <div class="brand-divider" aria-hidden="true"></div>
@@ -953,10 +980,6 @@ def build_html(data):
           <span class="brand-tag">Smart Accounting</span>
           <span>Solutions</span>
         </div>
-      </div>
-      <div class="hero-title">
-        <h1>لوحة التحكم المالية المختصرة</h1>
-        <p>نظرة عامة على أداء الأعمال</p>
       </div>
     </header>
 
@@ -998,6 +1021,7 @@ def build_html(data):
         </div>
         <div class="carrier-layout">
           <div class="carrier-donut">
+            <canvas id="carrierDonutChart" aria-label="شركات الشحن"></canvas>
             <div class="carrier-center">
               <div>
                 <strong>{len(top_carriers)}</strong>
@@ -1128,9 +1152,14 @@ def build_html(data):
   <script>
     const dailyLabels = {json.dumps(daily_chart_labels, ensure_ascii=False)};
     const dailyProfit = {json.dumps(daily_chart_profit, ensure_ascii=False)};
+    const dailyRevenue = {json.dumps(daily_chart_revenue, ensure_ascii=False)};
     const dailyCount = {json.dumps(daily_chart_count, ensure_ascii=False)};
+    const carrierLabels = {json.dumps(carrier_chart_labels, ensure_ascii=False)};
+    const carrierValues = {json.dumps(carrier_chart_values, ensure_ascii=False)};
+    const carrierColors = {json.dumps(carrier_chart_colors, ensure_ascii=False)};
     const chartCanvas = document.getElementById('dailyComboChart');
-    function drawCanvasComboChart(canvas, labels, profit, counts) {{
+    const carrierCanvas = document.getElementById('carrierDonutChart');
+    function drawCanvasComboChart(canvas, labels, profit, revenue, counts) {{
       const ctx = canvas.getContext('2d');
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
@@ -1142,7 +1171,7 @@ def build_html(data):
       const pad = {{ top: 34, right: 36, bottom: 34, left: 44 }};
       const plotW = width - pad.left - pad.right;
       const plotH = height - pad.top - pad.bottom;
-      const maxProfit = Math.max(...profit, 1);
+      const maxBars = Math.max(...profit, ...revenue, 1);
       const maxCount = Math.max(...counts, 1);
 
       ctx.clearRect(0, 0, width, height);
@@ -1161,19 +1190,27 @@ def build_html(data):
       }}
 
       const step = plotW / Math.max(labels.length, 1);
-      const barW = Math.min(30, step * 0.46);
-      const gradient = ctx.createLinearGradient(0, pad.top, 0, height - pad.bottom);
-      gradient.addColorStop(0, 'rgba(228,63,128,.92)');
-      gradient.addColorStop(1, 'rgba(228,63,128,.24)');
+      const barW = Math.min(18, step * 0.27);
+      const profitGradient = ctx.createLinearGradient(0, pad.top, 0, height - pad.bottom);
+      profitGradient.addColorStop(0, 'rgba(199,154,80,.88)');
+      profitGradient.addColorStop(1, 'rgba(199,154,80,.20)');
+      const revenueGradient = ctx.createLinearGradient(0, pad.top, 0, height - pad.bottom);
+      revenueGradient.addColorStop(0, 'rgba(114,87,217,.86)');
+      revenueGradient.addColorStop(1, 'rgba(114,87,217,.20)');
 
       labels.forEach((label, index) => {{
         const centerX = pad.left + step * index + step / 2;
-        const barH = (profit[index] / maxProfit) * plotH;
-        const x = centerX - barW / 2;
-        const y = height - pad.bottom - barH;
-        ctx.fillStyle = gradient;
+        const profitH = (profit[index] / maxBars) * plotH;
+        const revenueH = (revenue[index] / maxBars) * plotH;
+        const profitX = centerX - barW - 2;
+        const revenueX = centerX + 2;
+        ctx.fillStyle = profitGradient;
         ctx.beginPath();
-        ctx.roundRect(x, y, barW, barH, 6);
+        ctx.roundRect(profitX, height - pad.bottom - profitH, barW, profitH, 5);
+        ctx.fill();
+        ctx.fillStyle = revenueGradient;
+        ctx.beginPath();
+        ctx.roundRect(revenueX, height - pad.bottom - revenueH, barW, revenueH, 5);
         ctx.fill();
         ctx.fillStyle = 'rgba(246,251,255,.58)';
         ctx.fillText(label, centerX, height - 16);
@@ -1184,7 +1221,7 @@ def build_html(data):
         const y = height - pad.bottom - ((count / maxCount) * plotH);
         return [centerX, y];
       }});
-      ctx.strokeStyle = 'rgba(32,231,214,1)';
+      ctx.strokeStyle = 'rgba(72,215,208,.95)';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       linePoints.forEach(([x, y], index) => {{
@@ -1193,7 +1230,7 @@ def build_html(data):
       }});
       ctx.stroke();
       linePoints.forEach(([x, y]) => {{
-        ctx.fillStyle = 'rgba(32,231,214,1)';
+        ctx.fillStyle = 'rgba(72,215,208,.95)';
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fill();
@@ -1204,42 +1241,97 @@ def build_html(data):
 
       ctx.textAlign = 'right';
       ctx.fillStyle = 'rgba(246,251,255,.68)';
-      ctx.fillText('الربح اليومي', width - pad.right, 16);
-      ctx.fillStyle = 'rgba(32,231,214,.78)';
-      ctx.fillText('عدد الشحنات', width - pad.right - 88, 16);
+      ctx.fillText('صافي الربح', width - pad.right, 16);
+      ctx.fillStyle = 'rgba(114,87,217,.78)';
+      ctx.fillText('الإيراد', width - pad.right - 82, 16);
+      ctx.fillStyle = 'rgba(72,215,208,.78)';
+      ctx.fillText('عدد الطلبات', width - pad.right - 142, 16);
+    }}
+
+    function drawCanvasDonutChart(canvas, values, colors) {{
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const radius = Math.min(rect.width, rect.height) / 2 - 8;
+      const inner = radius * .56;
+      const total = values.reduce((sum, value) => sum + value, 0) || 1;
+      let start = -Math.PI / 2;
+
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      values.forEach((value, index) => {{
+        const end = start + (value / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, start, end);
+        ctx.arc(cx, cy, inner, end, start, true);
+        ctx.closePath();
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(7,17,29,.78)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        start = end;
+      }});
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, inner - 1, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(5,8,14,.94)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.08)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
     }}
 
     if (chartCanvas && window.Chart) {{
-      const chartGradient = chartCanvas.getContext('2d').createLinearGradient(0, 0, 0, 280);
-      chartGradient.addColorStop(0, 'rgba(228,63,128,0.92)');
-      chartGradient.addColorStop(1, 'rgba(228,63,128,0.22)');
+      const chartContext = chartCanvas.getContext('2d');
+      const profitGradient = chartContext.createLinearGradient(0, 0, 0, 280);
+      profitGradient.addColorStop(0, 'rgba(199,154,80,0.88)');
+      profitGradient.addColorStop(1, 'rgba(199,154,80,0.20)');
+      const revenueGradient = chartContext.createLinearGradient(0, 0, 0, 280);
+      revenueGradient.addColorStop(0, 'rgba(114,87,217,0.86)');
+      revenueGradient.addColorStop(1, 'rgba(114,87,217,0.20)');
       new Chart(chartCanvas, {{
         data: {{
           labels: dailyLabels,
           datasets: [
             {{
               type: 'bar',
-              label: 'الربح اليومي',
+              label: 'صافي الربح',
               data: dailyProfit,
-              yAxisID: 'profit',
-              backgroundColor: chartGradient,
-              borderColor: 'rgba(228,63,128,1)',
+              yAxisID: 'money',
+              backgroundColor: profitGradient,
+              borderColor: 'rgba(199,154,80,.95)',
               borderWidth: 1,
               borderRadius: 6,
-              maxBarThickness: 30
+              maxBarThickness: 20
+            }},
+            {{
+              type: 'bar',
+              label: 'الإيراد',
+              data: dailyRevenue,
+              yAxisID: 'money',
+              backgroundColor: revenueGradient,
+              borderColor: 'rgba(114,87,217,.96)',
+              borderWidth: 1,
+              borderRadius: 6,
+              maxBarThickness: 20
             }},
             {{
               type: 'line',
-              label: 'عدد الشحنات',
+              label: 'عدد الطلبات',
               data: dailyCount,
               yAxisID: 'count',
-              borderColor: 'rgba(32,231,214,1)',
-              backgroundColor: 'rgba(32,231,214,0.16)',
+              borderColor: 'rgba(72,215,208,.95)',
+              backgroundColor: 'rgba(72,215,208,0.12)',
               borderWidth: 2.5,
               tension: 0.38,
               pointRadius: 3.5,
               pointHoverRadius: 5,
-              pointBackgroundColor: 'rgba(32,231,214,1)',
+              pointBackgroundColor: 'rgba(72,215,208,.95)',
               pointBorderColor: '#07111d',
               pointBorderWidth: 2
             }}
@@ -1276,7 +1368,7 @@ def build_html(data):
               grid: {{ color: 'rgba(255,255,255,.05)' }},
               ticks: {{ color: 'rgba(246,251,255,.58)', font: {{ size: 10 }} }}
             }},
-            profit: {{
+            money: {{
               position: 'left',
               grid: {{ color: 'rgba(255,255,255,.06)' }},
               ticks: {{ color: 'rgba(246,251,255,.58)', font: {{ size: 10 }} }}
@@ -1284,13 +1376,48 @@ def build_html(data):
             count: {{
               position: 'right',
               grid: {{ drawOnChartArea: false }},
-              ticks: {{ color: 'rgba(32,231,214,.72)', precision: 0, font: {{ size: 10 }} }}
+              ticks: {{ color: 'rgba(72,215,208,.72)', precision: 0, font: {{ size: 10 }} }}
             }}
           }}
         }}
       }});
     }} else if (chartCanvas) {{
-      drawCanvasComboChart(chartCanvas, dailyLabels, dailyProfit, dailyCount);
+      drawCanvasComboChart(chartCanvas, dailyLabels, dailyProfit, dailyRevenue, dailyCount);
+    }}
+
+    if (carrierCanvas && window.Chart) {{
+      new Chart(carrierCanvas, {{
+        type: 'doughnut',
+        data: {{
+          labels: carrierLabels,
+          datasets: [{{
+            data: carrierValues,
+            backgroundColor: carrierColors,
+            borderColor: 'rgba(7,17,29,.78)',
+            borderWidth: 2,
+            hoverOffset: 3
+          }}]
+        }},
+        options: {{
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '58%',
+          plugins: {{
+            legend: {{ display: false }},
+            tooltip: {{
+              rtl: true,
+              textDirection: 'rtl',
+              backgroundColor: 'rgba(5,8,14,.94)',
+              borderColor: 'rgba(255,255,255,.14)',
+              borderWidth: 1,
+              titleColor: '#fff',
+              bodyColor: 'rgba(246,251,255,.82)'
+            }}
+          }}
+        }}
+      }});
+    }} else if (carrierCanvas) {{
+      drawCanvasDonutChart(carrierCanvas, carrierValues, carrierColors);
     }}
   </script>
 </body>
@@ -1299,12 +1426,13 @@ def build_html(data):
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_count, finance, cod_items, return_items, statement, period_label = load_data()
+    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label = load_data()
     data = {
         "totals": totals,
         "top_merchants": top_merchants,
         "top_cities": top_cities,
         "daily": daily,
+        "daily_revenue": daily_revenue,
         "daily_count": daily_count,
         "finance": finance,
         "cod_items": cod_items,
