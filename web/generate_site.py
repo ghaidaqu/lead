@@ -1183,7 +1183,7 @@ def build_html(data):
     </div>
 
     <section class="metric-grid">
-      {metric_card("إجمالي الإيرادات", fmt_money(totals["revenue"]), "الشحنات + إيرادات المرتجعات")}
+      {metric_card("إجمالي الإيرادات", fmt_money(totals["revenue"]), "إجمالي ما دفعه العملاء")}
       {metric_card("إجمالي الربح", fmt_money(totals["total"]), f"الشحنات المحسوبة: {period_label}")}
       {metric_card("عدد الشحنات", totals["active"], f"غير داخلة في الربح: {totals['excluded']}")}
       {metric_card("مبلغ COD", fmt_money(totals["cod_amount"]), "إجمالي مبالغ COD")}
