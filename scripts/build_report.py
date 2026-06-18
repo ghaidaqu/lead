@@ -797,7 +797,19 @@ def style_operations_sheet(wb):
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
     # Sort detailed rows by date descending, then write them.
-    raw_rows.sort(key=lambda x: (x["date"] or dt.datetime(1900, 1, 1), str(x["op_id"])), reverse=True)
+    def sort_date_key(value):
+        if isinstance(value, dt.datetime):
+            return value
+        if isinstance(value, dt.date):
+            return dt.datetime.combine(value, dt.time.min)
+        if isinstance(value, str) and value:
+            try:
+                return dt.datetime.fromisoformat(value)
+            except ValueError:
+                return dt.datetime(1900, 1, 1)
+        return dt.datetime(1900, 1, 1)
+
+    raw_rows.sort(key=lambda x: (sort_date_key(x["date"]), str(x["op_id"])), reverse=True)
     for idx, row in enumerate(raw_rows, start=12):
         ws.cell(idx, 1).value = row["op_id"]
         ws.cell(idx, 2).value = row["date"]
