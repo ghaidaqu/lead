@@ -29,7 +29,11 @@ This keeps the repository code-only and avoids sharing private source data.
 
 ## Local sync
 - Run `python3 scripts/sync_from_lead.py` for a single sync pass
-- Run `LEAD_WORKER_INTERVAL_SECONDS=3600 python3 scripts/lead_worker.py` to keep syncing on a local loop
+- Run `python3 scripts/lead_worker.py` to wait for the 01:30 start window and then sync every hour
+- Optional overrides:
+  - `LEAD_WORKER_START_HOUR=1`
+  - `LEAD_WORKER_START_MINUTE=30`
+  - `LEAD_WORKER_INTERVAL_SECONDS=3600`
 
 ## Automatic updates
 - The watcher script is `python3 scripts/auto_update.py --watch`
@@ -42,7 +46,7 @@ This keeps the repository code-only and avoids sharing private source data.
 - `web: gunicorn app:app --bind 0.0.0.0:$PORT` serves the dashboard only
 - `worker: python3 scripts/lead_worker.py` runs the cloud sync loop
 - Set these Railway environment variables: `LEAD_USERNAME`, `LEAD_PASSWORD`, `LEAD_BASE_URL`
-- Optional worker interval override: `LEAD_WORKER_INTERVAL_SECONDS`
+- Optional worker schedule overrides: `LEAD_WORKER_START_HOUR`, `LEAD_WORKER_START_MINUTE`, `LEAD_WORKER_INTERVAL_SECONDS`
 
 ## Runtime
 - `app.py` serves the dashboard from `web/index.html` when the generated file exists.
