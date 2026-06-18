@@ -509,6 +509,7 @@ def main() -> int:
     wb.save(SOURCE_XLSX)
 
     subprocess.run([sys.executable, str(PROJECT_DIR / "scripts" / "build_report.py")], cwd=str(PROJECT_DIR), check=True)
+    subprocess.run([sys.executable, str(PROJECT_DIR / "web" / "generate_site.py")], cwd=str(PROJECT_DIR), check=True)
 
     report = {
         "backup": str(backup),
@@ -532,6 +533,7 @@ def main() -> int:
         "errors": 0,
         "api_observations": len(payload.get("logs", [])),
         "checks": payload.get("checks", {}),
+        "dashboard_refreshed": True,
     }
 
     state = load_state()
