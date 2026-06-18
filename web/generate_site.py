@@ -1034,7 +1034,7 @@ def build_html(data):
     .brand-identity {{ display:grid; gap:2px; justify-items:start; }}
     .brand-identity strong {{ color:var(--text); font-size:14px; line-height:1.1; letter-spacing:.02em; }}
     .brand-identity span {{ color:var(--muted); font-size:11px; line-height:1.2; }}
-    .header-actions {{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }}
+    .subhero-tools {{ display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; }}
     .theme-toggle, .logout-button {{
       min-height:38px;
       border-radius:12px;
@@ -1094,7 +1094,7 @@ def build_html(data):
       .metric-card {{ min-height:88px; }}
       .mini-card {{ min-height:78px; }}
       .detail-chip {{ min-height:64px; }}
-      .header-actions {{ width:100%; justify-content:flex-start; }}
+      .subhero-tools {{ width:100%; justify-content:flex-start; }}
       .theme-toggle, .logout-button {{ flex:1 1 auto; }}
     }}
   </style>
@@ -1146,16 +1146,16 @@ def build_html(data):
           <span>Financial Intelligence Dashboard</span>
         </div>
       </div>
-      <div class="header-actions">
-        <button class="theme-toggle" id="themeToggle" type="button">🌙 Night Mode</button>
-        <button class="logout-button" id="logoutButton" type="button">تسجيل خروج</button>
-      </div>
     </header>
 
     <div class="subhero">
       <div class="hero-tools">
         <span class="badge">{period_label}</span>
         <a class="primary-button" href="{details_href}"><span>فتح ملف Excel</span></a>
+      </div>
+      <div class="subhero-tools">
+        <button class="theme-toggle" id="themeToggle" type="button">🌙 Night Mode</button>
+        <button class="logout-button" id="logoutButton" type="button">تسجيل خروج</button>
       </div>
     </div>
 
