@@ -6,6 +6,7 @@ import threading
 import time
 import sys
 import tempfile
+import datetime as dt
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory, session, url_for
@@ -93,7 +94,9 @@ def _remote_sync_loop() -> None:
     while True:
         with _sync_thread_lock:
             _run_remote_sync_once()
-        time.sleep(REMOTE_SYNC_INTERVAL)
+        now = dt.datetime.now()
+        next_run = (now.replace(minute=0, second=0, microsecond=0) + dt.timedelta(hours=1))
+        time.sleep(max(1, int((next_run - now).total_seconds())))
 
 
 def _start_remote_sync_thread() -> None:
