@@ -30,6 +30,7 @@ This keeps the repository code-only and avoids sharing private source data.
 - By default it watches the synced Google Drive copy of `lead6.xlsx` at `~/Library/CloudStorage/GoogleDrive-gf.smartas@gmail.com/My Drive/lead6.xlsx`
 - When the source changes, it copies the workbook into `source/lead6.xlsx`, rebuilds the report and dashboard, syncs `lead6_host/`, commits the tracked outputs, and pushes to GitHub
 - The LaunchAgent plist in `launchd/` is intended to keep the watcher running after login on macOS
+- For hosted deployments, set `LEAD_REMOTE_SYNC=1` and `LEAD_REMOTE_SYNC_INTERVAL=3600` so `app.py` starts the hourly background sync loop outside the laptop session.
 
 ## Runtime
 - `app.py` serves the dashboard from `web/index.html` when the generated file exists.

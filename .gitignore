@@ -24,6 +24,8 @@ outputs/
 # Local secrets / environment
 .env
 .env.*
+.auth/
+.auth/*.json
 
 # System files
 .DS_Store

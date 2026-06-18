@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import subprocess
 import os
+import threading
+import time
+import sys
+import tempfile
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory, session, url_for
@@ -11,9 +16,15 @@ WEB_DIR = ROOT / "web"
 REPORT_PATH = ROOT / "output" / "lead6_report.xlsx"
 AUTH_USER = os.environ.get("LEAD_AUTH_USER", "")
 AUTH_PASS = os.environ.get("LEAD_AUTH_PASS", "")
+REMOTE_SYNC_ENABLED = os.environ.get("LEAD_REMOTE_SYNC", "").strip().lower() in {"1", "true", "yes", "on"}
+REMOTE_SYNC_INTERVAL = max(300, int(os.environ.get("LEAD_REMOTE_SYNC_INTERVAL", "3600")))
+REMOTE_SYNC_SCRIPT = ROOT / "scripts" / "sync_from_lead.py"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("LEAD_SESSION_SECRET", os.environ.get("SECRET_KEY", "lead-local-session"))
+_sync_thread_started = False
+_sync_thread_lock = threading.Lock()
+_sync_lock_file = None
 
 
 def _auth_enabled() -> bool:
@@ -54,6 +65,54 @@ def _dashboard_dir() -> Path | None:
     if index.exists():
         return WEB_DIR
     return None
+
+
+def _should_run_remote_sync() -> bool:
+    return REMOTE_SYNC_ENABLED or bool(os.environ.get("RAILWAY_ENVIRONMENT"))
+
+
+def _run_remote_sync_once() -> None:
+    if not REMOTE_SYNC_SCRIPT.exists():
+        return
+    env = os.environ.copy()
+    env.setdefault("PYTHONUNBUFFERED", "1")
+    try:
+        subprocess.run(
+            [sys.executable, str(REMOTE_SYNC_SCRIPT)],
+            cwd=str(ROOT),
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return
+
+
+def _remote_sync_loop() -> None:
+    while True:
+        with _sync_thread_lock:
+            _run_remote_sync_once()
+        time.sleep(REMOTE_SYNC_INTERVAL)
+
+
+def _start_remote_sync_thread() -> None:
+    global _sync_thread_started
+    global _sync_lock_file
+    if _sync_thread_started or not _should_run_remote_sync():
+        return
+    try:
+        import fcntl
+        _sync_lock_file = open(Path(tempfile.gettempdir()) / "lead-remote-sync.lock", "w")
+        fcntl.flock(_sync_lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except Exception:
+        return
+    _sync_thread_started = True
+    thread = threading.Thread(target=_remote_sync_loop, daemon=True, name="lead-remote-sync")
+    thread.start()
+
+
+_start_remote_sync_thread()
 
 
 def _fallback_page() -> str:
