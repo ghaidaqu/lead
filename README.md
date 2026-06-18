@@ -8,6 +8,8 @@ This folder is the canonical copy of the lead project.
 - `scripts/update_statement.py` - rebuilds the bank-statement sheet
 - `scripts/theme_workbook.py` - applies the workbook theme
 - `web/generate_site.py` - builds the local HTML dashboard
+- `scripts/sync_from_lead.py` - one-shot scraper that updates the raw workbook and regenerates outputs
+- `scripts/lead_worker.py` - long-running worker that schedules the sync script
 - `launchd/` - macOS LaunchAgent plist for automatic updates
 - `lead6_rules.md` - project rules and calculation logic
 - `lead6_playbook.md` - operating notes for future updates
@@ -25,12 +27,22 @@ This keeps the repository code-only and avoids sharing private source data.
 2. Run `python3 web/generate_site.py`
 3. Run `python3 app.py` to serve the dashboard locally on `http://localhost:8000`
 
+## Local sync
+- Run `python3 scripts/sync_from_lead.py` for a single sync pass
+- Run `LEAD_WORKER_INTERVAL_SECONDS=3600 python3 scripts/lead_worker.py` to keep syncing on a local loop
+
 ## Automatic updates
 - The watcher script is `python3 scripts/auto_update.py --watch`
 - By default it watches the synced Google Drive copy of `lead6.xlsx` at `~/Library/CloudStorage/GoogleDrive-gf.smartas@gmail.com/My Drive/lead6.xlsx`
 - When the source changes, it copies the workbook into `source/lead6.xlsx`, rebuilds the report and dashboard, syncs `lead6_host/`, commits the tracked outputs, and pushes to GitHub
 - The LaunchAgent plist in `launchd/` is intended to keep the watcher running after login on macOS
-- For hosted deployments, set `LEAD_REMOTE_SYNC=1` and `LEAD_REMOTE_SYNC_INTERVAL=3600` so `app.py` starts the hourly background sync loop outside the laptop session.
+- For hosted deployments, run a separate Railway worker service with `python3 scripts/lead_worker.py` so sync runs outside the laptop session.
+
+## Railway
+- `web: gunicorn app:app --bind 0.0.0.0:$PORT` serves the dashboard only
+- `worker: python3 scripts/lead_worker.py` runs the cloud sync loop
+- Set these Railway environment variables: `LEAD_USERNAME`, `LEAD_PASSWORD`, `LEAD_BASE_URL`
+- Optional worker interval override: `LEAD_WORKER_INTERVAL_SECONDS`
 
 ## Runtime
 - `app.py` serves the dashboard from `web/index.html` when the generated file exists.
