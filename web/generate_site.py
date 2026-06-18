@@ -455,7 +455,18 @@ def load_data():
     }
     cod_items.sort(key=lambda x: (x["date"], x["order_id"]), reverse=True)
     return_items.sort(key=lambda x: (x["matched"], x["order_id"]), reverse=True)
-    return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label
+    order_numbers = sorted(
+        {
+            int(item["order_id"])
+            for item in all_items_by_order.values()
+            if str(item["order_id"]).isdigit()
+        }
+    )
+    missing_sequence_numbers = []
+    if order_numbers:
+        expected = set(range(order_numbers[0], order_numbers[-1] + 1))
+        missing_sequence_numbers = sorted(expected.difference(order_numbers))
+    return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label, missing_sequence_numbers
 
 
 def fmt_money(value):
@@ -484,6 +495,7 @@ def build_html(data):
     top_cities = data["top_cities"]
     top_carriers = data["top_carriers"]
     period_label = data["period_label"]
+    missing_sequence_numbers = data.get("missing_sequence_numbers", [])
     statement = data.get("statement", {"summary": {}, "rows": []})
     details_href = "/report.xlsx"
     last_updated = datetime.fromtimestamp(SOURCE.stat().st_mtime).strftime("%d %b %Y - %I:%M %p") if SOURCE.exists() else datetime.now().strftime("%d %b %Y - %I:%M %p")
@@ -600,6 +612,7 @@ def build_html(data):
         f"<tr><td>{item['order_id']}</td><td>{html.escape(item['merchant'])}</td><td>{fmt_money(item['cod_amount'])}</td><td>{item.get('date') or '-'}</td><td>{cod_collection_date(item)}</td><td>{(cod_overrides.get(str(item['order_id'])) or {}).get('transfer_date') or '-'}</td></tr>"
         for item in cod_items
     )
+    missing_sequence_text = "، ".join(str(num) for num in missing_sequence_numbers) if missing_sequence_numbers else "لا يوجد"
     return_rows = "".join(
         f"<tr><td>{item['order_id']}</td><td>{html.escape(item['merchant'])}</td><td>{html.escape(item['carrier'])}</td><td>{item['weight']:.2f} كجم</td><td>{fmt_money(item['revenue'])}</td><td>{fmt_money(item['platform_shipping'])}</td><td>{fmt_money(item['base_profit'])}</td><td>{fmt_money(item['extra_profit'])}</td><td>{fmt_money(item['total_profit'])}</td><td>{item['status']}</td></tr>"
         for item in return_items
@@ -1078,6 +1091,16 @@ def build_html(data):
       line-height:1.7;
     }}
     .dashboard-footer strong {{ display:block; color:var(--muted); font-size:13px; font-weight:700; }}
+    .missing-seq {{
+      color:var(--text);
+      background:var(--sidebar);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px 16px;
+      line-height:1.9;
+      font-size:14px;
+      word-break:break-word;
+    }}
     body:not(.dark) .login-screen {{ background:#0F1113; }}
 
     @media (max-width: 1100px) {{
@@ -1312,6 +1335,16 @@ def build_html(data):
           <tbody>{cod_rows}</tbody>
         </table>
       </div>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">الأرقام المتسلسلة الناقصة</p>
+          <p class="subtle">الفجوات بين أول وآخر رقم في الشحنات</p>
+        </div>
+      </div>
+      <div class="missing-seq">{missing_sequence_text}</div>
     </section>
 
     <footer class="dashboard-footer">
@@ -1670,7 +1703,7 @@ def build_html(data):
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label = load_data()
+    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label, missing_sequence_numbers = load_data()
     data = {
         "totals": totals,
         "top_merchants": top_merchants,
@@ -1684,6 +1717,7 @@ def main():
         "top_carriers": top_carriers,
         "statement": statement,
         "period_label": period_label,
+        "missing_sequence_numbers": missing_sequence_numbers,
     }
     with open(INDEX, "w", encoding="utf-8") as f:
         f.write(build_html(data))
