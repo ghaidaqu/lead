@@ -716,6 +716,9 @@ def ensure_raw_sheets(wb):
 
 def main() -> int:
     env = load_env(ENV_PATH)
+    database_url_value = os.environ.get("DATABASE_URL", "")
+    database_url_present = bool(database_url_value.strip())
+    database_url_length = len(database_url_value.strip())
     for key in ("LEAD_USERNAME", "LEAD_PASSWORD", "LEAD_BASE_URL"):
         if not env.get(key):
             print(f"Missing {key} in .env", file=sys.stderr)
@@ -970,6 +973,7 @@ def main() -> int:
         "cod_rows": max(0, len(cod_rows) - 1),
         "exit_code": 0,
     }
+    print(f"DATABASE_URL_PRESENT={str(database_url_present).lower()} DATABASE_URL_LENGTH={database_url_length}", flush=True)
     print(f"SYNC_SUMMARY {json.dumps(sync_summary, ensure_ascii=False)}", flush=True)
     print(f"[lead-sync] source={source_type}", flush=True)
     print(json.dumps(report, ensure_ascii=False, indent=2))
