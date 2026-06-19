@@ -20,8 +20,9 @@ from openpyxl import load_workbook
 from openpyxl import Workbook
 
 try:
-    from scripts.db_store import compare_counts, db_enabled, ensure_schema, finish_sync_run, get_conn, make_sync_run, replace_price_rules, upsert_rows
+    from scripts.db_store import db_url, compare_counts, db_enabled, ensure_schema, finish_sync_run, get_conn, make_sync_run, replace_price_rules, upsert_rows
 except Exception:  # pragma: no cover
+    db_url = lambda: None  # type: ignore
     compare_counts = None
     db_enabled = lambda: False  # type: ignore
     ensure_schema = None
@@ -782,12 +783,16 @@ def main() -> int:
         canonical_source.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_xlsx, canonical_source)
 
-    db_report = {"enabled": False, "synced": False, "comparison": {}}
-    if db_enabled():
+    postgres_enabled = bool(db_url())
+    postgres_connected = False
+    sync_run_id = None
+    db_report = {"enabled": postgres_enabled, "connected": False, "synced": False, "comparison": {}}
+    if postgres_enabled:
         try:
             with get_conn() as conn:
+                postgres_connected = True
                 ensure_schema(conn)
-                run_id = make_sync_run(conn, "sync_from_lead.py")
+                sync_run_id = make_sync_run(conn, "sync_from_lead.py")
                 if replace_price_rules is not None and "الاسعار" in wb.sheetnames:
                     price_rows = [list(row) for row in wb["الاسعار"].iter_rows(values_only=True)]
                     replace_price_rules(conn, price_rows)
@@ -816,7 +821,7 @@ def main() -> int:
                 comparison = compare_counts(conn)
                 finish_sync_run(
                     conn,
-                    run_id,
+                    sync_run_id,
                     "ok",
                     inserted=shipment_ins + wallet_ins + payment_ins + cod_ins,
                     updated=shipment_upd + wallet_upd + payment_upd + cod_upd,
@@ -824,13 +829,22 @@ def main() -> int:
                 )
                 db_report = {
                     "enabled": True,
+                    "connected": True,
                     "synced": True,
                     "comparison": comparison,
                     "db_rows_inserted": shipment_ins + wallet_ins + payment_ins + cod_ins,
                     "db_rows_updated": shipment_upd + wallet_upd + payment_upd + cod_upd,
+                    "db_rows_skipped": shipments_dups + wallet_dups + payments_dups + cod_dups,
+                    "sync_run_id": sync_run_id,
                 }
         except Exception as exc:
-            db_report = {"enabled": True, "synced": False, "error": str(exc)}
+            db_report = {
+                "enabled": True,
+                "connected": postgres_connected,
+                "synced": False,
+                "error": str(exc),
+                "sync_run_id": sync_run_id,
+            }
 
     build_report_error = None
     site_error = None
@@ -914,6 +928,12 @@ def main() -> int:
         "login_redirected_to_login": payload.get("checks", {}).get("login_redirected_to_login"),
         "login_html_500": payload.get("checks", {}).get("login_html_500"),
         "postgres": db_report,
+        "postgres_enabled": postgres_enabled,
+        "postgres_connected": postgres_connected,
+        "rows_inserted": db_report.get("db_rows_inserted", 0),
+        "rows_updated": db_report.get("db_rows_updated", 0),
+        "rows_skipped": db_report.get("db_rows_skipped", 0),
+        "sync_run_id": sync_run_id,
         "dashboard_refreshed": True,
         "build_report_error": build_report_error,
         "site_error": site_error,
