@@ -30,10 +30,6 @@ except Exception:  # pragma: no cover
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-SOURCE_CANDIDATES = [
-    PROJECT_DIR / "output" / "lead6_report.xlsx",
-    PROJECT_DIR / "source" / "lead6.xlsx",
-]
 REPORT_XLSX = PROJECT_DIR / "output" / "lead6_report.xlsx"
 BACKUP_DIR = PROJECT_DIR / "backups"
 FALLBACK_BACKUP_DIR = Path(os.environ.get("LEAD_BACKUP_DIR", Path("/private/tmp/lead6_backups")))
@@ -109,13 +105,6 @@ def make_backup(src: Path) -> Path:
     if last_error is not None:
         raise last_error
     raise RuntimeError("Unable to create backup")
-
-
-def pick_source_workbook() -> Path | None:
-    for candidate in SOURCE_CANDIDATES:
-        if candidate.exists():
-            return candidate
-    return None
 
 
 def desired_source_mode() -> str:
@@ -509,6 +498,11 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
             "shipments_final_url": shipments_final_url,
             "wallet_final_url": wallet_final_url,
             "cod_final_url": cod_final_url,
+            "login_status": login_status,
+            "login_final_url": login_final_url,
+            "login_http_status": login_status,
+            "login_redirected_to_login": "login" in login_final_url.lower(),
+            "login_html_500": login_html[:500],
         },
     }
 
@@ -667,9 +661,11 @@ def main() -> int:
             return 2
     payload = scrape_site(env)
     source_mode = desired_source_mode()
-    source_xlsx = pick_source_workbook() if source_mode == "excel" else None
+    source_xlsx = None
     source_type = "website"
-    if source_mode == "excel" and source_xlsx is not None:
+    if source_mode == "excel":
+        source_xlsx = REPORT_XLSX if REPORT_XLSX.exists() else None
+    if source_mode == "excel" and source_xlsx is not None and source_xlsx.exists():
         source_type = "excel"
         backup = make_backup(source_xlsx)
         wb = load_workbook(source_xlsx)
@@ -716,7 +712,7 @@ def main() -> int:
 
     wb.save(source_xlsx)
     canonical_source = PROJECT_DIR / "source" / "lead6.xlsx"
-    if source_xlsx != canonical_source:
+    if source_type == "excel" and source_xlsx != canonical_source:
         canonical_source.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_xlsx, canonical_source)
 
@@ -835,6 +831,11 @@ def main() -> int:
         "errors": 0,
         "api_observations": len(payload.get("logs", [])),
         "checks": payload.get("checks", {}),
+        "login_status": payload.get("checks", {}).get("login_status"),
+        "login_final_url": payload.get("checks", {}).get("login_final_url"),
+        "login_http_status": payload.get("checks", {}).get("login_http_status"),
+        "login_redirected_to_login": payload.get("checks", {}).get("login_redirected_to_login"),
+        "login_html_500": payload.get("checks", {}).get("login_html_500"),
         "postgres": db_report,
         "dashboard_refreshed": True,
         "build_report_error": build_report_error,

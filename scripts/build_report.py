@@ -16,8 +16,21 @@ from openpyxl.utils import get_column_letter
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-INPUT = PROJECT_DIR / "source" / "lead6.xlsx"
 REPORT_OUT = PROJECT_DIR / "output" / "lead6_report.xlsx"
+SOURCE_CANDIDATES = (
+    PROJECT_DIR / "output" / "lead6_report.xlsx",
+    PROJECT_DIR / "source" / "lead6.xlsx",
+)
+
+
+def pick_input() -> Path:
+    for candidate in SOURCE_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    return REPORT_OUT
+
+
+INPUT = pick_input()
 
 
 def money(value):
