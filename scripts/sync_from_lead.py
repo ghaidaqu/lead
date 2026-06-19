@@ -786,7 +786,11 @@ def main() -> int:
         canonical_source.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_xlsx, canonical_source)
 
-    postgres_enabled = bool(db_url())
+    postgres_enabled = bool(
+        os.environ.get("DATABASE_URL", "").strip()
+        or os.environ.get("POSTGRES_URL", "").strip()
+        or os.environ.get("RAILWAY_DATABASE_URL", "").strip()
+    )
     postgres_connected = False
     sync_run_id = None
     db_report = {"enabled": postgres_enabled, "connected": False, "synced": False, "comparison": {}}
