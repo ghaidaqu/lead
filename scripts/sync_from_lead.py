@@ -803,8 +803,8 @@ def main() -> int:
             build_report_error = {
                 "type": "build_report_failed",
                 "exit_code": build_completed.returncode,
-                "stdout": build_completed.stdout[-1000:],
-                "stderr": build_completed.stderr[-1000:],
+                "stdout": build_completed.stdout[-5000:],
+                "stderr": build_completed.stderr[-5000:],
             }
     except Exception as exc:
         build_report_error = {"type": type(exc).__name__}
@@ -824,8 +824,8 @@ def main() -> int:
             site_error = {
                 "type": "generate_site_failed",
                 "exit_code": site_completed.returncode,
-                "stdout": site_completed.stdout[-1000:],
-                "stderr": site_completed.stderr[-1000:],
+                "stdout": site_completed.stdout[-5000:],
+                "stderr": site_completed.stderr[-5000:],
             }
     except Exception as exc:
         site_error = {"type": type(exc).__name__}
@@ -863,6 +863,8 @@ def main() -> int:
         "dashboard_refreshed": True,
         "build_report_error": build_report_error,
         "site_error": site_error,
+        "build_report_exit_code": build_completed.returncode if 'build_completed' in locals() else None,
+        "site_exit_code": site_completed.returncode if 'site_completed' in locals() else None,
     }
 
     state = load_state()
