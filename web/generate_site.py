@@ -97,7 +97,29 @@ RETURN_DETAIL_OVERRIDES = {
 def price_sheet_headers(ws):
     if ws is None:
         return {}
-    return {clean(ws.cell(1, col).value): col for col in range(1, ws.max_column + 1)}
+    headers = {clean(ws.cell(1, col).value): col for col in range(1, ws.max_column + 1)}
+    normalized = {}
+    for key, col in headers.items():
+        norm = re.sub(r"\s+", "", key).replace("أ", "ا").replace("إ", "ا").replace("آ", "ا").lower()
+        normalized[norm] = col
+    return headers | {f"__normalized__{k}": v for k, v in normalized.items()}
+
+
+def header_lookup(headers, *candidates):
+    normalized = {}
+    for key, col in headers.items():
+        if key.startswith("__normalized__"):
+            normalized[key.replace("__normalized__", "")] = col
+    for candidate in candidates:
+        cand = re.sub(r"\s+", "", candidate).replace("أ", "ا").replace("إ", "ا").replace("آ", "ا").lower()
+        if cand in normalized:
+            return normalized[cand]
+    for key, col in normalized.items():
+        for candidate in candidates:
+            cand = re.sub(r"\s+", "", candidate).replace("أ", "ا").replace("إ", "ا").replace("آ", "ا").lower()
+            if cand and (cand in key or key in cand):
+                return col
+    return None
 
 
 def platform_cost_net_from_prices(prices_ws, headers, merchant, carrier, fallback=0.0):
@@ -126,7 +148,7 @@ def infer_return_profit_from_prices(prices_ws, headers, revenue):
             "status": "مقدر بدون شيت الأسعار",
         }
 
-    extra_col = headers.get("السعر لكل كيلو  زيادة")
+    extra_col = header_lookup(headers, "السعر لكل كيلو  زيادة", "السعر لكل كيلو زيادة", "سعر لكل كيلو زيادة", "لكل كيلو زيادة", "extra kilo", "overweight")
     extra_customer_gross = money(prices_ws.cell(2, extra_col).value) if extra_col else 0.0
     extra_customer_net = money(prices_ws.cell(3, extra_col).value) if extra_col else 0.0
     extra_platform_gross = money(prices_ws.cell(4, extra_col).value) if extra_col else 0.0
@@ -138,7 +160,7 @@ def infer_return_profit_from_prices(prices_ws, headers, revenue):
 
     exact_candidates = []
     fallback_candidates = []
-    skip_names = {"السعر لكل كيلو  زيادة", "سعر توصيل cod", ""}
+    skip_names = {"السعر لكل كيلو  زيادة", "السعر لكل كيلو زيادة", "سعر توصيل cod", ""}
     for name, col in headers.items():
         if name in skip_names:
             continue
@@ -195,7 +217,7 @@ def return_profit_from_details(prices_ws, headers, revenue, merchant, carrier, w
     if prices_ws is None:
         return infer_return_profit_from_prices(prices_ws, headers, revenue)
 
-    extra_col = headers.get("السعر لكل كيلو  زيادة")
+    extra_col = header_lookup(headers, "السعر لكل كيلو  زيادة", "السعر لكل كيلو زيادة", "سعر لكل كيلو زيادة", "لكل كيلو زيادة", "extra kilo", "overweight")
     extra_customer_gross = money(prices_ws.cell(2, extra_col).value) if extra_col else 0.0
     extra_platform_gross = money(prices_ws.cell(4, extra_col).value) if extra_col else 0.0
     extra_platform_net = money(prices_ws.cell(5, extra_col).value) if extra_col else 0.0

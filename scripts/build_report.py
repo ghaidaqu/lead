@@ -57,6 +57,11 @@ def find_header(headers: dict[str, int], *candidates: str) -> int:
         key = normalize_sheet_name(candidate)
         if key in normalized:
             return normalized[key]
+    for key, col in normalized.items():
+        for candidate in candidates:
+            cand = normalize_sheet_name(candidate)
+            if cand and (cand in key or key in cand):
+                return col
     raise KeyError(candidates[0])
 
 
@@ -131,7 +136,15 @@ def read_prices(ws):
         "JT Express": "JT Express",
     }
 
-    extra_col = find_header(headers, "السعر لكل كيلو  زيادة", "السعر لكل كيلو زيادة", "سعر لكل كيلو زيادة")
+    extra_col = find_header(
+        headers,
+        "السعر لكل كيلو  زيادة",
+        "السعر لكل كيلو زيادة",
+        "سعر لكل كيلو زيادة",
+        "لكل كيلو زيادة",
+        "extra kilo",
+        "overweight",
+    )
     extra_customer_gross = money(ws.cell(2, extra_col).value)
     extra_customer_net = money(ws.cell(3, extra_col).value) or extra_customer_gross * 0.85
     extra_platform_gross = money(ws.cell(4, extra_col).value)
