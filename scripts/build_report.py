@@ -51,6 +51,15 @@ def normalize_sheet_name(value):
     return text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
 
 
+def find_header(headers: dict[str, int], *candidates: str) -> int:
+    normalized = {normalize_sheet_name(key): col for key, col in headers.items()}
+    for candidate in candidates:
+        key = normalize_sheet_name(candidate)
+        if key in normalized:
+            return normalized[key]
+    raise KeyError(candidates[0])
+
+
 SHEET_ALIASES = {
     "الشحنات": ("الشحنات", "شحنات", "Sheet1"),
     "Sheet1": ("الشحنات", "شحنات", "Sheet1"),
@@ -122,14 +131,16 @@ def read_prices(ws):
         "JT Express": "JT Express",
     }
 
-    extra_customer_gross = money(ws.cell(2, headers["السعر لكل كيلو  زيادة"]).value)
-    extra_customer_net = money(ws.cell(3, headers["السعر لكل كيلو  زيادة"]).value) or extra_customer_gross * 0.85
-    extra_platform_gross = money(ws.cell(4, headers["السعر لكل كيلو  زيادة"]).value)
-    extra_platform_net = money(ws.cell(5, headers["السعر لكل كيلو  زيادة"]).value) or extra_platform_gross * 0.85
+    extra_col = find_header(headers, "السعر لكل كيلو  زيادة", "السعر لكل كيلو زيادة", "سعر لكل كيلو زيادة")
+    extra_customer_gross = money(ws.cell(2, extra_col).value)
+    extra_customer_net = money(ws.cell(3, extra_col).value) or extra_customer_gross * 0.85
+    extra_platform_gross = money(ws.cell(4, extra_col).value)
+    extra_platform_net = money(ws.cell(5, extra_col).value) or extra_platform_gross * 0.85
     extra_profit_net = extra_customer_net - extra_platform_net
 
-    cod_customer_gross = money(ws.cell(2, headers["سعر توصيل cod"]).value)
-    cod_platform_gross = money(ws.cell(4, headers["سعر توصيل cod"]).value)
+    cod_col = find_header(headers, "سعر توصيل cod", "سعر توصيل COD", "cod")
+    cod_customer_gross = money(ws.cell(2, cod_col).value)
+    cod_platform_gross = money(ws.cell(4, cod_col).value)
     cod_profit_net = cod_customer_gross - cod_platform_gross
 
     return {
