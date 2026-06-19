@@ -946,6 +946,31 @@ def main() -> int:
     state["backup"] = str(backup)
     state["network_events"] = len(payload.get("logs", []))
     save_state(state)
+    login_ok = bool(
+        payload.get("checks", {}).get("has_dashboard_links")
+        and payload.get("checks", {}).get("shipments_opened")
+        and payload.get("checks", {}).get("wallet_opened")
+        and payload.get("checks", {}).get("cod_opened")
+        and not payload.get("checks", {}).get("login_redirected_to_login")
+    )
+    final_url = payload.get("checks", {}).get("dashboard_final_url") or payload.get("checks", {}).get("login_final_url") or ""
+    sync_summary = {
+        "source_type": source_type,
+        "login_ok": login_ok,
+        "final_url": final_url,
+        "postgres_enabled": postgres_enabled,
+        "postgres_connected": postgres_connected,
+        "sync_run_id": sync_run_id,
+        "rows_inserted": db_report.get("db_rows_inserted", 0),
+        "rows_updated": db_report.get("db_rows_updated", 0),
+        "rows_skipped": db_report.get("db_rows_skipped", 0),
+        "shipments_rows": max(0, len(ship_rows) - 1),
+        "wallet_rows": wallet_total,
+        "payments_rows": payments_total,
+        "cod_rows": max(0, len(cod_rows) - 1),
+        "exit_code": 0,
+    }
+    print(f"SYNC_SUMMARY {json.dumps(sync_summary, ensure_ascii=False)}", flush=True)
     print(f"[lead-sync] source={source_type}", flush=True)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
