@@ -686,6 +686,7 @@ def main() -> int:
     wb.save(source_xlsx)
     canonical_source = PROJECT_DIR / "source" / "lead6.xlsx"
     if source_xlsx != canonical_source:
+        canonical_source.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_xlsx, canonical_source)
 
     db_report = {"enabled": False, "synced": False, "comparison": {}}
