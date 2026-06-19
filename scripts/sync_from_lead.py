@@ -736,8 +736,41 @@ def main() -> int:
         except Exception as exc:
             db_report = {"enabled": True, "synced": False, "error": str(exc)}
 
-    subprocess.run([sys.executable, str(PROJECT_DIR / "scripts" / "build_report.py")], cwd=str(PROJECT_DIR), check=True)
-    subprocess.run([sys.executable, str(PROJECT_DIR / "web" / "generate_site.py")], cwd=str(PROJECT_DIR), check=True)
+    build_report_error = None
+    site_error = None
+    try:
+        build_completed = subprocess.run(
+            [sys.executable, str(PROJECT_DIR / "scripts" / "build_report.py")],
+            cwd=str(PROJECT_DIR),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if build_completed.returncode != 0:
+            build_report_error = {
+                "type": "build_report_failed",
+                "exit_code": build_completed.returncode,
+                "stderr": build_completed.stderr[-1000:],
+            }
+    except Exception as exc:
+        build_report_error = {"type": type(exc).__name__}
+
+    try:
+        site_completed = subprocess.run(
+            [sys.executable, str(PROJECT_DIR / "web" / "generate_site.py")],
+            cwd=str(PROJECT_DIR),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if site_completed.returncode != 0:
+            site_error = {
+                "type": "generate_site_failed",
+                "exit_code": site_completed.returncode,
+                "stderr": site_completed.stderr[-1000:],
+            }
+    except Exception as exc:
+        site_error = {"type": type(exc).__name__}
 
     report = {
         "backup": str(backup),
@@ -765,6 +798,8 @@ def main() -> int:
         "checks": payload.get("checks", {}),
         "postgres": db_report,
         "dashboard_refreshed": True,
+        "build_report_error": build_report_error,
+        "site_error": site_error,
     }
 
     state = load_state()
