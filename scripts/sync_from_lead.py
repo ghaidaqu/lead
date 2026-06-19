@@ -10,6 +10,7 @@ import sys
 import urllib.parse
 import urllib.request
 import http.cookiejar
+import traceback
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -788,6 +789,8 @@ def main() -> int:
 
     build_report_error = None
     site_error = None
+    build_completed = None
+    site_completed = None
     try:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(PROJECT_DIR) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
@@ -807,7 +810,10 @@ def main() -> int:
                 "stderr": build_completed.stderr[-5000:],
             }
     except Exception as exc:
-        build_report_error = {"type": type(exc).__name__}
+        build_report_error = {
+            "type": type(exc).__name__,
+            "traceback": traceback.format_exc()[-5000:],
+        }
 
     try:
         env = os.environ.copy()
@@ -828,7 +834,10 @@ def main() -> int:
                 "stderr": site_completed.stderr[-5000:],
             }
     except Exception as exc:
-        site_error = {"type": type(exc).__name__}
+        site_error = {
+            "type": type(exc).__name__,
+            "traceback": traceback.format_exc()[-5000:],
+        }
 
     report = {
         "backup": str(backup),
@@ -863,8 +872,8 @@ def main() -> int:
         "dashboard_refreshed": True,
         "build_report_error": build_report_error,
         "site_error": site_error,
-        "build_report_exit_code": build_completed.returncode if 'build_completed' in locals() else None,
-        "site_exit_code": site_completed.returncode if 'site_completed' in locals() else None,
+        "build_report_exit_code": build_completed.returncode if build_completed is not None else None,
+        "site_exit_code": site_completed.returncode if site_completed is not None else None,
     }
 
     state = load_state()
