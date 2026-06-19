@@ -1,0 +1,1250 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GF Demo | مطاعم وتوصيل</title>
+  <link rel="icon" type="image/png" href="/dashboard/gf_logo_mark_clean.png" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #F6F1EA;
+      --sidebar: #FBF8F3;
+      --card: #FFFFFF;
+      --card-strong: #FFFFFF;
+      --border: #E7DDD3;
+      --text: #1C1C1C;
+      --muted: #6F6A66;
+      --accent: #7A2438;
+      --accent-light: #B04A64;
+      --beige: #D8CABE;
+      --grid: #E8DED5;
+      --positive: #587F63;
+      --negative: #A24D4D;
+      --shadow: 0 18px 45px rgba(45, 31, 25, .08);
+    }
+    body.dark {
+      color-scheme: dark;
+      --bg: #0F1113;
+      --sidebar: #0B0D0F;
+      --card: #171A1F;
+      --card-strong: #1C2027;
+      --border: #252932;
+      --text: #F5F2EE;
+      --muted: #A7A7A7;
+      --accent: #7A2438;
+      --accent-light: #B04A64;
+      --beige: #D8CABE;
+      --grid: #2A2D33;
+      --positive: #8FBF9F;
+      --negative: #C86B6B;
+      --shadow: 0 18px 52px rgba(0,0,0,.28);
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease, fill .35s ease, stroke .35s ease;
+    }
+    html { scroll-behavior:smooth; max-width:100%; overflow-x:hidden; }
+    body {
+      margin:0;
+      min-height:100vh;
+      max-width:100%;
+      overflow-x:hidden;
+      color:var(--text);
+      font-family: Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
+      background:var(--bg);
+    }
+    a { color:inherit; text-decoration:none; }
+    .page { width:min(1180px, calc(100% - 32px)); margin:0 auto; padding:20px 0 34px; }
+    .hero {
+      margin:0 0 12px;
+      padding:12px 18px;
+      border-radius:12px;
+      background:linear-gradient(180deg, rgba(24,36,55,.95), rgba(14,24,40,.92));
+      border:1px solid var(--border);
+      box-shadow:0 16px 48px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.055);
+      backdrop-filter: blur(6px) saturate(104%);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+      direction:rtl;
+      position:relative;
+      overflow:hidden;
+    }
+    .hero::before, .hero::after { content:none; }
+    .brand-lockup { position:relative; z-index:1; display:flex; align-items:center; justify-content:flex-start; gap:0; padding:0; border:0; background:transparent; box-shadow:none; direction:ltr; flex:0 0 auto; }
+    .brand-logo { width:min(96px, 12vw); max-width:96px; height:auto; display:block; background:transparent; filter:none; }
+    .brand-divider { width:1px; height:38px; background:rgba(142,157,178,.30); box-shadow:0 0 18px rgba(122,36,56,.10); margin:0 8px 0 -2px; }
+    .hero-copy { display:grid; gap:0; justify-items:flex-start; margin-inline-start:-1px; }
+    .hero-copy span { display:block; margin:0; color:rgba(255,255,255,.92); font-size:clamp(14px, 1.6vw, 18px); line-height:1.0; font-weight:650; letter-spacing:-0.02em; }
+    .hero-copy .brand-tag { font-size:clamp(14px, 1.6vw, 18px); }
+    .hero-title {
+      position:relative;
+      z-index:1;
+      direction:rtl;
+      text-align:right;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      justify-content:center;
+      gap:3px;
+      margin:0;
+      padding:0;
+      padding-left:0;
+      padding-inline-start:0;
+      padding-inline-end:0;
+      min-width:0;
+      width:auto;
+      flex:0 1 auto;
+    }
+    .hero-title h1 {
+      margin:0;
+      font-size:clamp(17px, 1.8vw, 22px);
+      line-height:1.08;
+      letter-spacing:-0.03em;
+      font-weight:800;
+      color:#fff;
+      text-shadow:0 2px 16px rgba(0,0,0,.32);
+    }
+    .hero-title p {
+      margin:0;
+      color:rgba(196,207,222,.72);
+      font-size:11px;
+    }
+    .hero-tools {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:0 0 10px;
+    }
+    .badge {
+      display:inline-flex;
+      align-items:center;
+      min-height:40px;
+      padding:0 14px;
+      border-radius:10px;
+      border:1px solid #E7DDD3;
+      background:rgba(17,28,45,.78);
+      color:rgba(230,238,248,.88);
+      font-size:12px;
+      backdrop-filter: blur(4px);
+    }
+    .primary-button {
+      display:inline-flex;
+      align-items:center;
+      min-height:38px;
+      padding:0 14px;
+      border-radius:10px;
+      background:
+        linear-gradient(135deg, rgba(122,36,56,.20), rgba(176,74,100,.28)),
+        linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.02));
+      color:#fff;
+      border:1px solid rgba(122,36,56,.22);
+      font-weight:780;
+      letter-spacing:-0.01em;
+      box-shadow:
+        0 14px 28px rgba(122,36,56,.08),
+        inset 0 1px 0 rgba(255,255,255,.12);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .primary-button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .subhero {
+      display:flex;
+      justify-content:flex-end;
+      margin:0 0 14px;
+    }
+    .metric-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-bottom:10px; }
+    .mini-band { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:0 0 16px; }
+    .profit-band { grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .finance-band { grid-template-columns:repeat(4, minmax(0,1fr)); }
+    .metric-card, .panel, .mini-card {
+      position:relative;
+      overflow:hidden;
+      border-radius:10px;
+      background:linear-gradient(180deg, rgba(33,47,70,.95), rgba(17,29,46,.92));
+      border:1px solid var(--border);
+      box-shadow:0 16px 38px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.06);
+      backdrop-filter: blur(6px) saturate(104%);
+      -webkit-backdrop-filter: blur(6px) saturate(104%);
+    }
+    .metric-card::before, .panel::before, .mini-card::before {
+      content:'';
+      position:absolute;
+      inset:0;
+      background:linear-gradient(135deg, rgba(255,255,255,.045) 0%, rgba(255,255,255,.012) 30%, rgba(255,255,255,0) 58%);
+      pointer-events:none;
+    }
+    .metric-card > *, .panel > *, .mini-card > * { position:relative; z-index:1; }
+    .metric-card::after, .mini-card::after, .detail-chip::after {
+      content:'';
+      position:absolute;
+      top:0;
+      left:14px;
+      right:14px;
+      height:2px;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(122,36,56,.42), rgba(176,74,100,.34), rgba(216,202,190,.28));
+      box-shadow:0 0 10px rgba(122,36,56,.08);
+      pointer-events:none;
+    }
+    .mini-card {
+      padding:12px 14px;
+      min-height:84px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      text-align:center;
+      gap:2px;
+    }
+    .metric-card {
+      padding:14px 16px;
+      min-height:94px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .metric-label { display:block; color:var(--muted); font-size:13px; line-height:1.45; font-weight:560; }
+    .metric-card strong { display:block; margin-top:8px; font-size:22px; line-height:1; font-weight:880; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 14px rgba(122,36,56,.12), 0 1px 0 rgba(255,255,255,.08); }
+    .metric-footer { margin-top:7px; color:rgba(211,222,235,.66); font-size:12px; line-height:1.35; }
+    .mini-card .metric-label { font-size:13px; line-height:1.35; }
+    .mini-card strong { display:block; margin-top:6px; font-size:20px; line-height:1.25; font-variant-numeric: tabular-nums; color:#fff; font-weight:850; text-shadow:0 2px 14px rgba(122,36,56,.10); }
+    .mini-card .metric-footer { font-size:12px; line-height:1.35; }
+    .profit-details-card { margin:0 0 14px; }
+    .details-panel { padding:16px; }
+    .compact-header { margin-bottom:12px; }
+    .details-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+    .detail-chip {
+      position:relative;
+      overflow:hidden;
+      min-height:68px;
+      padding:12px;
+      border-radius:10px;
+      background:rgba(24,38,58,.76);
+      border:1px solid rgba(150,169,196,.18);
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:6px;
+    }
+    .detail-chip span { color:var(--muted); font-size:12px; font-weight:560; }
+    .detail-chip strong { color:#fff; font-size:18px; line-height:1.1; font-weight:850; font-variant-numeric:tabular-nums; text-shadow:0 2px 12px rgba(122,36,56,.09); }
+    .content-grid { display:grid; grid-template-columns:1.3fr .92fr; gap:14px; margin-bottom:14px; }
+    .panel { padding:18px; }
+    .panel-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }
+    .eyebrow { margin:0; color:rgba(238,245,252,.88); font-size:13px; font-weight:750; letter-spacing:.02em; }
+    .subtle { margin:6px 0 0; color:rgba(184,198,214,.78); font-size:13px; }
+    .chart-key { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .chart-key-item {
+      display:inline-flex; align-items:center; gap:7px; padding:7px 10px;
+      border:1px solid rgba(150,169,196,.15); border-radius:999px;
+      background:rgba(24,38,58,.58); color:rgba(238,245,252,.84);
+      font-size:11px; font-weight:650; white-space:nowrap;
+    }
+    .chart-key-swatch { width:10px; height:10px; border-radius:50%; flex:0 0 10px; display:inline-block; }
+    .chart-key-swatch.profit { background:#D8CABE; }
+    .chart-key-swatch.revenue { background:#B04A64; }
+    .chart-key-swatch.orders { background:#7A2438; }
+    .chart-shell { height:300px; }
+    .chart-axis-note { display:flex; justify-content:space-between; gap:12px; margin-top:9px; color:rgba(184,198,214,.66); font-size:11px; }
+    .combo-chart { width:100%; height:100%; display:block; }
+    .area-chart { width:100%; height:100%; display:block; }
+    .area-chart svg { width:100%; height:100%; display:block; overflow:visible; }
+    .area-value { fill:#fff; font-size:11px; font-weight:850; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }
+    .area-date { fill:rgba(255,255,255,.56); font-size:10px; font-weight:700; font-family:Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif; }
+    .chart-line { filter: drop-shadow(0 2px 6px rgba(177,42,91,.18)); }
+    .chart-point { filter: drop-shadow(0 2px 5px rgba(0,0,0,.18)); }
+    .carrier-layout {
+      display:grid;
+      grid-template-columns:156px 1fr;
+      gap:16px;
+      align-items:center;
+    }
+    .revenue-layout {
+      display:grid;
+      grid-template-columns:184px 1fr;
+      gap:14px;
+      align-items:center;
+    }
+    .carrier-donut {
+      width:min(156px, 48vw);
+      aspect-ratio:1;
+      border-radius:50%;
+      position:relative;
+      margin:0 auto;
+      padding:0;
+      background:linear-gradient(180deg, rgba(33,47,70,.94), rgba(17,29,46,.90));
+      border:1px solid rgba(135,154,180,.12);
+      box-shadow:0 20px 34px rgba(0,0,0,.34), 0 0 24px rgba(122,36,56,.05), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .carrier-donut canvas {
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+    }
+    .carrier-center {
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:1;
+      text-align:center;
+      padding:18px;
+      color:#fff;
+      pointer-events:none;
+    }
+    .carrier-center span { display:block; font-size:11px; color:rgba(255,255,255,.72); }
+    .carrier-center strong { display:block; font-size:22px; line-height:1; font-weight:850; }
+    .carrier-legend { display:grid; gap:10px; }
+    .carrier-row {
+      display:grid;
+      grid-template-columns:12px 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:12px 14px;
+      border-radius:10px;
+      border:1px solid rgba(150,169,196,.18);
+      background:rgba(24,38,58,.72);
+    }
+    .carrier-dot { width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 4px rgba(122,36,56,.045); }
+    .carrier-name { font-size:13px; font-weight:700; color:var(--text); }
+    .carrier-meta { font-size:12px; color:rgba(220,231,242,.70); white-space:nowrap; }
+    .table-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .table-wrap { overflow:auto; }
+    table { width:100%; border-collapse:collapse; }
+    th, td {
+      padding:12px 10px;
+      border-bottom:1px solid rgba(150,169,196,.14);
+      text-align:right;
+      white-space:nowrap;
+    }
+    th {
+      color:rgba(184,198,214,.82);
+      font-size:12px;
+      font-weight:700;
+    }
+    td {
+      color:rgba(244,248,252,.92);
+      font-size:13px;
+    }
+    .rank {
+      width:36px;
+      color:rgba(202,215,229,.66);
+      font-variant-numeric: tabular-nums;
+    }
+    .table-card-title {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+    .table-card-title p { margin:6px 0 0; color:var(--muted); font-size:12px; }
+    .statement-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
+    .statement-summary .mini-card strong { font-size:18px; }
+    .finance-card strong { font-size:18px; }
+    .finance-total-card strong { font-size:16px; }
+    .breakdown-line { color:rgba(255,255,255,.70); font-size:12px; line-height:1.5; margin-top:2px; }
+    .footer-note { margin-top:16px; color:rgba(255,255,255,.48); font-size:12px; }
+
+    .login-screen {
+      min-height:100vh;
+      background:radial-gradient(circle at top, rgba(122,36,56,.22), transparent 35%), #0F1113;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      color:#F5F2EE;
+    }
+    .login-screen.is-hidden { display:none; }
+    .login-screen.is-hiding { opacity:0; transition:opacity .25s ease; }
+    .login-card {
+      width:100%;
+      max-width:420px;
+      background:rgba(23,26,31,.92);
+      border:1px solid #252932;
+      border-radius:20px;
+      box-shadow:0 24px 80px rgba(0,0,0,.35);
+      padding:32px;
+      color:#F5F2EE;
+      opacity:0;
+      transform:translateY(12px) scale(.98);
+      animation:loginCardIn .35s ease-out forwards;
+    }
+    @keyframes loginCardIn { to { opacity:1; transform:translateY(0) scale(1); } }
+    .login-brand { display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:18px; text-align:center; }
+    .login-brand img { width:132px; height:auto; filter:none; }
+    .login-card h2 { margin:8px 0 4px; font-size:24px; line-height:1.2; }
+    .login-card p { margin:0; color:#A7A7A7; font-size:13px; line-height:1.7; }
+    .login-form { display:grid; gap:14px; margin-top:22px; }
+    .login-field { display:grid; gap:8px; }
+    .login-field label { color:#D8CABE; font-size:13px; font-weight:650; }
+    .login-input-wrap { position:relative; }
+    .login-card input {
+      width:100%;
+      background:#0F1113;
+      border:1px solid #252932;
+      border-radius:14px;
+      color:#F5F2EE;
+      padding:14px 16px;
+      outline:none;
+      font:inherit;
+    }
+    .login-card input:focus { border-color:#7A2438; box-shadow:0 0 0 4px rgba(122,36,56,.18); }
+    .password-toggle {
+      position:absolute;
+      left:8px;
+      top:50%;
+      transform:translateY(-50%);
+      width:auto !important;
+      min-height:34px;
+      padding:0 10px !important;
+      border-radius:10px !important;
+      background:transparent !important;
+      border:1px solid #252932 !important;
+      color:#A7A7A7 !important;
+      font-size:12px;
+    }
+    .login-button {
+      width:100%;
+      background:#7A2438;
+      color:#F5F2EE;
+      border:none;
+      border-radius:14px;
+      padding:14px 16px;
+      cursor:pointer;
+      font-weight:700;
+      font:inherit;
+    }
+    .login-button:hover { background:#B04A64; }
+    .login-error {
+      display:none;
+      color:#C86B6B;
+      background:rgba(200,107,107,.10);
+      border:1px solid rgba(200,107,107,.20);
+      border-radius:12px;
+      padding:10px 12px;
+      margin-top:12px;
+      font-size:14px;
+    }
+    .login-error.is-visible { display:block; }
+    .dashboard-shell { opacity:0; transform:scale(.98); pointer-events:none; }
+    .dashboard-shell.is-visible { opacity:1; transform:scale(1); pointer-events:auto; transition:opacity .35s ease-out, transform .35s ease-out; }
+    .hero, .metric-card, .panel, .mini-card, .detail-chip, .carrier-row, .carrier-donut {
+      background:var(--card);
+      border-color:var(--border);
+      box-shadow:var(--shadow);
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+    }
+    .hero { border-radius:18px; min-height:78px; }
+    .brand-identity { display:grid; gap:2px; justify-items:start; }
+    .brand-identity strong { color:var(--text); font-size:14px; line-height:1.1; letter-spacing:.02em; }
+    .brand-identity span { color:var(--muted); font-size:11px; line-height:1.2; }
+    .subhero-tools { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+    .theme-toggle, .logout-button {
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:var(--sidebar);
+      color:var(--text);
+      padding:0 12px;
+      font:inherit;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .logout-button { color:var(--muted); }
+    .primary-button {
+      background:var(--accent);
+      border-color:var(--accent);
+      color:#F5F2EE;
+      box-shadow:0 10px 22px rgba(122,36,56,.14);
+    }
+    .primary-button:hover { background:var(--accent-light); filter:none; }
+    .badge { background:var(--sidebar); border-color:var(--border); color:var(--muted); }
+    .metric-card::before, .panel::before, .mini-card::before { background:none; }
+    .metric-card::after, .mini-card::after, .detail-chip::after {
+      background:linear-gradient(90deg, var(--accent), var(--accent-light), var(--beige));
+      opacity:.55;
+      box-shadow:none;
+    }
+    .hero-title h1, .metric-card strong, .mini-card strong, .detail-chip strong, .carrier-center strong { color:var(--text); text-shadow:none; }
+    .hero-title p, .metric-footer, .subtle, .carrier-meta, .breakdown-line, th, .rank { color:var(--muted); }
+    .eyebrow, td, .carrier-name { color:var(--text); }
+    th, td { border-bottom-color:var(--grid); }
+    .carrier-center { color:var(--text); }
+    .carrier-center span { color:var(--muted); }
+    .dashboard-footer {
+      margin-top:18px;
+      padding:16px 0 2px;
+      border-top:1px solid var(--border);
+      color:var(--muted);
+      text-align:center;
+      font-size:12px;
+      line-height:1.7;
+    }
+    .dashboard-footer strong { display:block; color:var(--muted); font-size:13px; font-weight:700; }
+    .missing-seq {
+      color:var(--text);
+      background:var(--sidebar);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px 16px;
+      line-height:1.9;
+      font-size:14px;
+      word-break:break-word;
+    }
+    body:not(.dark) .login-screen { background:#0F1113; }
+
+    @media (max-width: 1100px) {
+      .metric-grid, .content-grid, .table-grid, .mini-band, .profit-band, .finance-band, .statement-summary, .details-grid { grid-template-columns:1fr; }
+      .carrier-layout, .revenue-layout { grid-template-columns:1fr; }
+      .page, .panel, .metric-card, .mini-card, .detail-chip, .content-grid, .chart-shell, .table-wrap { min-width:0; max-width:100%; }
+      canvas { max-width:100%; }
+      .subhero { width:100%; flex-direction:column; align-items:stretch; gap:8px; }
+      .hero-tools, .subhero-tools { width:100%; margin:0; }
+      .hero { padding:12px 14px; margin-bottom:8px; align-items:center; gap:12px; }
+      .brand-lockup { flex:0 1 auto; min-width:0; }
+      .brand-logo { width:min(82px, 24vw); }
+      .brand-divider { height:32px; margin-inline:7px; }
+      .hero-title { position:relative; inset:auto; transform:none; min-width:0; padding:0; align-items:flex-end; width:auto; flex:0 1 auto; }
+      .hero-copy span { font-size:12px; }
+      .hero-title h1 { font-size:16px; }
+      .hero-title p { font-size:10px; }
+      .metric-card { min-height:88px; }
+      .mini-card { min-height:78px; }
+      .detail-chip { min-height:64px; }
+      .subhero-tools { width:100%; justify-content:flex-start; }
+      .theme-toggle, .logout-button { flex:1 1 auto; }
+    }
+    @media (max-width: 600px) {
+      .page { width:calc(100% - 20px); padding-top:10px; }
+      .hero { flex-direction:column; align-items:stretch; padding:14px; }
+      .hero-title { align-items:flex-start; text-align:right; width:100%; }
+      .brand-lockup { width:100%; max-width:100%; justify-content:center; overflow:hidden; }
+      .brand-identity { min-width:0; }
+      .brand-identity span { white-space:normal; }
+      .hero-tools { display:grid; grid-template-columns:1fr 1.35fr; gap:8px; }
+      .hero-tools > * { width:100%; justify-content:center; text-align:center; padding-inline:8px; }
+      .subhero-tools { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+      .chart-key { display:grid; grid-template-columns:1fr; }
+      .chart-key-item { justify-content:flex-start; }
+      .chart-axis-note { flex-direction:column; gap:3px; }
+      .panel { padding:14px; }
+      .chart-shell { height:260px; overflow:hidden; }
+      .carrier-row { padding:10px 12px; }
+    }
+  </style>
+</head>
+<body class="dark">
+  <script>
+    (function () {
+      const savedTheme = localStorage.getItem('gfTheme') || 'dark';
+      document.body.classList.toggle('dark', savedTheme !== 'day');
+    })();
+  </script>
+  <section class="login-screen" id="loginScreen" aria-label="تسجيل الدخول">
+    <div class="login-card">
+      <div class="login-brand">
+        <img src="gf_logo_mark_clean.png" alt="GF" />
+        <div>
+          <h2>تسجيل الدخول</h2>
+          <p>أدخل بيانات الدخول للوصول إلى لوحة تشغيل المطاعم والتوصيل</p>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <div class="login-field">
+          <label for="loginUsername">اسم المستخدم</label>
+          <input id="loginUsername" name="username" autocomplete="username" required />
+        </div>
+        <div class="login-field">
+          <label for="loginPassword">كلمة المرور</label>
+          <div class="login-input-wrap">
+            <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
+            <button class="password-toggle" id="passwordToggle" type="button">إظهار</button>
+          </div>
+        </div>
+        <button class="login-button" type="submit">دخول</button>
+        <div class="login-error" id="loginError">بيانات الدخول غير صحيحة</div>
+      </form>
+    </div>
+  </section>
+  <main class="page dashboard-shell" id="dashboardShell" aria-hidden="true">
+    <header class="hero">
+      <div class="hero-title">
+        <h1>لوحة تشغيل المطاعم والتوصيل</h1>
+        <p>نظرة عامة على الربحية والتكلفة والهدر</p>
+      </div>
+      <div class="brand-lockup">
+        <img class="brand-logo" src="gf_logo_mark_clean.png" alt="GF Demo" />
+        <div class="brand-divider" aria-hidden="true"></div>
+        <div class="hero-copy brand-identity">
+          <strong>GF Demo</strong>
+          <span>Restaurant & Delivery Intelligence</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="subhero">
+      <div class="hero-tools">
+        <span class="badge">1-18 يوليو</span>
+        <a class="primary-button" href="../GF_Demo.xlsx"><span>فتح ملف Excel</span></a>
+      </div>
+      <div class="subhero-tools">
+        <button class="theme-toggle" id="themeToggle" type="button">🌙 Night Mode</button>
+        <button class="logout-button" id="logoutButton" type="button">تسجيل خروج</button>
+      </div>
+    </div>
+
+    <section class="metric-grid">
+      
+      <article class="metric-card tone-navy">
+        <span class="metric-label">إجمالي الإيرادات</span>
+        <strong>9,993.75 ريال</strong>
+        <div class="metric-footer">475 طلب خلال الفترة</div>
+      </article>
+    
+      
+      <article class="metric-card tone-navy">
+        <span class="metric-label">صافي الربح الشهري</span>
+        <strong>2,146.75 ريال</strong>
+        <div class="metric-footer">صافي الربح بعد التكاليف</div>
+      </article>
+    
+      
+      <article class="metric-card tone-navy">
+        <span class="metric-label">هامش الربح</span>
+        <strong>21.5%</strong>
+        <div class="metric-footer">صافي الربح ÷ الإيراد</div>
+      </article>
+    
+      
+      <article class="metric-card tone-navy">
+        <span class="metric-label">نسبة تكلفة الطعام</span>
+        <strong>40.5%</strong>
+        <div class="metric-footer">المواد الغذائية من الإيراد</div>
+      </article>
+    
+    </section>
+
+    <section class="mini-band profit-band">
+      <article class="mini-card">
+        <span class="metric-label">صافي الربح اليومي</span>
+        <strong>104.60 ريال</strong>
+        <div class="metric-footer">آخر يوم في الفترة</div>
+      </article>
+      <article class="mini-card">
+        <span class="metric-label">قيمة الهدر اليومية</span>
+        <strong>18.10 ريال</strong>
+        <div class="metric-footer">آخر يوم في الفترة</div>
+      </article>
+      <article class="mini-card">
+        <span class="metric-label">قيمة الهدر الشهرية</span>
+        <strong>217.00 ريال</strong>
+        <div class="metric-footer">إجمالي الشهر</div>
+      </article>
+    </section>
+
+    <section class="profit-details-card">
+      <article class="panel details-panel">
+        <div class="panel-header compact-header">
+          <div>
+            <p class="eyebrow">أين تذهب الإيرادات</p>
+            <p class="subtle">توزيع الإيراد بين المواد الغذائية والرواتب والإيجارات والتوصيل والهدر وصافي الربح</p>
+          </div>
+        </div>
+        <div class="revenue-layout">
+          <div class="carrier-donut revenue-donut">
+            <canvas id="revenueSplitChart" aria-label="توزيع الإيرادات"></canvas>
+            <div class="carrier-center">
+              <div>
+                <strong>6</strong>
+                <span>بنود</span>
+              </div>
+            </div>
+          </div>
+          <div class="details-grid" style="grid-template-columns:repeat(2, minmax(0,1fr));">
+            <div class="detail-chip"><span>مواد غذائية</span><strong>4,050.00 ريال</strong></div>
+            <div class="detail-chip"><span>رواتب</span><strong>1,650.00 ريال</strong></div>
+            <div class="detail-chip"><span>توصيل</span><strong>830.00 ريال</strong></div>
+            <div class="detail-chip"><span>هدر</span><strong>217.00 ريال</strong></div>
+            <div class="detail-chip"><span>إيجارات</span><strong>1,100.00 ريال</strong></div>
+            <div class="detail-chip"><span>صافي ربح</span><strong>2,146.75 ريال</strong></div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="table-grid">
+      <article class="panel">
+        <div class="table-card-title">
+          <div>
+            <p class="eyebrow">أصناف تحتاج مراجعة</p>
+            <p class="subtle">أعلى وأدنى ربحية مع الأصناف ذات المبيعات المرتفعة والربحية المنخفضة</p>
+          </div>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">أكثر صنف ربحية</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>الصنف</th><th>الطلبات</th><th>الربح</th></tr>
+            </thead>
+            <tbody><tr><td>شاورما دجاج</td><td>142</td><td>184.50 ريال</td></tr><tr><td>برجر لحم</td><td>129</td><td>163.25 ريال</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">أقل صنف ربحية</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>الصنف</th><th>الطلبات</th><th>الربح</th></tr>
+            </thead>
+            <tbody><tr><td>سلطة جانبية</td><td>256</td><td>18.50 ريال</td></tr><tr><td>بطاطس مقلية</td><td>320</td><td>22.75 ريال</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">عالية البيع منخفضة الربحية</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>الصنف</th><th>الطلبات</th><th>الربحية</th></tr>
+            </thead>
+            <tbody><tr><td>بطاطس مقلية</td><td>320</td><td>22.75 ريال</td></tr><tr><td>مشروب غازي</td><td>298</td><td>24.00 ريال</td></tr><tr><td>إضافات صوص</td><td>255</td><td>19.50 ريال</td></tr></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="table-card-title">
+          <div>
+            <p class="eyebrow">تشخيص الربحية</p>
+            <p class="subtle">أفضل وأضعف فرع وأوقات الذروة والتنبيهات الإدارية</p>
+          </div>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">أفضل وأضعف فرع</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>الفرع</th><th>الربح</th><th>الهدر</th></tr>
+            </thead>
+            <tbody><tr><td>فرع ٣</td><td>512.50 ريال</td><td>3.8%</td></tr><tr><td>فرع ٢</td><td>186.75 ريال</td><td>7.6%</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">أعلى ساعات المبيعات</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>الساعة</th><th>الطلبات</th><th>الربح</th></tr>
+            </thead>
+            <tbody><tr><td>20:00</td><td>110</td><td>312.40 ريال</td></tr><tr><td>21:00</td><td>103</td><td>284.10 ريال</td></tr><tr><td>13:00</td><td>84</td><td>221.60 ريال</td></tr><tr><td>12:00</td><td>68</td><td>175.20 ريال</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">تنبيهات إدارية ذكية</p></div></div>
+        <div class="details-grid">
+          <div class="detail-chip"><span>ارتفاع تكلفة الطعام</span><strong>40.5%</strong></div>
+          <div class="detail-chip"><span>ارتفاع الهدر</span><strong>217 ريال</strong></div>
+          <div class="detail-chip"><span>انخفاض هامش الربح</span><strong>21.5%</strong></div>
+          <div class="detail-chip"><span>أصناف تحتاج مراجعة</span><strong>3</strong></div>
+        </div>
+      </article>
+    </section>
+    
+
+    <section class="content-grid">
+      <article class="panel">
+        <div class="panel-header">
+          <div>
+              <p class="eyebrow">الأداء اليومي</p>
+              <p class="subtle">آخر 7 أيام — صافي الربح والإيراد والطلبات مع الهدر</p>
+            <div class="chart-key" aria-label="تعريف بيانات الرسم">
+              <span class="chart-key-item"><i class="chart-key-swatch profit"></i>صافي الربح (ريال)</span>
+              <span class="chart-key-item"><i class="chart-key-swatch revenue"></i>الإيراد (ريال)</span>
+              <span class="chart-key-item"><i class="chart-key-swatch orders"></i>عدد الطلبات</span>
+            </div>
+          </div>
+        </div>
+        <div class="chart-shell">
+          <canvas id="dailyComboChart" class="combo-chart" aria-label="أعمدة صافي الربح والإيراد بالريال، وخط عدد الطلبات خلال آخر سبعة أيام"></canvas>
+        </div>
+        <div class="chart-axis-note"><span>المحور الأيسر: القيمة بالريال</span><span>المحور الأيمن: عدد الطلبات</span></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">شركات التوصيل</p>
+            <p class="subtle">رسوم التوصيل حسب شركة التوصيل وعدد الطلبات</p>
+            <p class="subtle">أكثر شركة توصيل من حيث الطلبات: هنقرستيشن</p>
+          </div>
+        </div>
+        <div class="carrier-layout">
+          <div class="carrier-donut">
+            <canvas id="carrierDonutChart" aria-label="شركات التوصيل"></canvas>
+            <div class="carrier-center">
+              <div>
+                <strong>4</strong>
+                <span>شركات توصيل</span>
+              </div>
+            </div>
+          </div>
+          <div class="carrier-legend">
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#7A2438"></span>
+                <div class="carrier-name">جاهز</div>
+                <div class="carrier-meta">116 طلب • 24.3%</div>
+              </div>
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#B04A64"></span>
+                <div class="carrier-name">هنقرستيشن</div>
+                <div class="carrier-meta">142 طلب • 29.2%</div>
+              </div>
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#D8CABE"></span>
+                <div class="carrier-name">كيتا</div>
+                <div class="carrier-meta">109 طلب • 23.4%</div>
+              </div>
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#8E6573"></span>
+                <div class="carrier-name">نينجا</div>
+                <div class="carrier-meta">108 طلب • 23.1%</div>
+              </div>
+            
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">التكلفة التشغيلية في الفروع</p>
+          <p class="subtle">لرصد الهدر واختلاف الكلفة التشغيلية بين الفروع</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>الفرع</th>
+              <th>التكلفة التشغيلية</th>
+              <th>الهدر</th>
+              <th>النسبة</th>
+              <th>ملاحظة</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>فرع ١</td><td>4,980 ريال</td><td>220 ريال</td><td>4.4%</td><td>مستقر</td></tr>
+            <tr><td>فرع ٢</td><td>5,360 ريال</td><td>410 ريال</td><td>7.6%</td><td>يحتاج مراجعة</td></tr>
+            <tr><td>فرع ٣</td><td>4,720 ريال</td><td>180 ريال</td><td>3.8%</td><td>جيد</td></tr>
+            <tr><td>فرع ٤</td><td>5,110 ريال</td><td>260 ريال</td><td>5.1%</td><td>متوسط</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="dashboard-footer">
+      <strong>GF Demo</strong>
+      <span>Last Updated: 18 Jul 2026 - 09:30 PM</span>
+    </footer>
+  </main>
+  <script>
+
+    const loginScreen = document.getElementById('loginScreen');
+    const dashboardShell = document.getElementById('dashboardShell');
+    const loginForm = document.getElementById('loginForm');
+    const loginError = document.getElementById('loginError');
+    const passwordInput = document.getElementById('loginPassword');
+    const passwordToggle = document.getElementById('passwordToggle');
+    const themeToggle = document.getElementById('themeToggle');
+    const logoutButton = document.getElementById('logoutButton');
+
+    function setDashboardVisible(visible) {
+      if (visible) {
+        loginScreen.classList.add('is-hidden');
+        dashboardShell.classList.add('is-visible');
+        dashboardShell.setAttribute('aria-hidden', 'false');
+      } else {
+        loginScreen.classList.remove('is-hidden', 'is-hiding');
+        dashboardShell.classList.remove('is-visible');
+        dashboardShell.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    function completeLogin() {
+      localStorage.setItem('gfDemoAuthenticated', 'true');
+      loginScreen.classList.add('is-hiding');
+      setTimeout(() => setDashboardVisible(true), 250);
+    }
+
+    function applyTheme(theme) {
+      const isDark = theme !== 'day';
+      document.body.classList.toggle('dark', isDark);
+      localStorage.setItem('gfTheme', isDark ? 'dark' : 'day');
+      themeToggle.textContent = isDark ? '☀️ Day Mode' : '🌙 Night Mode';
+    }
+
+    applyTheme(localStorage.getItem('gfTheme') || 'dark');
+    setDashboardVisible(false);
+    fetch('/api/session', { credentials: 'same-origin' })
+      .then((response) => response.ok ? response.json() : { authenticated: false })
+      .then((result) => setDashboardVisible(Boolean(result.authenticated)))
+      .catch(() => setDashboardVisible(false));
+
+    passwordToggle.addEventListener('click', () => {
+      const showing = passwordInput.type === 'text';
+      passwordInput.type = showing ? 'password' : 'text';
+      passwordToggle.textContent = showing ? 'إظهار' : 'إخفاء';
+    });
+
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      loginError.classList.remove('is-visible');
+      const button = loginForm.querySelector('.login-button');
+      button.disabled = true;
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('loginUsername').value.trim(),
+            password: passwordInput.value
+          })
+        });
+        if (!response.ok) throw new Error('invalid_credentials');
+        completeLogin();
+      } catch (error) {
+        loginError.classList.add('is-visible');
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    themeToggle.addEventListener('click', () => {
+      applyTheme(document.body.classList.contains('dark') ? 'day' : 'dark');
+    });
+
+    logoutButton.addEventListener('click', async () => {
+      localStorage.removeItem('gfDemoAuthenticated');
+      try { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }); } catch (error) {}
+      setDashboardVisible(false);
+    });
+
+    const dailyLabels = ["07-12", "07-13", "07-14", "07-15", "07-16", "07-17", "07-18"];
+    const dailyProfit = [74.5, 91.2, 68.4, 112.0, 96.7, 128.3, 104.6];
+    const dailyRevenue = [520.0, 610.0, 480.0, 720.0, 680.0, 810.0, 760.0];
+    const dailyCount = [18, 24, 21, 29, 27, 34, 31];
+    const carrierLabels = ["جاهز", "هنقرستيشن", "كيتا", "نينجا"];
+    const carrierValues = [520.25, 625.00, 501.50, 500.00];
+    const carrierColors = ["#7A2438", "#B04A64", "#D8CABE", "#8E6573"];
+    const chartCanvas = document.getElementById('dailyComboChart');
+    const carrierCanvas = document.getElementById('carrierDonutChart');
+    const revenueSplitCanvas = document.getElementById('revenueSplitChart');
+    const revenueSplitValues = [4050.00, 1650.00, 1100.00, 830.00, 217.00, 2146.75];
+    const revenueSplitColors = ["#7A2438", "#B04A64", "#D8CABE", "#8E6573", "#B89A7D", "#5E7B6A"];
+    function drawCanvasComboChart(canvas, labels, profit, revenue, counts) {
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const width = rect.width;
+      const height = rect.height;
+      const pad = { top: 34, right: 36, bottom: 34, left: 44 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+      const maxBars = Math.max(...profit, ...revenue, 1);
+      const maxCount = Math.max(...counts, 1);
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.font = '10px Inter, "Noto Sans Arabic", system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      for (let i = 0; i <= 4; i += 1) {
+        const y = pad.top + (plotH * i / 4);
+        ctx.strokeStyle = 'rgba(255,255,255,.06)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
+        ctx.stroke();
+      }
+
+      const step = plotW / Math.max(labels.length, 1);
+      const barW = Math.min(18, step * 0.27);
+      const profitGradient = ctx.createLinearGradient(0, pad.top, 0, height - pad.bottom);
+      profitGradient.addColorStop(0, 'rgba(216,202,190,.88)');
+      profitGradient.addColorStop(1, 'rgba(216,202,190,.20)');
+      const revenueGradient = ctx.createLinearGradient(0, pad.top, 0, height - pad.bottom);
+      revenueGradient.addColorStop(0, 'rgba(176,74,100,.86)');
+      revenueGradient.addColorStop(1, 'rgba(176,74,100,.20)');
+
+      labels.forEach((label, index) => {
+        const centerX = pad.left + step * index + step / 2;
+        const profitH = (profit[index] / maxBars) * plotH;
+        const revenueH = (revenue[index] / maxBars) * plotH;
+        const profitX = centerX - barW - 2;
+        const revenueX = centerX + 2;
+        ctx.fillStyle = profitGradient;
+        ctx.beginPath();
+        ctx.roundRect(profitX, height - pad.bottom - profitH, barW, profitH, 5);
+        ctx.fill();
+        ctx.fillStyle = revenueGradient;
+        ctx.beginPath();
+        ctx.roundRect(revenueX, height - pad.bottom - revenueH, barW, revenueH, 5);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(246,251,255,.58)';
+        ctx.fillText(label, centerX, height - 16);
+      });
+
+      const linePoints = counts.map((count, index) => {
+        const centerX = pad.left + step * index + step / 2;
+        const y = height - pad.bottom - ((count / maxCount) * plotH);
+        return [centerX, y];
+      });
+      ctx.strokeStyle = 'rgba(122,36,56,.95)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      linePoints.forEach(([x, y], index) => {
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      linePoints.forEach(([x, y]) => {
+        ctx.fillStyle = 'rgba(122,36,56,.95)';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#0F1113';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+
+    }
+
+    function drawCanvasDonutChart(canvas, values, colors) {
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const radius = Math.min(rect.width, rect.height) / 2 - 8;
+      const inner = radius * .56;
+      const total = values.reduce((sum, value) => sum + value, 0) || 1;
+      let start = -Math.PI / 2;
+
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      values.forEach((value, index) => {
+        const end = start + (value / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, start, end);
+        ctx.arc(cx, cy, inner, end, start, true);
+        ctx.closePath();
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(7,17,29,.78)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        start = end;
+      });
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, inner - 1, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(5,8,14,.94)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.08)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    if (chartCanvas && window.Chart) {
+      const chartContext = chartCanvas.getContext('2d');
+      const profitGradient = chartContext.createLinearGradient(0, 0, 0, 280);
+      profitGradient.addColorStop(0, 'rgba(216,202,190,0.88)');
+      profitGradient.addColorStop(1, 'rgba(216,202,190,0.20)');
+      const revenueGradient = chartContext.createLinearGradient(0, 0, 0, 280);
+      revenueGradient.addColorStop(0, 'rgba(176,74,100,0.86)');
+      revenueGradient.addColorStop(1, 'rgba(176,74,100,0.20)');
+      new Chart(chartCanvas, {
+        data: {
+          labels: dailyLabels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'صافي الربح',
+              data: dailyProfit,
+              yAxisID: 'money',
+              backgroundColor: profitGradient,
+              borderColor: 'rgba(216,202,190,.95)',
+              borderWidth: 1,
+              borderRadius: 6,
+              maxBarThickness: 20
+            },
+            {
+              type: 'bar',
+              label: 'الإيراد',
+              data: dailyRevenue,
+              yAxisID: 'money',
+              backgroundColor: revenueGradient,
+              borderColor: 'rgba(176,74,100,.96)',
+              borderWidth: 1,
+              borderRadius: 6,
+              maxBarThickness: 20
+            },
+            {
+              type: 'line',
+              label: 'عدد الطلبات',
+              data: dailyCount,
+              yAxisID: 'count',
+              borderColor: 'rgba(122,36,56,.95)',
+              backgroundColor: 'rgba(122,36,56,0.12)',
+              borderWidth: 2.5,
+              tension: 0.38,
+              pointRadius: 3.5,
+              pointHoverRadius: 5,
+              pointBackgroundColor: 'rgba(122,36,56,.95)',
+              pointBorderColor: '#0F1113',
+              pointBorderWidth: 2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              rtl: true,
+              textDirection: 'rtl',
+              backgroundColor: 'rgba(5,8,14,.94)',
+              borderColor: 'rgba(255,255,255,.14)',
+              borderWidth: 1,
+              titleColor: '#fff',
+              bodyColor: 'rgba(246,251,255,.82)',
+              callbacks: {
+                label: (context) => {
+                  const unit = context.dataset.yAxisID === 'count' ? ' طلب' : ' ريال';
+                  return `${context.dataset.label}: ${Number(context.parsed.y).toLocaleString('ar-SA')}${unit}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255,255,255,.05)' },
+              ticks: { color: 'rgba(246,251,255,.58)', font: { size: 10 } }
+            },
+            money: {
+              position: 'left',
+              grid: { color: 'rgba(255,255,255,.06)' },
+              title: { display: true, text: 'القيمة (ريال)', color: 'rgba(246,251,255,.58)', font: { size: 10 } },
+              ticks: { color: 'rgba(246,251,255,.58)', font: { size: 10 }, callback: (value) => Number(value).toLocaleString('ar-SA') }
+            },
+            count: {
+              position: 'right',
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: 'عدد الطلبات', color: 'rgba(122,36,56,.80)', font: { size: 10 } },
+              ticks: { color: 'rgba(122,36,56,.72)', precision: 0, font: { size: 10 } }
+            }
+          }
+        }
+      });
+    } else if (chartCanvas) {
+      drawCanvasComboChart(chartCanvas, dailyLabels, dailyProfit, dailyRevenue, dailyCount);
+    }
+
+    if (carrierCanvas && window.Chart) {
+      new Chart(carrierCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: carrierLabels,
+          datasets: [{
+            data: carrierValues,
+            backgroundColor: carrierColors,
+            borderColor: 'rgba(7,17,29,.78)',
+            borderWidth: 2,
+            hoverOffset: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '58%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              rtl: true,
+              textDirection: 'rtl',
+              backgroundColor: 'rgba(5,8,14,.94)',
+              borderColor: 'rgba(255,255,255,.14)',
+              borderWidth: 1,
+              titleColor: '#fff',
+              bodyColor: 'rgba(246,251,255,.82)'
+            }
+          }
+        }
+      });
+    } else if (carrierCanvas) {
+      drawCanvasDonutChart(carrierCanvas, carrierValues, carrierColors);
+    }
+
+    if (revenueSplitCanvas && window.Chart) {
+      new Chart(revenueSplitCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: ["مواد غذائية", "رواتب", "إيجارات", "توصيل", "هدر", "صافي ربح"],
+          datasets: [{
+            data: revenueSplitValues,
+            backgroundColor: revenueSplitColors,
+            borderColor: 'rgba(7,17,29,.78)',
+            borderWidth: 2,
+            hoverOffset: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '58%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              rtl: true,
+              textDirection: 'rtl',
+              backgroundColor: 'rgba(5,8,14,.94)',
+              borderColor: 'rgba(255,255,255,.14)',
+              borderWidth: 1,
+              titleColor: '#fff',
+              bodyColor: 'rgba(246,251,255,.82)'
+            }
+          }
+        }
+      });
+    } else if (revenueSplitCanvas) {
+      drawCanvasDonutChart(revenueSplitCanvas, revenueSplitValues, revenueSplitColors);
+    }
+  </script>
+</body>
+</html>
