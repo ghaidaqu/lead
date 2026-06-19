@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+import traceback
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -1960,4 +1961,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
+        raise

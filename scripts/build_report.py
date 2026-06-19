@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+import traceback
 from pathlib import Path
 from collections import defaultdict
 
@@ -902,4 +903,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
+        raise
