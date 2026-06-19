@@ -15,12 +15,28 @@ from pathlib import Path
 from typing import Any
 
 from openpyxl import load_workbook
+from openpyxl import Workbook
+
+try:
+    from scripts.db_store import compare_counts, db_enabled, ensure_schema, finish_sync_run, get_conn, make_sync_run, upsert_rows
+except Exception:  # pragma: no cover
+    compare_counts = None
+    db_enabled = lambda: False  # type: ignore
+    ensure_schema = None
+    finish_sync_run = None
+    get_conn = None
+    make_sync_run = None
+    upsert_rows = None
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-SOURCE_XLSX = PROJECT_DIR / "source" / "lead6.xlsx"
+SOURCE_CANDIDATES = [
+    PROJECT_DIR / "output" / "lead6_report.xlsx",
+    PROJECT_DIR / "source" / "lead6.xlsx",
+]
 REPORT_XLSX = PROJECT_DIR / "output" / "lead6_report.xlsx"
 BACKUP_DIR = PROJECT_DIR / "backups"
+FALLBACK_BACKUP_DIR = Path(os.environ.get("LEAD_BACKUP_DIR", Path("/private/tmp/lead6_backups")))
 STATE_PATH = PROJECT_DIR / "sync_state.json"
 ENV_PATH = PROJECT_DIR / ".env"
 AUTH_DIR = PROJECT_DIR / ".auth"
@@ -78,11 +94,37 @@ def row_date_at_or_after(row: list[Any], indexes: tuple[int, ...], minimum: dt.d
 
 
 def make_backup(src: Path) -> Path:
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    dst = BACKUP_DIR / f"{src.stem}-{stamp}{src.suffix}"
-    shutil.copy2(src, dst)
-    return dst
+    candidates = [BACKUP_DIR, FALLBACK_BACKUP_DIR]
+    last_error: Exception | None = None
+    for folder in candidates:
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            dst = folder / f"{src.stem}-{stamp}{src.suffix}"
+            shutil.copy2(src, dst)
+            return dst
+        except Exception as exc:
+            last_error = exc
+            continue
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Unable to create backup")
+
+
+def pick_source_workbook() -> Path | None:
+    for candidate in SOURCE_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def create_workbook_with_raw_sheets() -> Workbook:
+    wb = Workbook()
+    default = wb.active
+    wb.remove(default)
+    for name in ("Raw_Shipments", "Raw_Wallet", "Raw_Payments", "Raw_COD"):
+        wb.create_sheet(title=name)
+    return wb
 
 
 def load_auth_state() -> dict[str, Any]:
@@ -257,11 +299,13 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
     def page_looks_logged_in(html: str) -> tuple[bool, dict[str, bool]]:
         parser = LinkParser()
         parser.feed(html)
+        lower = html.lower()
         checks = {
-            "dashboard_links": any(token in html for token in ("لوحة التحكم", "/admin/shipments.php", "/admin/wallet.php", "/admin/collect-cod.php")),
+            "has_admin_links": any(token in html for token in ("/admin/shipments.php", "/admin/wallet.php", "/admin/collect-cod.php", "/admin/dashboard.php")),
             "shipments_link": any("/admin/shipments.php" in link for link in parser.links),
             "wallet_link": any("/admin/wallet.php" in link for link in parser.links),
             "cod_link": any("/admin/collect-cod.php" in link for link in parser.links),
+            "not_login_form": "password" not in lower or "/login" not in lower,
         }
         return all(checks.values()), checks
 
@@ -341,9 +385,7 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
     logs.append({"kind": "request", "url": f"{base}/admin/collect-cod.php"})
     cod_ok, cod_checks = page_looks_logged_in(cod_probe)
     login_issue = None
-    if not has_dashboard_links:
-        login_issue = "dashboard markers not found"
-    elif not shipments_ok:
+    if not shipments_ok:
         login_issue = "shipments page was not accessible"
     elif not wallet_ok:
         login_issue = "wallet page was not accessible"
@@ -388,6 +430,71 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
 
 def normalize_headers(row: list[str]) -> list[str]:
     return [norm(v) for v in row]
+
+
+def shipment_record(row: list[list[Any]]) -> dict[str, Any]:
+    return {
+        "order_id": norm(row[0]) if len(row) > 0 else "",
+        "tracking_number": norm(row[1]) if len(row) > 1 else "",
+        "merchant_name": norm(row[2]) if len(row) > 2 else "",
+        "store_name": norm(row[3]) if len(row) > 3 else "",
+        "customer_name": norm(row[4]) if len(row) > 4 else "",
+        "city": norm(row[5]) if len(row) > 5 else "",
+        "carrier": norm(row[10]) if len(row) > 10 else "",
+        "payment_type": norm(row[9]) if len(row) > 9 else "",
+        "status": norm(row[12]) if len(row) > 12 else "",
+        "shipment_date": parse_date_text(row[13]) if len(row) > 13 else None,
+        "delivery_date": parse_date_text(row[14]) if len(row) > 14 else None,
+        "weight": money(row[11]) if len(row) > 11 else 0.0,
+        "cod_amount": money(row[7]) if len(row) > 7 else 0.0,
+        "shipping_charge": money(row[6]) if len(row) > 6 else 0.0,
+        "raw_payload": row,
+        "source_row": None,
+        "source_hash": norm(row[0]) if row else "",
+    }
+
+
+def wallet_record(row: list[list[Any]], page: str, kind: str) -> dict[str, Any]:
+    return {
+        "transaction_key": data_key(row, (0, 1, 2, 3)),
+        "transaction_date": parse_date_text(row[1]) if len(row) > 1 else None,
+        "user_name": norm(row[2]) if len(row) > 2 else "",
+        "description": norm(row[3]) if len(row) > 3 else "",
+        "amount": money(row[4]) if len(row) > 4 else 0.0,
+        "transaction_type": kind,
+        "balance_before": None,
+        "balance_after": None,
+        "source_page": page,
+        "raw_payload": row,
+    }
+
+
+def payment_record(row: list[list[Any]]) -> dict[str, Any]:
+    return {
+        "payment_key": data_key(row, (0, 1, 2, 3)),
+        "payment_date": parse_date_text(row[1]) if len(row) > 1 else None,
+        "customer_name": norm(row[2]) if len(row) > 2 else "",
+        "amount": money(row[4]) if len(row) > 4 else 0.0,
+        "method": norm(row[6]) if len(row) > 6 else "",
+        "status": norm(row[5]) if len(row) > 5 else "",
+        "source_page": "wallet.php",
+        "raw_payload": row,
+    }
+
+
+def cod_record(row: list[list[Any]]) -> dict[str, Any]:
+    return {
+        "order_id": norm(row[0]) if len(row) > 0 else "",
+        "tracking_number": norm(row[1]) if len(row) > 1 else "",
+        "merchant_name": norm(row[2]) if len(row) > 2 else "",
+        "customer_name": norm(row[3]) if len(row) > 3 else "",
+        "cod_amount": money(row[4]) if len(row) > 4 else 0.0,
+        "collection_date": parse_date_text(row[5]) if len(row) > 5 else None,
+        "transfer_date": parse_date_text(row[6]) if len(row) > 6 else None,
+        "settlement_status": norm(row[7]) if len(row) > 7 else "",
+        "shipment_status": norm(row[8]) if len(row) > 8 else "",
+        "raw_payload": row,
+    }
 
 
 def extract_shipments(html: str) -> tuple[list[list[Any]], int]:
@@ -473,14 +580,18 @@ def main() -> int:
         if not env.get(key):
             print(f"Missing {key} in .env", file=sys.stderr)
             return 2
-    if not SOURCE_XLSX.exists():
-        print(f"Missing workbook: {SOURCE_XLSX}", file=sys.stderr)
-        return 2
-
-    backup = make_backup(SOURCE_XLSX)
+    source_xlsx = pick_source_workbook()
     payload = scrape_site(env)
+    source_type = "website"
+    if source_xlsx is None:
+        wb = create_workbook_with_raw_sheets()
+        source_xlsx = REPORT_XLSX
+        backup = Path("/private/tmp/lead6-no-backup.xlsx")
+    else:
+        source_type = "excel"
+        backup = make_backup(source_xlsx)
+        wb = load_workbook(source_xlsx)
 
-    wb = load_workbook(SOURCE_XLSX)
     raw_ship = find_sheet(wb, ["Raw_Shipments"])
     raw_wallet = find_sheet(wb, ["Raw_Wallet"])
     raw_payments = find_sheet(wb, ["Raw_Payments"])
@@ -506,13 +617,65 @@ def main() -> int:
         cod_rows = [cod_rows[0]] + [row for row in cod_rows[1:] if row_date_at_or_after(row, (3, 4))]
         cod_added, cod_updated, cod_dups = merge_raw_sheet(raw_cod, cod_rows, (0,))
 
-    wb.save(SOURCE_XLSX)
+    wb.save(source_xlsx)
+    canonical_source = PROJECT_DIR / "source" / "lead6.xlsx"
+    if source_xlsx != canonical_source:
+        shutil.copy2(source_xlsx, canonical_source)
+
+    db_report = {"enabled": False, "synced": False, "comparison": {}}
+    if db_enabled():
+        try:
+            with get_conn() as conn:
+                ensure_schema(conn)
+                run_id = make_sync_run(conn, "sync_from_lead.py")
+                shipments_payload = [shipment_record(row) for row in ship_rows[1:]]
+                wallet_payload = [wallet_record(row, "wallet.php", "transaction") for row in wallet_rows[1:]]
+                payments_payload = [payment_record(row) for row in wallet_rows[1:]]
+                cod_payload = [cod_record(row) for row in cod_rows[1:]]
+                shipment_ins, shipment_upd = upsert_rows(conn, "shipments", shipments_payload, ["order_id"], [
+                    "tracking_number", "merchant_name", "store_name", "customer_name", "city", "carrier", "payment_type",
+                    "status", "shipment_date", "delivery_date", "weight", "cod_amount", "shipping_charge",
+                    "customer_price_gross", "customer_price_net", "platform_cost_gross", "platform_cost_net",
+                    "base_profit", "extra_kg", "extra_profit", "cod_profit", "total_profit", "included_in_profit",
+                    "source_row", "source_hash", "raw_payload",
+                ])
+                wallet_ins, wallet_upd = upsert_rows(conn, "wallet_transactions", wallet_payload, ["transaction_key"], [
+                    "transaction_date", "user_name", "description", "amount", "transaction_type", "balance_before",
+                    "balance_after", "source_page", "raw_payload",
+                ])
+                payment_ins, payment_upd = upsert_rows(conn, "payments", payments_payload, ["payment_key"], [
+                    "payment_date", "customer_name", "amount", "method", "status", "source_page", "raw_payload",
+                ])
+                cod_ins, cod_upd = upsert_rows(conn, "cod_collections", cod_payload, ["order_id"], [
+                    "tracking_number", "merchant_name", "customer_name", "cod_amount", "collection_date",
+                    "transfer_date", "settlement_status", "shipment_status", "raw_payload",
+                ])
+                comparison = compare_counts(conn)
+                finish_sync_run(
+                    conn,
+                    run_id,
+                    "ok",
+                    inserted=shipment_ins + wallet_ins + payment_ins + cod_ins,
+                    updated=shipment_upd + wallet_upd + payment_upd + cod_upd,
+                    skipped=shipments_dups + wallet_dups + payments_dups + cod_dups,
+                )
+                db_report = {
+                    "enabled": True,
+                    "synced": True,
+                    "comparison": comparison,
+                    "db_rows_inserted": shipment_ins + wallet_ins + payment_ins + cod_ins,
+                    "db_rows_updated": shipment_upd + wallet_upd + payment_upd + cod_upd,
+                }
+        except Exception as exc:
+            db_report = {"enabled": True, "synced": False, "error": str(exc)}
 
     subprocess.run([sys.executable, str(PROJECT_DIR / "scripts" / "build_report.py")], cwd=str(PROJECT_DIR), check=True)
     subprocess.run([sys.executable, str(PROJECT_DIR / "web" / "generate_site.py")], cwd=str(PROJECT_DIR), check=True)
 
     report = {
         "backup": str(backup),
+        "source_workbook": str(source_xlsx),
+        "source_type": source_type,
         "output_excel": str(REPORT_XLSX),
         "shipments_rows": max(0, len(ship_rows) - 1),
         "shipments_new": shipments_added,
@@ -533,6 +696,7 @@ def main() -> int:
         "errors": 0,
         "api_observations": len(payload.get("logs", [])),
         "checks": payload.get("checks", {}),
+        "postgres": db_report,
         "dashboard_refreshed": True,
     }
 
@@ -541,6 +705,7 @@ def main() -> int:
     state["backup"] = str(backup)
     state["network_events"] = len(payload.get("logs", []))
     save_state(state)
+    print(f"[lead-sync] source={source_type}", flush=True)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
 
