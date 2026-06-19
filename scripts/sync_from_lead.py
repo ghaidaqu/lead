@@ -20,7 +20,7 @@ from openpyxl import load_workbook
 from openpyxl import Workbook
 
 try:
-    from scripts.db_store import compare_counts, db_enabled, ensure_schema, finish_sync_run, get_conn, make_sync_run, upsert_rows
+    from scripts.db_store import compare_counts, db_enabled, ensure_schema, finish_sync_run, get_conn, make_sync_run, replace_price_rules, upsert_rows
 except Exception:  # pragma: no cover
     compare_counts = None
     db_enabled = lambda: False  # type: ignore
@@ -28,6 +28,7 @@ except Exception:  # pragma: no cover
     finish_sync_run = None
     get_conn = None
     make_sync_run = None
+    replace_price_rules = None
     upsert_rows = None
 
 
@@ -787,6 +788,9 @@ def main() -> int:
             with get_conn() as conn:
                 ensure_schema(conn)
                 run_id = make_sync_run(conn, "sync_from_lead.py")
+                if replace_price_rules is not None and "الاسعار" in wb.sheetnames:
+                    price_rows = [list(row) for row in wb["الاسعار"].iter_rows(values_only=True)]
+                    replace_price_rules(conn, price_rows)
                 shipments_payload = [shipment_record(row) for row in ship_rows[1:]]
                 wallet_payload = [wallet_record(row, "wallet.php", "transaction") for row in wallet_rows[1:]]
                 payments_payload = [payment_record(row) for row in wallet_rows[1:]]
