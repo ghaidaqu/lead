@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>lead</title>
+  <title>GF Demo | مطاعم وتوصيل</title>
+  <link rel="icon" type="image/png" href="/dashboard/gf_logo_mark_clean.png" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {
@@ -44,10 +45,12 @@
       box-sizing: border-box;
       transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease, fill .35s ease, stroke .35s ease;
     }
-    html { scroll-behavior:smooth; }
+    html { scroll-behavior:smooth; max-width:100%; overflow-x:hidden; }
     body {
       margin:0;
       min-height:100vh;
+      max-width:100%;
+      overflow-x:hidden;
       color:var(--text);
       font-family: Inter, "Avenir Next", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
       background:var(--bg);
@@ -158,6 +161,7 @@
     }
     .metric-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-bottom:10px; }
     .mini-band { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:0 0 16px; }
+    .profit-band { grid-template-columns:repeat(3, minmax(0,1fr)); }
     .finance-band { grid-template-columns:repeat(4, minmax(0,1fr)); }
     .metric-card, .panel, .mini-card {
       position:relative;
@@ -210,12 +214,12 @@
     .metric-card strong { display:block; margin-top:8px; font-size:22px; line-height:1; font-weight:880; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; color:#fff; text-shadow:0 2px 14px rgba(122,36,56,.12), 0 1px 0 rgba(255,255,255,.08); }
     .metric-footer { margin-top:7px; color:rgba(211,222,235,.66); font-size:12px; line-height:1.35; }
     .mini-card .metric-label { font-size:13px; line-height:1.35; }
-    .mini-card strong { display:block; margin-top:6px; font-size:20px; line-height:1.15; font-variant-numeric: tabular-nums; color:#fff; font-weight:850; text-shadow:0 2px 14px rgba(122,36,56,.10); }
+    .mini-card strong { display:block; margin-top:6px; font-size:20px; line-height:1.25; font-variant-numeric: tabular-nums; color:#fff; font-weight:850; text-shadow:0 2px 14px rgba(122,36,56,.10); }
     .mini-card .metric-footer { font-size:12px; line-height:1.35; }
     .profit-details-card { margin:0 0 14px; }
     .details-panel { padding:16px; }
     .compact-header { margin-bottom:12px; }
-    .details-grid { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:10px; }
+    .details-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
     .detail-chip {
       position:relative;
       overflow:hidden;
@@ -236,7 +240,19 @@
     .panel-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }
     .eyebrow { margin:0; color:rgba(238,245,252,.88); font-size:13px; font-weight:750; letter-spacing:.02em; }
     .subtle { margin:6px 0 0; color:rgba(184,198,214,.78); font-size:13px; }
+    .chart-key { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .chart-key-item {
+      display:inline-flex; align-items:center; gap:7px; padding:7px 10px;
+      border:1px solid rgba(150,169,196,.15); border-radius:999px;
+      background:rgba(24,38,58,.58); color:rgba(238,245,252,.84);
+      font-size:11px; font-weight:650; white-space:nowrap;
+    }
+    .chart-key-swatch { width:10px; height:10px; border-radius:50%; flex:0 0 10px; display:inline-block; }
+    .chart-key-swatch.profit { background:#D8CABE; }
+    .chart-key-swatch.revenue { background:#B04A64; }
+    .chart-key-swatch.orders { background:#7A2438; }
     .chart-shell { height:300px; }
+    .chart-axis-note { display:flex; justify-content:space-between; gap:12px; margin-top:9px; color:rgba(184,198,214,.66); font-size:11px; }
     .combo-chart { width:100%; height:100%; display:block; }
     .area-chart { width:100%; height:100%; display:block; }
     .area-chart svg { width:100%; height:100%; display:block; overflow:visible; }
@@ -248,6 +264,12 @@
       display:grid;
       grid-template-columns:156px 1fr;
       gap:16px;
+      align-items:center;
+    }
+    .revenue-layout {
+      display:grid;
+      grid-template-columns:184px 1fr;
+      gap:14px;
       align-items:center;
     }
     .carrier-donut {
@@ -328,7 +350,6 @@
     .table-card-title p { margin:6px 0 0; color:var(--muted); font-size:12px; }
     .statement-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
     .statement-summary .mini-card strong { font-size:18px; }
-    .statement-panel { margin-top:16px; }
     .finance-card strong { font-size:18px; }
     .finance-total-card strong { font-size:16px; }
     .breakdown-line { color:rgba(255,255,255,.70); font-size:12px; line-height:1.5; margin-top:2px; }
@@ -485,8 +506,12 @@
     body:not(.dark) .login-screen { background:#0F1113; }
 
     @media (max-width: 1100px) {
-      .metric-grid, .content-grid, .table-grid, .mini-band, .finance-band, .statement-summary, .details-grid { grid-template-columns:1fr; }
-      .carrier-layout { grid-template-columns:1fr; }
+      .metric-grid, .content-grid, .table-grid, .mini-band, .profit-band, .finance-band, .statement-summary, .details-grid { grid-template-columns:1fr; }
+      .carrier-layout, .revenue-layout { grid-template-columns:1fr; }
+      .page, .panel, .metric-card, .mini-card, .detail-chip, .content-grid, .chart-shell, .table-wrap { min-width:0; max-width:100%; }
+      canvas { max-width:100%; }
+      .subhero { width:100%; flex-direction:column; align-items:stretch; gap:8px; }
+      .hero-tools, .subhero-tools { width:100%; margin:0; }
       .hero { padding:12px 14px; margin-bottom:8px; align-items:center; gap:12px; }
       .brand-lockup { flex:0 1 auto; min-width:0; }
       .brand-logo { width:min(82px, 24vw); }
@@ -500,6 +525,23 @@
       .detail-chip { min-height:64px; }
       .subhero-tools { width:100%; justify-content:flex-start; }
       .theme-toggle, .logout-button { flex:1 1 auto; }
+    }
+    @media (max-width: 600px) {
+      .page { width:calc(100% - 20px); padding-top:10px; }
+      .hero { flex-direction:column; align-items:stretch; padding:14px; }
+      .hero-title { align-items:flex-start; text-align:right; width:100%; }
+      .brand-lockup { width:100%; max-width:100%; justify-content:center; overflow:hidden; }
+      .brand-identity { min-width:0; }
+      .brand-identity span { white-space:normal; }
+      .hero-tools { display:grid; grid-template-columns:1fr 1.35fr; gap:8px; }
+      .hero-tools > * { width:100%; justify-content:center; text-align:center; padding-inline:8px; }
+      .subhero-tools { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+      .chart-key { display:grid; grid-template-columns:1fr; }
+      .chart-key-item { justify-content:flex-start; }
+      .chart-axis-note { flex-direction:column; gap:3px; }
+      .panel { padding:14px; }
+      .chart-shell { height:260px; overflow:hidden; }
+      .carrier-row { padding:10px 12px; }
     }
   </style>
 </head>
@@ -516,7 +558,7 @@
         <img src="gf_logo_mark_clean.png" alt="GF" />
         <div>
           <h2>تسجيل الدخول</h2>
-          <p>أدخل بيانات الدخول للوصول إلى لوحة التحكم</p>
+          <p>أدخل بيانات الدخول للوصول إلى لوحة تشغيل المطاعم والتوصيل</p>
         </div>
       </div>
       <form class="login-form" id="loginForm">
@@ -539,23 +581,23 @@
   <main class="page dashboard-shell" id="dashboardShell" aria-hidden="true">
     <header class="hero">
       <div class="hero-title">
-        <h1>لوحة التحكم المالية المختصرة</h1>
-        <p>نظرة عامة على أداء الأعمال</p>
+        <h1>لوحة تشغيل المطاعم والتوصيل</h1>
+        <p>نظرة عامة على الربحية والتكلفة والهدر</p>
       </div>
       <div class="brand-lockup">
-        <img class="brand-logo" src="gf_logo_mark_clean.png" alt="GF Smart Accounting Solutions" />
+        <img class="brand-logo" src="gf_logo_mark_clean.png" alt="GF Demo" />
         <div class="brand-divider" aria-hidden="true"></div>
         <div class="hero-copy brand-identity">
-          <strong>GF Analytics</strong>
-          <span>Financial Intelligence Dashboard</span>
+          <strong>GF Demo</strong>
+          <span>Restaurant & Delivery Intelligence</span>
         </div>
       </div>
     </header>
 
     <div class="subhero">
       <div class="hero-tools">
-        <span class="badge">1-17 يونيو</span>
-        <a class="primary-button" href="/report.xlsx"><span>فتح ملف Excel</span></a>
+        <span class="badge">1-18 يوليو</span>
+        <a class="primary-button" href="../GF_Demo.xlsx"><span>فتح ملف Excel</span></a>
       </div>
       <div class="subhero-tools">
         <button class="theme-toggle" id="themeToggle" type="button">🌙 Night Mode</button>
@@ -567,115 +609,76 @@
       
       <article class="metric-card tone-navy">
         <span class="metric-label">إجمالي الإيرادات</span>
-        <strong>10,128.50 ريال</strong>
-        <div class="metric-footer">إجمالي ما دفعه العملاء</div>
+        <strong>9,993.75 ريال</strong>
+        <div class="metric-footer">475 طلب خلال الفترة</div>
       </article>
     
       
       <article class="metric-card tone-navy">
-        <span class="metric-label">إجمالي الربح</span>
-        <strong>1,276.31 ريال</strong>
-        <div class="metric-footer">الشحنات المحسوبة: 1-17 يونيو</div>
+        <span class="metric-label">صافي الربح الشهري</span>
+        <strong>2,146.75 ريال</strong>
+        <div class="metric-footer">صافي الربح بعد التكاليف</div>
       </article>
     
       
       <article class="metric-card tone-navy">
-        <span class="metric-label">عدد الشحنات</span>
-        <strong>456</strong>
-        <div class="metric-footer">غير داخلة في الربح: 19</div>
+        <span class="metric-label">هامش الربح</span>
+        <strong>21.5%</strong>
+        <div class="metric-footer">صافي الربح ÷ الإيراد</div>
       </article>
     
       
       <article class="metric-card tone-navy">
-        <span class="metric-label">مبلغ COD</span>
-        <strong>260.00 ريال</strong>
-        <div class="metric-footer">إجمالي مبالغ COD</div>
+        <span class="metric-label">نسبة تكلفة الطعام</span>
+        <strong>40.5%</strong>
+        <div class="metric-footer">المواد الغذائية من الإيراد</div>
       </article>
     
     </section>
 
-    
-      <section class="profit-details-card">
-        <article class="panel details-panel">
-          <div class="panel-header compact-header">
-            <div>
-              <p class="eyebrow">تفاصيل الأرباح</p>
-              <p class="subtle">تفصيل القيم الداخلة في إجمالي الربح</p>
-            </div>
-          </div>
-          <div class="details-grid">
-            <div class="detail-chip"><span>ربح الشحنات</span><strong>1,241.06 ريال</strong></div>
-            <div class="detail-chip"><span>ربح المرتجعات</span><strong>23.00 ريال</strong></div>
-            <div class="detail-chip"><span>ربح الوزن الزائد</span><strong>4.25 ريال</strong></div>
-            <div class="detail-chip"><span>ربح COD</span><strong>8.00 ريال</strong></div>
-            <div class="detail-chip"><span>عدد COD</span><strong>4</strong></div>
-          </div>
-        </article>
-      </section>
-    
-
-    <section class="content-grid">
-      <article class="panel">
-        <div class="panel-header">
-          <div>
-            <p class="eyebrow">الأداء اليومي</p>
-            <p class="subtle">آخر 7 أيام</p>
-          </div>
-        </div>
-        <div class="chart-shell">
-          <canvas id="dailyComboChart" class="combo-chart" aria-label="الأداء اليومي"></canvas>
-        </div>
+    <section class="mini-band profit-band">
+      <article class="mini-card">
+        <span class="metric-label">صافي الربح اليومي</span>
+        <strong>104.60 ريال</strong>
+        <div class="metric-footer">آخر يوم في الفترة</div>
       </article>
+      <article class="mini-card">
+        <span class="metric-label">قيمة الهدر اليومية</span>
+        <strong>18.10 ريال</strong>
+        <div class="metric-footer">آخر يوم في الفترة</div>
+      </article>
+      <article class="mini-card">
+        <span class="metric-label">قيمة الهدر الشهرية</span>
+        <strong>217.00 ريال</strong>
+        <div class="metric-footer">إجمالي الشهر</div>
+      </article>
+    </section>
 
-      <article class="panel">
-        <div class="panel-header">
+    <section class="profit-details-card">
+      <article class="panel details-panel">
+        <div class="panel-header compact-header">
           <div>
-            <p class="eyebrow">شركات الشحن</p>
-            <p class="subtle">نسبة الربح لكل ناقل</p>
+            <p class="eyebrow">أين تذهب الإيرادات</p>
+            <p class="subtle">توزيع الإيراد بين المواد الغذائية والرواتب والإيجارات والتوصيل والهدر وصافي الربح</p>
           </div>
         </div>
-        <div class="carrier-layout">
-          <div class="carrier-donut">
-            <canvas id="carrierDonutChart" aria-label="شركات الشحن"></canvas>
+        <div class="revenue-layout">
+          <div class="carrier-donut revenue-donut">
+            <canvas id="revenueSplitChart" aria-label="توزيع الإيرادات"></canvas>
             <div class="carrier-center">
               <div>
-                <strong>5</strong>
-                <span>شركات</span>
+                <strong>6</strong>
+                <span>بنود</span>
               </div>
             </div>
           </div>
-          <div class="carrier-legend">
-            
-              <div class="carrier-row">
-                <span class="carrier-dot" style="background:#7A2438"></span>
-                <div class="carrier-name">SMSA - سمسا</div>
-                <div class="carrier-meta">95.2%</div>
-              </div>
-            
-              <div class="carrier-row">
-                <span class="carrier-dot" style="background:#B04A64"></span>
-                <div class="carrier-name">ARAMEX - ارامكس</div>
-                <div class="carrier-meta">3.5%</div>
-              </div>
-            
-              <div class="carrier-row">
-                <span class="carrier-dot" style="background:#D8CABE"></span>
-                <div class="carrier-name">RedBox - ريدبوكس</div>
-                <div class="carrier-meta">0.9%</div>
-              </div>
-            
-              <div class="carrier-row">
-                <span class="carrier-dot" style="background:#8FBF9F"></span>
-                <div class="carrier-name">aramex ( استلام من الفرع )</div>
-                <div class="carrier-meta">0.2%</div>
-              </div>
-            
-              <div class="carrier-row">
-                <span class="carrier-dot" style="background:#C86B6B"></span>
-                <div class="carrier-name">SMSA ( استلام من الفرع )</div>
-                <div class="carrier-meta">0.2%</div>
-              </div>
-            
+          <div class="details-grid" style="grid-template-columns:repeat(2, minmax(0,1fr));">
+            <div class="detail-chip"><span>مواد غذائية</span><strong>4,050.00 ريال</strong></div>
+            <div class="detail-chip"><span>رواتب</span><strong>1,650.00 ريال</strong></div>
+            <div class="detail-chip"><span>توصيل</span><strong>830.00 ريال</strong></div>
+            <div class="detail-chip"><span>هدر</span><strong>217.00 ريال</strong></div>
+            <div class="detail-chip"><span>إيجارات</span><strong>1,100.00 ريال</strong></div>
+            <div class="detail-chip"><span>صافي ربح</span><strong>2,146.75 ريال</strong></div>
           </div>
         </div>
       </article>
@@ -685,16 +688,38 @@
       <article class="panel">
         <div class="table-card-title">
           <div>
-            <p class="eyebrow">أفضل العملاء</p>
-            <p class="subtle">حسب إجمالي الربح</p>
+            <p class="eyebrow">أصناف تحتاج مراجعة</p>
+            <p class="subtle">أعلى وأدنى ربحية مع الأصناف ذات المبيعات المرتفعة والربحية المنخفضة</p>
           </div>
         </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">أكثر صنف ربحية</p></div></div>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th class="rank">#</th><th>العميل</th><th>عدد</th><th>الربح</th></tr>
+              <tr><th>الصنف</th><th>الطلبات</th><th>الربح</th></tr>
             </thead>
-            <tbody><tr><td>1</td><td>عبدالرحمن المطيري</td><td>97</td><td>632.44 ريال</td></tr><tr><td>2</td><td>فارس احمد</td><td>211</td><td>270.08 ريال</td></tr><tr><td>3</td><td>احمد محمد بن عبدالله الرزق</td><td>47</td><td>162.15 ريال</td></tr><tr><td>4</td><td>مؤسسة اواني القيصرية التجارية</td><td>64</td><td>97.28 ريال</td></tr></tbody>
+            <tbody><tr><td>شاورما دجاج</td><td>142</td><td>184.50 ريال</td></tr><tr><td>برجر لحم</td><td>129</td><td>163.25 ريال</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">أقل صنف ربحية</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>الصنف</th><th>الطلبات</th><th>الربح</th></tr>
+            </thead>
+            <tbody><tr><td>سلطة جانبية</td><td>256</td><td>18.50 ريال</td></tr><tr><td>بطاطس مقلية</td><td>320</td><td>22.75 ريال</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">عالية البيع منخفضة الربحية</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>الصنف</th><th>الطلبات</th><th>الربحية</th></tr>
+            </thead>
+            <tbody><tr><td>بطاطس مقلية</td><td>320</td><td>22.75 ريال</td></tr><tr><td>مشروب غازي</td><td>298</td><td>24.00 ريال</td></tr><tr><td>إضافات صوص</td><td>255</td><td>19.50 ريال</td></tr></tbody>
           </table>
         </div>
       </article>
@@ -702,17 +727,106 @@
       <article class="panel">
         <div class="table-card-title">
           <div>
-            <p class="eyebrow">أفضل المدن</p>
-            <p class="subtle">حسب إجمالي الربح</p>
+            <p class="eyebrow">تشخيص الربحية</p>
+            <p class="subtle">أفضل وأضعف فرع وأوقات الذروة والتنبيهات الإدارية</p>
           </div>
         </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">أفضل وأضعف فرع</p></div></div>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th class="rank">#</th><th>المدينة</th><th>عدد</th><th>الربح</th></tr>
+              <tr><th>الفرع</th><th>الربح</th><th>الهدر</th></tr>
             </thead>
-            <tbody><tr><td>1</td><td>Jeddah</td><td>33</td><td>86.70 ريال</td></tr><tr><td>2</td><td>Mecca</td><td>28</td><td>81.20 ريال</td></tr><tr><td>3</td><td>Medina</td><td>18</td><td>76.71 ريال</td></tr><tr><td>4</td><td>Dammam</td><td>25</td><td>70.85 ريال</td></tr></tbody>
+            <tbody><tr><td>فرع ٣</td><td>512.50 ريال</td><td>3.8%</td></tr><tr><td>فرع ٢</td><td>186.75 ريال</td><td>7.6%</td></tr></tbody>
           </table>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">أعلى ساعات المبيعات</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>الساعة</th><th>الطلبات</th><th>الربح</th></tr>
+            </thead>
+            <tbody><tr><td>20:00</td><td>110</td><td>312.40 ريال</td></tr><tr><td>21:00</td><td>103</td><td>284.10 ريال</td></tr><tr><td>13:00</td><td>84</td><td>221.60 ريال</td></tr><tr><td>12:00</td><td>68</td><td>175.20 ريال</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="table-card-title"><div><p class="eyebrow">تنبيهات إدارية ذكية</p></div></div>
+        <div class="details-grid">
+          <div class="detail-chip"><span>ارتفاع تكلفة الطعام</span><strong>40.5%</strong></div>
+          <div class="detail-chip"><span>ارتفاع الهدر</span><strong>217 ريال</strong></div>
+          <div class="detail-chip"><span>انخفاض هامش الربح</span><strong>21.5%</strong></div>
+          <div class="detail-chip"><span>أصناف تحتاج مراجعة</span><strong>3</strong></div>
+        </div>
+      </article>
+    </section>
+    
+
+    <section class="content-grid">
+      <article class="panel">
+        <div class="panel-header">
+          <div>
+              <p class="eyebrow">الأداء اليومي</p>
+              <p class="subtle">آخر 7 أيام — صافي الربح والإيراد والطلبات مع الهدر</p>
+            <div class="chart-key" aria-label="تعريف بيانات الرسم">
+              <span class="chart-key-item"><i class="chart-key-swatch profit"></i>صافي الربح (ريال)</span>
+              <span class="chart-key-item"><i class="chart-key-swatch revenue"></i>الإيراد (ريال)</span>
+              <span class="chart-key-item"><i class="chart-key-swatch orders"></i>عدد الطلبات</span>
+            </div>
+          </div>
+        </div>
+        <div class="chart-shell">
+          <canvas id="dailyComboChart" class="combo-chart" aria-label="أعمدة صافي الربح والإيراد بالريال، وخط عدد الطلبات خلال آخر سبعة أيام"></canvas>
+        </div>
+        <div class="chart-axis-note"><span>المحور الأيسر: القيمة بالريال</span><span>المحور الأيمن: عدد الطلبات</span></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">شركات التوصيل</p>
+            <p class="subtle">رسوم التوصيل حسب شركة التوصيل وعدد الطلبات</p>
+            <p class="subtle">أكثر شركة توصيل من حيث الطلبات: هنقرستيشن</p>
+          </div>
+        </div>
+        <div class="carrier-layout">
+          <div class="carrier-donut">
+            <canvas id="carrierDonutChart" aria-label="شركات التوصيل"></canvas>
+            <div class="carrier-center">
+              <div>
+                <strong>4</strong>
+                <span>شركات توصيل</span>
+              </div>
+            </div>
+          </div>
+          <div class="carrier-legend">
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#7A2438"></span>
+                <div class="carrier-name">جاهز</div>
+                <div class="carrier-meta">116 طلب • 24.3%</div>
+              </div>
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#B04A64"></span>
+                <div class="carrier-name">هنقرستيشن</div>
+                <div class="carrier-meta">142 طلب • 29.2%</div>
+              </div>
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#D8CABE"></span>
+                <div class="carrier-name">كيتا</div>
+                <div class="carrier-meta">109 طلب • 23.4%</div>
+              </div>
+            
+              <div class="carrier-row">
+                <span class="carrier-dot" style="background:#8E6573"></span>
+                <div class="carrier-name">نينجا</div>
+                <div class="carrier-meta">108 طلب • 23.1%</div>
+              </div>
+            
+          </div>
         </div>
       </article>
     </section>
@@ -720,112 +834,34 @@
     <section class="panel" style="margin-top:16px;">
       <div class="panel-header">
         <div>
-          <p class="eyebrow">العمليات المالية</p>
-          <p class="subtle">إيداعات ومخصومات واستردادات</p>
-        </div>
-      </div>
-      
-      <section class="mini-band finance-band">
-        <article class="mini-card finance-card bank">
-          <span class="metric-label">إيداعات البنك</span>
-          <strong>13</strong>
-          <div class="metric-footer">6,859.00 ريال</div>
-        </article>
-        <article class="mini-card finance-card moyasar">
-          <span class="metric-label">إيداعات ميسر</span>
-          <strong>8</strong>
-          <div class="metric-footer">1,924.00 ريال</div>
-        </article>
-        <article class="mini-card finance-card other">
-          <span class="metric-label">تفصيل الخصومات والاستردادات</span>
-          <div class="breakdown-line">خصم الضريبة: 339.14 ريال</div>
-          <div class="breakdown-line">العمليات الملغية: 169.50 ريال</div>
-        </article>
-        <article class="mini-card finance-card finance-total-card other">
-          <span class="metric-label">إجمالي الإيداعات</span>
-          <strong>8,783.00 ريال</strong>
-          <div class="metric-footer">البنك + ميسر</div>
-        </article>
-      </section>
-    
-    </section>
-
-    <section class="panel statement-panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">كشف الحساب الجاري</p>
-          <p class="subtle">ملخص الحركات من الشيت</p>
-        </div>
-      </div>
-      <div class="statement-summary">
-        <div class="mini-card quick-card">
-          <span class="metric-label">إجمالي الإيداعات</span>
-          <strong>5,632.00 ريال</strong>
-        </div>
-        <div class="mini-card quick-card">
-          <span class="metric-label">إجمالي المصاريف</span>
-          <strong>4,463.26 ريال</strong>
-        </div>
-        <div class="mini-card quick-card">
-          <span class="metric-label">رسوم الحوالات</span>
-          <strong>1.73 ريال</strong>
-        </div>
-        <div class="mini-card quick-card">
-          <span class="metric-label">صافي الحركة</span>
-          <strong>1,168.74 ريال</strong>
-        </div>
-        <div class="mini-card quick-card">
-          <span class="metric-label">عدد المصاريف</span>
-          <strong>4</strong>
-        </div>
-      </div>
-      <div class="table-wrap statement-table">
-        <table>
-          <thead>
-            <tr><th>التاريخ</th><th>نوع المصروف</th><th>المبلغ</th></tr>
-          </thead>
-          <tbody><tr class='expense-row'><td>2026-06-03</td><td>فاتورة 12</td><td>3,477.39 ريال</td></tr><tr class='expense-row'><td>2026-06-03</td><td>رسوم فاتورة 12</td><td>1.15 ريال</td></tr><tr class='expense-row'><td>2026-06-10</td><td>فاتورة 13</td><td>984.14 ريال</td></tr><tr class='expense-row'><td>2026-06-10</td><td>رسوم فاتورة 13</td><td>0.58 ريال</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel" style="margin-top:16px;">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">طلبات COD</p>
-          <p class="subtle">كل طلب على حدة</p>
+          <p class="eyebrow">التكلفة التشغيلية في الفروع</p>
+          <p class="subtle">لرصد الهدر واختلاف الكلفة التشغيلية بين الفروع</p>
         </div>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>رقم الطلب</th>
-              <th>التاجر</th>
-              <th>مبلغ COD</th>
-              <th>تاريخ الطلب</th>
-              <th>تاريخ التحصل</th>
-              <th>تاريخ التحويل</th>
+              <th>الفرع</th>
+              <th>التكلفة التشغيلية</th>
+              <th>الهدر</th>
+              <th>النسبة</th>
+              <th>ملاحظة</th>
             </tr>
           </thead>
-          <tbody><tr><td>2040</td><td>ليد إكسبرس</td><td>100.00 ريال</td><td>2026-06-15</td><td>-</td><td>-</td></tr><tr><td>2039</td><td>ليد إكسبرس</td><td>100.00 ريال</td><td>2026-06-15</td><td>-</td><td>-</td></tr><tr><td>1757</td><td>معرض العز العالمي</td><td>30.00 ريال</td><td>2026-06-06</td><td>2026-06-12</td><td>2026-06-13</td></tr><tr><td>1756</td><td>معرض العز العالمي</td><td>30.00 ريال</td><td>2026-06-06</td><td>2026-06-11</td><td>2026-06-13</td></tr></tbody>
+          <tbody>
+            <tr><td>فرع ١</td><td>4,980 ريال</td><td>220 ريال</td><td>4.4%</td><td>مستقر</td></tr>
+            <tr><td>فرع ٢</td><td>5,360 ريال</td><td>410 ريال</td><td>7.6%</td><td>يحتاج مراجعة</td></tr>
+            <tr><td>فرع ٣</td><td>4,720 ريال</td><td>180 ريال</td><td>3.8%</td><td>جيد</td></tr>
+            <tr><td>فرع ٤</td><td>5,110 ريال</td><td>260 ريال</td><td>5.1%</td><td>متوسط</td></tr>
+          </tbody>
         </table>
       </div>
     </section>
 
-    <section class="panel" style="margin-top:16px;">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">الأرقام المتسلسلة الناقصة</p>
-          <p class="subtle">الفجوات بين أول وآخر رقم في الشحنات</p>
-        </div>
-      </div>
-      <div class="missing-seq">1659، 1666، 1723، 1724، 1725، 1754، 1755، 1816، 1884، 2009، 2063</div>
-    </section>
-
     <footer class="dashboard-footer">
-      <strong>GF Smart Accounting Solutions</strong>
-      <span>Last Updated: 18 Jun 2026 - 11:07 PM</span>
+      <strong>GF Demo</strong>
+      <span>Last Updated: 18 Jul 2026 - 09:30 PM</span>
     </footer>
   </main>
   <script>
@@ -852,7 +888,7 @@
     }
 
     function completeLogin() {
-      localStorage.setItem('gfLeadAuthenticated', 'true');
+      localStorage.setItem('gfDemoAuthenticated', 'true');
       loginScreen.classList.add('is-hiding');
       setTimeout(() => setDashboardVisible(true), 250);
     }
@@ -865,7 +901,11 @@
     }
 
     applyTheme(localStorage.getItem('gfTheme') || 'dark');
-    if (localStorage.getItem('gfLeadAuthenticated') === 'true') setDashboardVisible(true);
+    setDashboardVisible(false);
+    fetch('/api/session', { credentials: 'same-origin' })
+      .then((response) => response.ok ? response.json() : { authenticated: false })
+      .then((result) => setDashboardVisible(Boolean(result.authenticated)))
+      .catch(() => setDashboardVisible(false));
 
     passwordToggle.addEventListener('click', () => {
       const showing = passwordInput.type === 'text';
@@ -876,20 +916,24 @@
     loginForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       loginError.classList.remove('is-visible');
-      const payload = {
-        username: document.getElementById('loginUsername').value,
-        password: passwordInput.value
-      };
+      const button = loginForm.querySelector('.login-button');
+      button.disabled = true;
       try {
         const response = await fetch('/api/login', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            username: document.getElementById('loginUsername').value.trim(),
+            password: passwordInput.value
+          })
         });
-        if (!response.ok) throw new Error('invalid');
+        if (!response.ok) throw new Error('invalid_credentials');
         completeLogin();
       } catch (error) {
         loginError.classList.add('is-visible');
+      } finally {
+        button.disabled = false;
       }
     });
 
@@ -898,20 +942,23 @@
     });
 
     logoutButton.addEventListener('click', async () => {
-      localStorage.removeItem('gfLeadAuthenticated');
-      try { await fetch('/api/logout', { method: 'POST' }); } catch (error) {}
+      localStorage.removeItem('gfDemoAuthenticated');
+      try { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }); } catch (error) {}
       setDashboardVisible(false);
     });
 
-    const dailyLabels = ["06-11", "06-12", "06-13", "06-14", "06-15", "06-16", "06-17"];
-    const dailyProfit = [52.29, 20.7, 77.97, 38.5, 88.02, 66.55, 30.88];
-    const dailyRevenue = [414.5, 141.0, 448.5, 322.5, 660.0, 320.5, 300.0];
-    const dailyCount = [20, 6, 21, 15, 30, 14, 14];
-    const carrierLabels = ["SMSA - سمسا", "ARAMEX - ارامكس", "RedBox - ريدبوكس", "aramex ( استلام من الفرع )", "SMSA ( استلام من الفرع )"];
-    const carrierValues = [1193.55, 43.85, 11.76, 2.14, 2.01];
-    const carrierColors = ["#7A2438", "#B04A64", "#D8CABE", "#8FBF9F", "#C86B6B"];
+    const dailyLabels = ["07-12", "07-13", "07-14", "07-15", "07-16", "07-17", "07-18"];
+    const dailyProfit = [74.5, 91.2, 68.4, 112.0, 96.7, 128.3, 104.6];
+    const dailyRevenue = [520.0, 610.0, 480.0, 720.0, 680.0, 810.0, 760.0];
+    const dailyCount = [18, 24, 21, 29, 27, 34, 31];
+    const carrierLabels = ["جاهز", "هنقرستيشن", "كيتا", "نينجا"];
+    const carrierValues = [520.25, 625.00, 501.50, 500.00];
+    const carrierColors = ["#7A2438", "#B04A64", "#D8CABE", "#8E6573"];
     const chartCanvas = document.getElementById('dailyComboChart');
     const carrierCanvas = document.getElementById('carrierDonutChart');
+    const revenueSplitCanvas = document.getElementById('revenueSplitChart');
+    const revenueSplitValues = [4050.00, 1650.00, 1100.00, 830.00, 217.00, 2146.75];
+    const revenueSplitColors = ["#7A2438", "#B04A64", "#D8CABE", "#8E6573", "#B89A7D", "#5E7B6A"];
     function drawCanvasComboChart(canvas, labels, profit, revenue, counts) {
       const ctx = canvas.getContext('2d');
       const dpr = window.devicePixelRatio || 1;
@@ -992,13 +1039,6 @@
         ctx.stroke();
       });
 
-      ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(246,251,255,.68)';
-      ctx.fillText('صافي الربح', width - pad.right, 16);
-      ctx.fillStyle = 'rgba(176,74,100,.78)';
-      ctx.fillText('الإيراد', width - pad.right - 82, 16);
-      ctx.fillStyle = 'rgba(122,36,56,.78)';
-      ctx.fillText('عدد الطلبات', width - pad.right - 142, 16);
     }
 
     function drawCanvasDonutChart(canvas, values, colors) {
@@ -1095,17 +1135,7 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: {
-              position: 'top',
-              align: 'end',
-              labels: {
-                color: 'rgba(246,251,255,.76)',
-                boxWidth: 10,
-                boxHeight: 10,
-                usePointStyle: true,
-                font: { family: 'Inter, "Noto Sans Arabic", system-ui', size: 11 }
-              }
-            },
+            legend: { display: false },
             tooltip: {
               rtl: true,
               textDirection: 'rtl',
@@ -1113,7 +1143,13 @@
               borderColor: 'rgba(255,255,255,.14)',
               borderWidth: 1,
               titleColor: '#fff',
-              bodyColor: 'rgba(246,251,255,.82)'
+              bodyColor: 'rgba(246,251,255,.82)',
+              callbacks: {
+                label: (context) => {
+                  const unit = context.dataset.yAxisID === 'count' ? ' طلب' : ' ريال';
+                  return `${context.dataset.label}: ${Number(context.parsed.y).toLocaleString('ar-SA')}${unit}`;
+                }
+              }
             }
           },
           scales: {
@@ -1124,11 +1160,13 @@
             money: {
               position: 'left',
               grid: { color: 'rgba(255,255,255,.06)' },
-              ticks: { color: 'rgba(246,251,255,.58)', font: { size: 10 } }
+              title: { display: true, text: 'القيمة (ريال)', color: 'rgba(246,251,255,.58)', font: { size: 10 } },
+              ticks: { color: 'rgba(246,251,255,.58)', font: { size: 10 }, callback: (value) => Number(value).toLocaleString('ar-SA') }
             },
             count: {
               position: 'right',
               grid: { drawOnChartArea: false },
+              title: { display: true, text: 'عدد الطلبات', color: 'rgba(122,36,56,.80)', font: { size: 10 } },
               ticks: { color: 'rgba(122,36,56,.72)', precision: 0, font: { size: 10 } }
             }
           }
@@ -1171,6 +1209,41 @@
       });
     } else if (carrierCanvas) {
       drawCanvasDonutChart(carrierCanvas, carrierValues, carrierColors);
+    }
+
+    if (revenueSplitCanvas && window.Chart) {
+      new Chart(revenueSplitCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: ["مواد غذائية", "رواتب", "إيجارات", "توصيل", "هدر", "صافي ربح"],
+          datasets: [{
+            data: revenueSplitValues,
+            backgroundColor: revenueSplitColors,
+            borderColor: 'rgba(7,17,29,.78)',
+            borderWidth: 2,
+            hoverOffset: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '58%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              rtl: true,
+              textDirection: 'rtl',
+              backgroundColor: 'rgba(5,8,14,.94)',
+              borderColor: 'rgba(255,255,255,.14)',
+              borderWidth: 1,
+              titleColor: '#fff',
+              bodyColor: 'rgba(246,251,255,.82)'
+            }
+          }
+        }
+      });
+    } else if (revenueSplitCanvas) {
+      drawCanvasDonutChart(revenueSplitCanvas, revenueSplitValues, revenueSplitColors);
     }
   </script>
 </body>
