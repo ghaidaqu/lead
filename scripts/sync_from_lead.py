@@ -118,6 +118,11 @@ def pick_source_workbook() -> Path | None:
     return None
 
 
+def desired_source_mode() -> str:
+    mode = os.environ.get("LEAD_SYNC_SOURCE", "website").strip().lower()
+    return mode if mode in {"website", "excel"} else "website"
+
+
 def create_workbook_with_raw_sheets() -> Workbook:
     wb = Workbook()
     default = wb.active
@@ -646,17 +651,18 @@ def main() -> int:
         if not env.get(key):
             print(f"Missing {key} in .env", file=sys.stderr)
             return 2
-    source_xlsx = pick_source_workbook()
+    source_mode = desired_source_mode()
+    source_xlsx = pick_source_workbook() if source_mode == "excel" else None
     payload = scrape_site(env)
     source_type = "website"
-    if source_xlsx is None:
-        wb = create_workbook_with_raw_sheets()
-        source_xlsx = REPORT_XLSX
-        backup = Path("/private/tmp/lead6-no-backup.xlsx")
-    else:
+    if source_mode == "excel" and source_xlsx is not None:
         source_type = "excel"
         backup = make_backup(source_xlsx)
         wb = load_workbook(source_xlsx)
+    else:
+        wb = create_workbook_with_raw_sheets()
+        source_xlsx = REPORT_XLSX
+        backup = Path("/private/tmp/lead6-no-backup.xlsx")
 
     raw_ship = find_sheet(wb, ["Raw_Shipments"])
     raw_wallet = find_sheet(wb, ["Raw_Wallet"])
