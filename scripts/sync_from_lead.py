@@ -137,6 +137,40 @@ def create_source_workbook_from_website(ship_rows: list[list[Any]], wallet_rows:
     return wb
 
 
+def copy_sheet(source_wb: Workbook, target_wb: Workbook, sheet_name: str) -> bool:
+    if sheet_name not in source_wb.sheetnames:
+        return False
+    if sheet_name in target_wb.sheetnames:
+        del target_wb[sheet_name]
+    source = source_wb[sheet_name]
+    target = target_wb.create_sheet(sheet_name)
+    for row in source.iter_rows():
+        for cell in row:
+            new_cell = target[cell.coordinate]
+            new_cell.value = cell.value
+            if cell.has_style:
+                new_cell._style = cell._style.copy()
+            if cell.number_format:
+                new_cell.number_format = cell.number_format
+            if cell.font:
+                new_cell.font = cell.font.copy()
+            if cell.fill:
+                new_cell.fill = cell.fill.copy()
+            if cell.border:
+                new_cell.border = cell.border.copy()
+            if cell.alignment:
+                new_cell.alignment = cell.alignment.copy()
+            if cell.protection:
+                new_cell.protection = cell.protection.copy()
+    for key, dim in source.column_dimensions.items():
+        target.column_dimensions[key].width = dim.width
+    for idx, dim in source.row_dimensions.items():
+        target.row_dimensions[idx].height = dim.height
+    for merged in source.merged_cells.ranges:
+        target.merge_cells(str(merged))
+    return True
+
+
 def load_auth_state() -> dict[str, Any]:
     if AUTH_STATE_PATH.exists():
         try:
@@ -710,6 +744,12 @@ def main() -> int:
 
     if source_type == "website":
         wb = create_source_workbook_from_website(ship_rows, wallet_rows)
+        if REPORT_XLSX.exists():
+            try:
+                existing_report = load_workbook(REPORT_XLSX)
+                copy_sheet(existing_report, wb, "الاسعار")
+            except Exception:
+                pass
         raw_ship = find_sheet(wb, ["Raw_Shipments"])
         raw_wallet = find_sheet(wb, ["Raw_Wallet"])
         raw_payments = find_sheet(wb, ["Raw_Payments"])
