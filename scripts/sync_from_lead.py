@@ -132,6 +132,20 @@ def create_workbook_with_raw_sheets() -> Workbook:
     return wb
 
 
+def create_source_workbook_from_website(ship_rows: list[list[Any]], wallet_rows: list[list[Any]]) -> Workbook:
+    wb = create_workbook_with_raw_sheets()
+    for name in ("الشحنات", "العمليات المالية"):
+        if name in wb.sheetnames:
+            del wb[name]
+    ship_sheet = wb.create_sheet("الشحنات")
+    ops_sheet = wb.create_sheet("العمليات المالية")
+    if ship_rows:
+        write_sheet(ship_sheet, ship_rows)
+    if wallet_rows:
+        write_sheet(ops_sheet, wallet_rows)
+    return wb
+
+
 def load_auth_state() -> dict[str, Any]:
     if AUTH_STATE_PATH.exists():
         try:
@@ -651,9 +665,9 @@ def main() -> int:
         if not env.get(key):
             print(f"Missing {key} in .env", file=sys.stderr)
             return 2
+    payload = scrape_site(env)
     source_mode = desired_source_mode()
     source_xlsx = pick_source_workbook() if source_mode == "excel" else None
-    payload = scrape_site(env)
     source_type = "website"
     if source_mode == "excel" and source_xlsx is not None:
         source_type = "excel"
@@ -673,6 +687,17 @@ def main() -> int:
     wallet_rows, wallet_total, payments_total = extract_wallet(payload["html"].get("wallet.php", ""))
     cod_rows = extract_cod(payload["html"].get("collect-cod.php", ""))
 
+    if source_type == "website":
+        wb = create_source_workbook_from_website(ship_rows, wallet_rows)
+        raw_ship = find_sheet(wb, ["Raw_Shipments"])
+        raw_wallet = find_sheet(wb, ["Raw_Wallet"])
+        raw_payments = find_sheet(wb, ["Raw_Payments"])
+        raw_cod = find_sheet(wb, ["Raw_COD"])
+    else:
+        raw_ship = find_sheet(wb, ["Raw_Shipments"])
+        raw_wallet = find_sheet(wb, ["Raw_Wallet"])
+        raw_payments = find_sheet(wb, ["Raw_Payments"])
+        raw_cod = find_sheet(wb, ["Raw_COD"])
     shipments_added = shipments_updated = shipments_dups = 0
     wallet_added = wallet_updated = wallet_dups = 0
     payments_added = payments_updated = payments_dups = 0
