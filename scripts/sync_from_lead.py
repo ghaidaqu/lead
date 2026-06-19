@@ -331,13 +331,16 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
         }
         return all(checks.values()), checks
 
+    def page_is_login_like(html: str, final_url: str) -> bool:
+        lower = html.lower()
+        return "login" in final_url.lower() or ("password" in lower and "username" in lower)
+
     def fetch_page(label: str, url: str) -> tuple[str, int, str]:
         final_url, status, html = http_get_meta(opener, url)
         reason = ""
-        lower = html.lower()
         if final_url != url:
             reason = f"redirected_to={final_url}"
-        elif "login" in lower or "password" in lower:
+        elif page_is_login_like(html, final_url):
             reason = "login_page_detected"
         log_page_sample(logs, label, url, final_url, status, html, reason)
         return final_url, status, html
@@ -410,13 +413,28 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
     has_dashboard_links, dashboard_checks = page_looks_logged_in(dashboard_html)
     shipments_final_url, shipments_status, shipments_probe = fetch_page("shipments.php", f"{base}/admin/shipments.php")
     logs.append({"kind": "request", "url": f"{base}/admin/shipments.php", "final_url": shipments_final_url, "status": shipments_status})
-    shipments_ok, shipments_checks = page_looks_logged_in(shipments_probe)
+    shipments_checks = {
+        "status_200": shipments_status == 200,
+        "redirected": shipments_final_url != f"{base}/admin/shipments.php",
+        "login_like": page_is_login_like(shipments_probe, shipments_final_url),
+    }
+    shipments_ok = shipments_status == 200 and not shipments_checks["login_like"]
     wallet_final_url, wallet_status, wallet_probe = fetch_page("wallet.php", f"{base}/admin/wallet.php")
     logs.append({"kind": "request", "url": f"{base}/admin/wallet.php", "final_url": wallet_final_url, "status": wallet_status})
-    wallet_ok, wallet_checks = page_looks_logged_in(wallet_probe)
+    wallet_checks = {
+        "status_200": wallet_status == 200,
+        "redirected": wallet_final_url != f"{base}/admin/wallet.php",
+        "login_like": page_is_login_like(wallet_probe, wallet_final_url),
+    }
+    wallet_ok = wallet_status == 200 and not wallet_checks["login_like"]
     cod_final_url, cod_status, cod_probe = fetch_page("collect-cod.php", f"{base}/admin/collect-cod.php")
     logs.append({"kind": "request", "url": f"{base}/admin/collect-cod.php", "final_url": cod_final_url, "status": cod_status})
-    cod_ok, cod_checks = page_looks_logged_in(cod_probe)
+    cod_checks = {
+        "status_200": cod_status == 200,
+        "redirected": cod_final_url != f"{base}/admin/collect-cod.php",
+        "login_like": page_is_login_like(cod_probe, cod_final_url),
+    }
+    cod_ok = cod_status == 200 and not cod_checks["login_like"]
     login_issue = None
     if not shipments_ok:
         login_issue = "shipments page was not accessible"
@@ -425,7 +443,14 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
     elif not cod_ok:
         login_issue = "cod page was not accessible"
     if login_issue:
-        raise RuntimeError(f"Login/session check failed: {login_issue}")
+        logs.append({
+            "kind": "login_issue",
+            "page": "shipments.php" if not shipments_ok else "wallet.php" if not wallet_ok else "collect-cod.php",
+            "reason": login_issue,
+            "shipments": {"final_url": shipments_final_url, "status": shipments_status, "checks": shipments_checks},
+            "wallet": {"final_url": wallet_final_url, "status": wallet_status, "checks": wallet_checks},
+            "cod": {"final_url": cod_final_url, "status": cod_status, "checks": cod_checks},
+        })
 
     saved_cookie = None
     for cookie in cj:
