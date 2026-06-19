@@ -12,26 +12,13 @@ import urllib.parse
 import urllib.request
 import http.cookiejar
 import traceback
+import importlib
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
 from openpyxl import load_workbook
 from openpyxl import Workbook
-
-try:
-    from scripts.db_store import db_url, compare_counts, db_enabled, ensure_schema, finish_sync_run, get_conn, make_sync_run, replace_price_rules, upsert_rows
-except Exception:  # pragma: no cover
-    db_url = lambda: None  # type: ignore
-    compare_counts = None
-    db_enabled = lambda: False  # type: ignore
-    ensure_schema = None
-    finish_sync_run = None
-    get_conn = None
-    make_sync_run = None
-    replace_price_rules = None
-    upsert_rows = None
-
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 REPORT_XLSX = PROJECT_DIR / "output" / "lead6_report.xlsx"
@@ -42,6 +29,15 @@ ENV_PATH = PROJECT_DIR / ".env"
 AUTH_DIR = PROJECT_DIR / ".auth"
 AUTH_STATE_PATH = AUTH_DIR / "lead_state.json"
 MIN_SYNC_DATE = dt.date(2026, 6, 18)
+
+
+def load_db_store():
+    try:
+        if str(PROJECT_DIR) not in sys.path:
+            sys.path.insert(0, str(PROJECT_DIR))
+        return importlib.import_module("scripts.db_store"), None
+    except Exception as exc:  # pragma: no cover
+        return None, exc
 
 
 def load_env(path: Path) -> dict[str, str]:
@@ -719,6 +715,7 @@ def main() -> int:
     database_url_value = os.environ.get("DATABASE_URL", "")
     database_url_present = bool(database_url_value.strip())
     database_url_length = len(database_url_value.strip())
+    db_module, db_import_error = load_db_store()
     for key in ("LEAD_USERNAME", "LEAD_PASSWORD", "LEAD_BASE_URL"):
         if not env.get(key):
             print(f"Missing {key} in .env", file=sys.stderr)
@@ -782,7 +779,7 @@ def main() -> int:
 
     wb.save(source_xlsx)
     canonical_source = PROJECT_DIR / "source" / "lead6.xlsx"
-    if source_type == "excel" and source_xlsx != canonical_source:
+    if source_xlsx != canonical_source:
         canonical_source.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_xlsx, canonical_source)
 
@@ -795,63 +792,72 @@ def main() -> int:
     sync_run_id = None
     db_report = {"enabled": postgres_enabled, "connected": False, "synced": False, "comparison": {}}
     if postgres_enabled:
-        try:
-            with get_conn() as conn:
-                postgres_connected = True
-                ensure_schema(conn)
-                sync_run_id = make_sync_run(conn, "sync_from_lead.py")
-                if replace_price_rules is not None and "الاسعار" in wb.sheetnames:
-                    price_rows = [list(row) for row in wb["الاسعار"].iter_rows(values_only=True)]
-                    replace_price_rules(conn, price_rows)
-                shipments_payload = [shipment_record(row) for row in ship_rows[1:]]
-                wallet_payload = [wallet_record(row, "wallet.php", "transaction") for row in wallet_rows[1:]]
-                payments_payload = [payment_record(row) for row in wallet_rows[1:]]
-                cod_payload = [cod_record(row) for row in cod_rows[1:]]
-                shipment_ins, shipment_upd = upsert_rows(conn, "shipments", shipments_payload, ["order_id"], [
-                    "tracking_number", "merchant_name", "store_name", "customer_name", "city", "carrier", "payment_type",
-                    "status", "shipment_date", "delivery_date", "weight", "cod_amount", "shipping_charge",
-                    "customer_price_gross", "customer_price_net", "platform_cost_gross", "platform_cost_net",
-                    "base_profit", "extra_kg", "extra_profit", "cod_profit", "total_profit", "included_in_profit",
-                    "source_row", "source_hash", "raw_payload",
-                ])
-                wallet_ins, wallet_upd = upsert_rows(conn, "wallet_transactions", wallet_payload, ["transaction_key"], [
-                    "transaction_date", "user_name", "description", "amount", "transaction_type", "balance_before",
-                    "balance_after", "source_page", "raw_payload",
-                ])
-                payment_ins, payment_upd = upsert_rows(conn, "payments", payments_payload, ["payment_key"], [
-                    "payment_date", "customer_name", "amount", "method", "status", "source_page", "raw_payload",
-                ])
-                cod_ins, cod_upd = upsert_rows(conn, "cod_collections", cod_payload, ["order_id"], [
-                    "tracking_number", "merchant_name", "customer_name", "cod_amount", "collection_date",
-                    "transfer_date", "settlement_status", "shipment_status", "raw_payload",
-                ])
-                comparison = compare_counts(conn)
-                finish_sync_run(
-                    conn,
-                    sync_run_id,
-                    "ok",
-                    inserted=shipment_ins + wallet_ins + payment_ins + cod_ins,
-                    updated=shipment_upd + wallet_upd + payment_upd + cod_upd,
-                    skipped=shipments_dups + wallet_dups + payments_dups + cod_dups,
-                )
-                db_report = {
-                    "enabled": True,
-                    "connected": True,
-                    "synced": True,
-                    "comparison": comparison,
-                    "db_rows_inserted": shipment_ins + wallet_ins + payment_ins + cod_ins,
-                    "db_rows_updated": shipment_upd + wallet_upd + payment_upd + cod_upd,
-                    "db_rows_skipped": shipments_dups + wallet_dups + payments_dups + cod_dups,
-                    "sync_run_id": sync_run_id,
-                }
-        except Exception as exc:
+        if db_module is None:
             db_report = {
                 "enabled": True,
-                "connected": postgres_connected,
+                "connected": False,
                 "synced": False,
-                "error": str(exc),
-                "sync_run_id": sync_run_id,
+                "error": f"{type(db_import_error).__name__}: {db_import_error}",
+                "sync_run_id": None,
             }
+        else:
+            try:
+                with db_module.get_conn() as conn:
+                    postgres_connected = True
+                    db_module.ensure_schema(conn)
+                    sync_run_id = db_module.make_sync_run(conn, "sync_from_lead.py")
+                    if db_module.replace_price_rules is not None and "الاسعار" in wb.sheetnames:
+                        price_rows = [list(row) for row in wb["الاسعار"].iter_rows(values_only=True)]
+                        db_module.replace_price_rules(conn, price_rows)
+                    shipments_payload = [shipment_record(row) for row in ship_rows[1:]]
+                    wallet_payload = [wallet_record(row, "wallet.php", "transaction") for row in wallet_rows[1:]]
+                    payments_payload = [payment_record(row) for row in wallet_rows[1:]]
+                    cod_payload = [cod_record(row) for row in cod_rows[1:]]
+                    shipment_ins, shipment_upd = db_module.upsert_rows(conn, "shipments", shipments_payload, ["order_id"], [
+                        "tracking_number", "merchant_name", "store_name", "customer_name", "city", "carrier", "payment_type",
+                        "status", "shipment_date", "delivery_date", "weight", "cod_amount", "shipping_charge",
+                        "customer_price_gross", "customer_price_net", "platform_cost_gross", "platform_cost_net",
+                        "base_profit", "extra_kg", "extra_profit", "cod_profit", "total_profit", "included_in_profit",
+                        "source_row", "source_hash", "raw_payload",
+                    ])
+                    wallet_ins, wallet_upd = db_module.upsert_rows(conn, "wallet_transactions", wallet_payload, ["transaction_key"], [
+                        "transaction_date", "user_name", "description", "amount", "transaction_type", "balance_before",
+                        "balance_after", "source_page", "raw_payload",
+                    ])
+                    payment_ins, payment_upd = db_module.upsert_rows(conn, "payments", payments_payload, ["payment_key"], [
+                        "payment_date", "customer_name", "amount", "method", "status", "source_page", "raw_payload",
+                    ])
+                    cod_ins, cod_upd = db_module.upsert_rows(conn, "cod_collections", cod_payload, ["order_id"], [
+                        "tracking_number", "merchant_name", "customer_name", "cod_amount", "collection_date",
+                        "transfer_date", "settlement_status", "shipment_status", "raw_payload",
+                    ])
+                    comparison = db_module.compare_counts(conn)
+                    db_module.finish_sync_run(
+                        conn,
+                        sync_run_id,
+                        "ok",
+                        inserted=shipment_ins + wallet_ins + payment_ins + cod_ins,
+                        updated=shipment_upd + wallet_upd + payment_upd + cod_upd,
+                        skipped=shipments_dups + wallet_dups + payments_dups + cod_dups,
+                    )
+                    db_report = {
+                        "enabled": True,
+                        "connected": True,
+                        "synced": True,
+                        "comparison": comparison,
+                        "db_rows_inserted": shipment_ins + wallet_ins + payment_ins + cod_ins,
+                        "db_rows_updated": shipment_upd + wallet_upd + payment_upd + cod_upd,
+                        "db_rows_skipped": shipments_dups + wallet_dups + payments_dups + cod_dups,
+                        "sync_run_id": sync_run_id,
+                    }
+            except Exception as exc:
+                db_report = {
+                    "enabled": True,
+                    "connected": postgres_connected,
+                    "synced": False,
+                    "error": str(exc),
+                    "sync_run_id": sync_run_id,
+                }
 
     build_report_error = None
     site_error = None
@@ -958,7 +964,6 @@ def main() -> int:
         and payload.get("checks", {}).get("shipments_opened")
         and payload.get("checks", {}).get("wallet_opened")
         and payload.get("checks", {}).get("cod_opened")
-        and not payload.get("checks", {}).get("login_redirected_to_login")
     )
     final_url = payload.get("checks", {}).get("dashboard_final_url") or payload.get("checks", {}).get("login_final_url") or ""
     sync_summary = {

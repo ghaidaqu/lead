@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 import os
+import logging
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory, session, url_for
+from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory, session, url_for, make_response
+
+try:
+    from web.generate_site import build_html, load_data_from_db
+except Exception:  # pragma: no cover
+    build_html = None
+    load_data_from_db = None
+
+try:
+    from scripts.db_store import db_url as pg_db_url
+except Exception:  # pragma: no cover
+    pg_db_url = lambda: None
 
 
 ROOT = Path(__file__).resolve().parent
@@ -14,6 +26,11 @@ AUTH_PASS = os.environ.get("LEAD_AUTH_PASS", "")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("LEAD_SESSION_SECRET", os.environ.get("SECRET_KEY", "lead-local-session"))
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("lead")
+LAST_DATA_SOURCE = "unknown"
+LAST_POSTGRES_AVAILABLE = False
+LAST_ERROR_TYPE = ""
 
 
 def _auth_enabled() -> bool:
@@ -24,6 +41,49 @@ def _check_credentials(user: str, password: str) -> bool:
     if not _auth_enabled():
         return bool(user.strip() and password.strip())
     return user == AUTH_USER and password == AUTH_PASS
+
+
+def _update_data_source(source: str, postgres_available: bool, error_type: str = "") -> None:
+    global LAST_DATA_SOURCE, LAST_POSTGRES_AVAILABLE, LAST_ERROR_TYPE
+    LAST_DATA_SOURCE = source
+    LAST_POSTGRES_AVAILABLE = postgres_available
+    LAST_ERROR_TYPE = error_type
+    logger.info("DATA_SOURCE=%s postgres_available=%s%s", source, str(postgres_available).lower(), f" error_type={error_type}" if error_type else "")
+
+
+def _probe_postgres() -> tuple[str, bool, str | None]:
+    url = pg_db_url()
+    if not url:
+        return "missing_database_url", False, None
+    if build_html is None or load_data_from_db is None:
+        return "postgres_unavailable", False, "ImportError"
+    try:
+        from scripts.db_store import get_conn, compare_counts
+        with get_conn() as conn:
+            compare_counts(conn)
+        return "postgres", True, None
+    except Exception as exc:
+        return "postgres_error", False, type(exc).__name__
+
+
+def _dashboard_payload_from_db():
+    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label, missing_sequence_numbers = load_data_from_db()
+    return {
+        "totals": totals,
+        "top_merchants": top_merchants,
+        "top_cities": top_cities,
+        "daily": daily,
+        "daily_revenue": daily_revenue,
+        "daily_count": daily_count,
+        "finance": finance,
+        "cod_items": cod_items,
+        "return_items": return_items,
+        "top_carriers": top_carriers,
+        "statement": statement,
+        "period_label": period_label,
+        "missing_sequence_numbers": missing_sequence_numbers,
+        "statuses": statuses,
+    }
 
 
 @app.post("/api/login")
@@ -137,8 +197,17 @@ def home() -> Response:
 @app.get("/dashboard/")
 @app.get("/dashboard/index.html")
 def dashboard_index() -> Response:
+    if build_html is not None and load_data_from_db is not None:
+        try:
+            data = _dashboard_payload_from_db()
+            _update_data_source("postgres", True)
+            return Response(build_html(data), mimetype="text/html")
+        except Exception as exc:
+            _update_data_source("excel_fallback", False, type(exc).__name__)
     if _dashboard_dir() is not None:
+        _update_data_source("excel_fallback", False)
         return send_from_directory(WEB_DIR, "index.html")
+    _update_data_source("excel_fallback", False)
     return Response(_fallback_page(), mimetype="text/html")
 
 
@@ -158,7 +227,18 @@ def report_download():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    data_source, postgres_available, last_error_type = _probe_postgres()
+    _update_data_source(data_source, postgres_available, last_error_type or "")
+    response = make_response(jsonify({
+        "status": "ok",
+        "data_source": data_source,
+        "postgres_available": postgres_available,
+        "last_error_type": last_error_type,
+    }))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Data-Source"] = data_source
+    return response
 
 
 if __name__ == "__main__":

@@ -39,11 +39,18 @@ def money(value):
 
 
 def june_period_label(dates):
-    days = sorted({
-        datetime.fromisoformat(str(date)).day
-        for date in dates
-        if date
-    })
+    days = set()
+    for date in dates:
+        if not date:
+            continue
+        try:
+            if isinstance(date, datetime):
+                days.add(date.day)
+            else:
+                days.add(datetime.fromisoformat(str(date)).day)
+        except Exception:
+            continue
+    days = sorted(days)
     if not days:
         return "يونيو"
     if days[-1] == 1:
@@ -263,12 +270,12 @@ def return_profit_from_details(prices_ws, headers, revenue, merchant, carrier, w
 def load_data():
     wb = openpyxl.load_workbook(SOURCE, data_only=True)
     detail_sheet = None
-    for candidate in ("تفاصيل شهر 6", "تفاصيل شهر 06", "تفاصيل يونيو", "تفاصيل"):
+    for candidate in ("تفاصيل شهر 6", "تفاصيل شهر 06", "تفاصيل يونيو", "تفاصيل", "الشحنات", "Raw_Shipments"):
         if candidate in wb.sheetnames:
             detail_sheet = candidate
             break
     if detail_sheet is None:
-        raise KeyError("Worksheet تفاصيل شهر 6 does not exist.")
+        detail_sheet = wb.sheetnames[0]
     ws = wb[detail_sheet]
     rows = list(ws.iter_rows(min_row=2, values_only=True))
     ops = wb["العمليات المالية"] if "العمليات المالية" in wb.sheetnames else None

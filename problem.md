@@ -29,27 +29,44 @@ Those issues have been addressed one by one.
 
 ## Current problem
 
-The remaining problem is not the website scrape itself. The scrape is working.
+The remaining problem is no longer the website scrape itself. The scrape is working.
 
-The current risk area is keeping the reporting pipeline fully stable and aligned with the cloud architecture:
+The current blocker is the PostgreSQL handoff inside the worker:
 
-- `build_report.py` still depends on a valid price reference.
-- The dashboard generation path still needs to be confirmed end-to-end after the latest PostgreSQL price snapshot changes.
-- We need to verify that the price sheet stored in PostgreSQL becomes the stable source used by the reporting flow when the workbook does not contain the expected sheet.
+- `DATABASE_URL` is present in the worker environment.
+- The worker now logs `postgres_enabled=true`.
+- But the database connection step is still failing before any upsert happens.
+- The latest failure path reported:
+  - `postgres_connected=false`
+  - `sync_run_id=null`
+  - `error: "'NoneType' object is not callable"`
+
+That tells us the scrape is healthy, but the DB helper path inside `scripts/sync_from_lead.py` is still not resolving the PostgreSQL connector correctly in the worker runtime.
 
 ## Latest issue encountered
 
-The latest worker runs exposed two concrete lookup failures:
+The latest worker runs now show a different and more specific issue:
 
-1. `build_report.py` raised a `KeyError` because it could not find the expected price column name:
-   - `السعر لكل كيلو  زيادة`
-   - This meant the reporting code was too strict about the exact header text.
+1. `build_report.py` is no longer the blocker.
+   - The latest runs show `build_report_error=null`.
 
-2. `web/generate_site.py` raised a `KeyError` because the workbook did not contain the sheet:
-   - `تفاصيل شهر 6`
-   - The code was assuming a single hardcoded sheet name instead of accepting other valid detail-sheet names.
+2. `web/generate_site.py` is also no longer the blocker.
+   - The latest runs show `site_error=null`.
 
-These are not scrape failures. They are report/dashboard lookup failures caused by rigid workbook expectations.
+3. The worker can still open the Lead pages successfully.
+   - dashboard
+   - shipments
+   - wallet
+   - COD
+
+4. The remaining failure is PostgreSQL connection wiring inside the worker.
+   - The worker reports `postgres_enabled=true`
+   - but `postgres_connected=false`
+   - and `sync_run_id=null`
+   - with the error:
+     - `'NoneType' object is not callable`
+
+That points to a code-path problem rather than a data problem.
 
 ## Important rule note
 
@@ -89,27 +106,57 @@ If the report generation cannot reliably find the price reference, the downstrea
 
 The most likely remaining issue is one of these:
 
-- the report builder is still expecting the price sheet in the workbook at runtime,
-- the PostgreSQL price snapshot needs to be wired into the report builder as the fallback reference,
-- or the dashboard generator needs a small adjustment so it can rely on the stored price rules consistently.
+- `scripts/sync_from_lead.py` is still importing the DB helpers in a way that can leave `get_conn` or a related helper unset in the worker runtime.
+- The worker should not rely on a fragile top-level import for the PostgreSQL path.
+- The DB import should be resolved lazily and explicitly inside the sync run so the worker either connects cleanly or reports a real import error.
 
 ## Recommended next step
 
-The next step should be a verification pass that checks:
+The next step should be a focused verification pass that checks:
 
-- the latest worker run after the PostgreSQL price snapshot change,
-- whether `build_report.py` succeeds,
-- whether `web/generate_site.py` succeeds,
-- whether the dashboard reflects the same calculations as before,
-- and whether the price rules are being read from PostgreSQL when needed.
+- the worker imports the PostgreSQL helper module directly,
+- `get_conn()` is reached from the real module and not a fallback `None`,
+- a `sync_run_id` is created,
+- rows are upserted into PostgreSQL,
+- and the one-line `SYNC_SUMMARY` shows `postgres_connected=true`.
 
-The lookup logic should also stay flexible enough to accept:
+The report/dashboard lookup logic still needs to remain flexible, but at the moment it is not the active blocker.
 
-- multiple spellings of the extra-kilo price header,
-- multiple acceptable names for the detail sheet,
-- and PostgreSQL-backed price rules as the fallback reference when the workbook is incomplete.
+## Latest worker run update
+
+The newest worker run confirmed that website scraping still works:
+
+- dashboard opened successfully
+- shipments opened successfully
+- wallet opened successfully
+- COD opened successfully
+
+But the same two lookup failures are still blocking the reporting layer:
+
+1. `build_report.py` still fails on the extra-kilo price header lookup:
+   - `KeyError: 'السعر لكل كيلو  زيادة'`
+   - The report builder is still too strict about the exact header text.
+
+2. `web/generate_site.py` still fails when the detail sheet is not found:
+   - `KeyError: 'Worksheet تفاصيل شهر 6 does not exist.'`
+   - The dashboard fallback path is still expecting a hardcoded sheet name.
+
+Current state:
+
+- scrape: working
+- login: working
+- website pages: working
+- PostgreSQL connectivity: working
+- report generation: still blocked by price header lookup
+- dashboard generation: still blocked by detail-sheet lookup
 
 ## Bottom line
 
-The ingestion side is now in good shape.  
-The remaining work is to make the reporting layer fully dependable with PostgreSQL-backed price rules so the whole pipeline runs cleanly end to end.
+The ingestion side is now in good shape.
+The current work is to make the worker’s PostgreSQL connection path reliable end to end so the scrape results are actually persisted and logged in `sync_runs`.
+
+## Current housekeeping
+
+- Duplicate backup artifacts and stray system files have been removed from the repo workspace.
+- The project now stays focused on the live pipeline files instead of generated duplicates.
+- The remaining tracked problem is still the report/dashboard lookup behavior, not the scraping itself.

@@ -47,6 +47,7 @@ This keeps the repository code-only and avoids sharing private source data.
 - `worker: python3 scripts/lead_worker.py` runs the cloud sync loop
 - Set these Railway environment variables: `LEAD_USERNAME`, `LEAD_PASSWORD`, `LEAD_BASE_URL`
 - Optional worker schedule overrides: `LEAD_WORKER_START_HOUR`, `LEAD_WORKER_START_MINUTE`, `LEAD_WORKER_INTERVAL_SECONDS`
+- For PostgreSQL validation inside Railway, run `python3 scripts/railway_pg_job.py` from a Railway job or service command so it can reach `postgres.railway.internal`
 
 ## Runtime
 - `app.py` serves the dashboard from `web/index.html` when the generated file exists.

@@ -11,9 +11,11 @@ from typing import Any, Iterable
 try:
     import psycopg
     from psycopg.rows import dict_row
+    from psycopg.types.json import Jsonb
 except Exception:  # pragma: no cover
     psycopg = None
     dict_row = None
+    Jsonb = None
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
@@ -36,6 +38,16 @@ def _json_default(value: Any):
     if isinstance(value, (dt.datetime, dt.date)):
         return value.isoformat()
     return str(value)
+
+
+def _db_value(value: Any):
+    if isinstance(value, (dt.datetime, dt.date)):
+        return value
+    if isinstance(value, (dict, list, tuple)):
+        if Jsonb is not None:
+            return Jsonb(value, dumps=lambda obj: json.dumps(obj, ensure_ascii=False, default=_json_default))
+        return json.dumps(value, ensure_ascii=False, default=_json_default)
+    return value
 
 
 def normalize_key(values: Iterable[Any]) -> str:
@@ -199,7 +211,7 @@ def upsert_rows(conn, table: str, rows: list[dict[str, Any]], key_columns: list[
     sql = f"INSERT INTO {table} ({insert_cols}) VALUES ({placeholders}) ON CONFLICT ({conflict}) DO UPDATE SET {updates}, updated_at=NOW()"
     with conn.cursor() as cur:
         for row in rows:
-            cur.execute(sql, row)
+            cur.execute(sql, {key: _db_value(value) for key, value in row.items()})
             if cur.rowcount == 1:
                 inserted += 1
             else:
@@ -229,7 +241,7 @@ def replace_price_rules(conn, rows: list[list[Any]]) -> int:
                 "tax_mode": None,
                 "extra_kilo_mode": None,
                 "cod_mode": None,
-                "raw_payload": values,
+                "raw_payload": json.dumps(values, ensure_ascii=False, default=_json_default),
             }
             cur.execute(
                 """
