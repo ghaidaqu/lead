@@ -275,9 +275,18 @@ class LinkParser(HTMLParser):
                 self.links.append(href)
 
 
+def http_get_meta(opener, url: str) -> tuple[str, int, str]:
+    req = urllib.request.Request(url)
+    with opener.open(req) as resp:
+        html = resp.read().decode("utf-8", errors="ignore")
+        final_url = getattr(resp, "geturl", lambda: url)()
+        status = int(getattr(resp, "status", resp.getcode()))
+        return final_url, status, html
+
+
 def http_get(opener, url: str) -> str:
-    with opener.open(url) as resp:
-        return resp.read().decode("utf-8", errors="ignore")
+    _, _, html = http_get_meta(opener, url)
+    return html
 
 
 def http_post(opener, url: str, data: dict[str, str]) -> str:
@@ -285,6 +294,19 @@ def http_post(opener, url: str, data: dict[str, str]) -> str:
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/x-www-form-urlencoded"})
     with opener.open(req) as resp:
         return resp.read().decode("utf-8", errors="ignore")
+
+
+def log_page_sample(logs: list[dict[str, Any]], label: str, requested_url: str, final_url: str, status: int, html: str, reason: str = "") -> None:
+    snippet = html[:500]
+    logs.append({
+        "kind": "page_sample",
+        "page": label,
+        "requested_url": requested_url,
+        "final_url": final_url,
+        "status": status,
+        "reason": reason,
+        "html_500": snippet,
+    })
 
 
 def scrape_site(env: dict[str, str]) -> dict[str, Any]:
@@ -309,20 +331,31 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
         }
         return all(checks.values()), checks
 
+    def fetch_page(label: str, url: str) -> tuple[str, int, str]:
+        final_url, status, html = http_get_meta(opener, url)
+        reason = ""
+        lower = html.lower()
+        if final_url != url:
+            reason = f"redirected_to={final_url}"
+        elif "login" in lower or "password" in lower:
+            reason = "login_page_detected"
+        log_page_sample(logs, label, url, final_url, status, html, reason)
+        return final_url, status, html
+
     if auth_state.get("cookie"):
         opener.addheaders = [("Cookie", auth_state["cookie"])]
-        cached_dashboard = http_get(opener, f"{base}/admin/dashboard.php")
+        _, dashboard_status, cached_dashboard = fetch_page("dashboard.php", f"{base}/admin/dashboard.php")
         ok, cached_checks = page_looks_logged_in(cached_dashboard)
         logs.append({"kind": "probe", "page": "dashboard.php", "cached_session": ok, "checks": cached_checks})
-        shipments_probe = http_get(opener, f"{base}/admin/shipments.php")
+        shipments_final_url, shipments_status, shipments_probe = fetch_page("shipments.php", f"{base}/admin/shipments.php")
         shipment_ok, shipment_checks = page_looks_logged_in(shipments_probe)
-        logs.append({"kind": "probe", "page": "shipments.php", "cached_session": shipment_ok, "checks": shipment_checks})
-        wallet_probe = http_get(opener, f"{base}/admin/wallet.php")
+        logs.append({"kind": "probe", "page": "shipments.php", "cached_session": shipment_ok, "checks": shipment_checks, "final_url": shipments_final_url, "status": shipments_status})
+        _, wallet_status, wallet_probe = fetch_page("wallet.php", f"{base}/admin/wallet.php")
         wallet_ok, wallet_checks = page_looks_logged_in(wallet_probe)
-        logs.append({"kind": "probe", "page": "wallet.php", "cached_session": wallet_ok, "checks": wallet_checks})
-        cod_probe = http_get(opener, f"{base}/admin/collect-cod.php")
+        logs.append({"kind": "probe", "page": "wallet.php", "cached_session": wallet_ok, "checks": wallet_checks, "status": wallet_status})
+        _, cod_status, cod_probe = fetch_page("collect-cod.php", f"{base}/admin/collect-cod.php")
         cod_ok, cod_checks = page_looks_logged_in(cod_probe)
-        logs.append({"kind": "probe", "page": "collect-cod.php", "cached_session": cod_ok, "checks": cod_checks})
+        logs.append({"kind": "probe", "page": "collect-cod.php", "cached_session": cod_ok, "checks": cod_checks, "status": cod_status})
         if ok and shipment_ok and wallet_ok and cod_ok:
             html = {
                 "dashboard.php": cached_dashboard,
@@ -349,8 +382,8 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
                 },
             }
 
-    login_html = http_get(opener, f"{base}/login.php")
-    logs.append({"kind": "request", "url": f"{base}/login.php"})
+    login_final_url, login_status, login_html = fetch_page("login.php", f"{base}/login.php")
+    logs.append({"kind": "request", "url": f"{base}/login.php", "final_url": login_final_url, "status": login_status})
     parser = FormParser()
     parser.feed(login_html)
     form = parser.forms[0] if parser.forms else {"method": "POST", "action": "/login.php", "inputs": []}
@@ -372,17 +405,17 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
     login_result = http_post(opener, action, post_data)
     logs.append({"kind": "request", "url": action})
 
-    dashboard_html = http_get(opener, f"{base}/admin/dashboard.php")
-    logs.append({"kind": "request", "url": f"{base}/admin/dashboard.php"})
+    dashboard_final_url, dashboard_status, dashboard_html = fetch_page("dashboard.php", f"{base}/admin/dashboard.php")
+    logs.append({"kind": "request", "url": f"{base}/admin/dashboard.php", "final_url": dashboard_final_url, "status": dashboard_status})
     has_dashboard_links, dashboard_checks = page_looks_logged_in(dashboard_html)
-    shipments_probe = http_get(opener, f"{base}/admin/shipments.php")
-    logs.append({"kind": "request", "url": f"{base}/admin/shipments.php"})
+    shipments_final_url, shipments_status, shipments_probe = fetch_page("shipments.php", f"{base}/admin/shipments.php")
+    logs.append({"kind": "request", "url": f"{base}/admin/shipments.php", "final_url": shipments_final_url, "status": shipments_status})
     shipments_ok, shipments_checks = page_looks_logged_in(shipments_probe)
-    wallet_probe = http_get(opener, f"{base}/admin/wallet.php")
-    logs.append({"kind": "request", "url": f"{base}/admin/wallet.php"})
+    wallet_final_url, wallet_status, wallet_probe = fetch_page("wallet.php", f"{base}/admin/wallet.php")
+    logs.append({"kind": "request", "url": f"{base}/admin/wallet.php", "final_url": wallet_final_url, "status": wallet_status})
     wallet_ok, wallet_checks = page_looks_logged_in(wallet_probe)
-    cod_probe = http_get(opener, f"{base}/admin/collect-cod.php")
-    logs.append({"kind": "request", "url": f"{base}/admin/collect-cod.php"})
+    cod_final_url, cod_status, cod_probe = fetch_page("collect-cod.php", f"{base}/admin/collect-cod.php")
+    logs.append({"kind": "request", "url": f"{base}/admin/collect-cod.php", "final_url": cod_final_url, "status": cod_status})
     cod_ok, cod_checks = page_looks_logged_in(cod_probe)
     login_issue = None
     if not shipments_ok:
@@ -424,6 +457,14 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
             "shipments_checks": shipments_checks,
             "wallet_checks": wallet_checks,
             "cod_checks": cod_checks,
+            "dashboard_status": dashboard_status,
+            "shipments_status": shipments_status,
+            "wallet_status": wallet_status,
+            "cod_status": cod_status,
+            "dashboard_final_url": dashboard_final_url,
+            "shipments_final_url": shipments_final_url,
+            "wallet_final_url": wallet_final_url,
+            "cod_final_url": cod_final_url,
         },
     }
 
