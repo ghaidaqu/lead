@@ -260,9 +260,11 @@ class FormParser(HTMLParser):
         attrs = dict(attrs)
         if tag == "form":
             self._in_form = True
-            self._form = {"method": attrs.get("method", "get").upper(), "action": attrs.get("action", ""), "inputs": []}
+            self._form = {"method": attrs.get("method", "get").upper(), "action": attrs.get("action", ""), "inputs": [], "buttons": []}
         elif self._in_form and tag == "input":
             self._form["inputs"].append(attrs)
+        elif self._in_form and tag == "button":
+            self._form["buttons"].append(attrs)
 
     def handle_endtag(self, tag):
         if tag == "form" and self._in_form:
@@ -302,6 +304,16 @@ def http_post(opener, url: str, data: dict[str, str]) -> str:
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/x-www-form-urlencoded"})
     with opener.open(req) as resp:
         return resp.read().decode("utf-8", errors="ignore")
+
+
+def http_post_meta(opener, url: str, data: dict[str, str]) -> tuple[str, int, str]:
+    body = urllib.parse.urlencode(data).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/x-www-form-urlencoded"})
+    with opener.open(req) as resp:
+        html = resp.read().decode("utf-8", errors="ignore")
+        final_url = getattr(resp, "geturl", lambda: url)()
+        status = int(getattr(resp, "status", resp.getcode()))
+        return final_url, status, html
 
 
 def log_page_sample(logs: list[dict[str, Any]], label: str, requested_url: str, final_url: str, status: int, html: str, reason: str = "") -> None:
@@ -410,11 +422,22 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
             post_data[name] = username
         elif typ == "hidden":
             post_data[name] = inp.get("value", "")
+    for btn in form.get("buttons", []):
+        btn_name = btn.get("name")
+        if btn_name and btn.get("type", "").lower() in ("submit", ""):
+            post_data.setdefault(btn_name, btn.get("value", "") or "1")
     action = form.get("action") or "/login.php"
     if not action.startswith("http"):
         action = f"{base}/{action.lstrip('/')}"
-    login_result = http_post(opener, action, post_data)
-    logs.append({"kind": "request", "url": action})
+    login_post_final_url, login_post_status, login_result = http_post_meta(opener, action, post_data)
+    login_result_html = login_result[:500]
+    logs.append({
+        "kind": "request",
+        "url": action,
+        "final_url": login_post_final_url,
+        "status": login_post_status,
+        "response_500": login_result_html,
+    })
 
     dashboard_final_url, dashboard_status, dashboard_html = fetch_page("dashboard.php", f"{base}/admin/dashboard.php")
     logs.append({"kind": "request", "url": f"{base}/admin/dashboard.php", "final_url": dashboard_final_url, "status": dashboard_status})
