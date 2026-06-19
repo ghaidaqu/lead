@@ -5,7 +5,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 
-ROOT = Path("/Users/ghaida/Desktop/lead")
+ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "output" / "lead6_report.xlsx"
 
 

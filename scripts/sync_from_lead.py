@@ -770,34 +770,42 @@ def main() -> int:
     build_report_error = None
     site_error = None
     try:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(PROJECT_DIR) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
         build_completed = subprocess.run(
             [sys.executable, str(PROJECT_DIR / "scripts" / "build_report.py")],
             cwd=str(PROJECT_DIR),
             check=False,
             capture_output=True,
             text=True,
+            env=env,
         )
         if build_completed.returncode != 0:
             build_report_error = {
                 "type": "build_report_failed",
                 "exit_code": build_completed.returncode,
+                "stdout": build_completed.stdout[-1000:],
                 "stderr": build_completed.stderr[-1000:],
             }
     except Exception as exc:
         build_report_error = {"type": type(exc).__name__}
 
     try:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(PROJECT_DIR) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
         site_completed = subprocess.run(
             [sys.executable, str(PROJECT_DIR / "web" / "generate_site.py")],
             cwd=str(PROJECT_DIR),
             check=False,
             capture_output=True,
             text=True,
+            env=env,
         )
         if site_completed.returncode != 0:
             site_error = {
                 "type": "generate_site_failed",
                 "exit_code": site_completed.returncode,
+                "stdout": site_completed.stdout[-1000:],
                 "stderr": site_completed.stderr[-1000:],
             }
     except Exception as exc:
