@@ -127,6 +127,28 @@ def get_actuals(date_from, date_to):
     }
 
 
+def get_daily_actual_profit(date_from, date_to):
+    """Daily TRUE profit, using the same actual_profit rule as the headline."""
+    if db_store is None or not db_store.db_enabled():
+        return []
+    start = date_from.isoformat() if date_from else "2026-02-01"
+    end = date_to.isoformat() if date_to else _dt.date.today().isoformat()
+    try:
+        with db_store.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """SELECT shipment_date::date day, sum(actual_profit) profit
+                   FROM shipments
+                   WHERE shipment_date >= %s AND shipment_date <= %s
+                   GROUP BY shipment_date::date
+                   ORDER BY shipment_date::date""",
+                (start, end),
+            )
+            rows = cur.fetchall()
+    except Exception:
+        return []
+    return [[r["day"].isoformat(), round(float(r["profit"] or 0), 2)] for r in rows]
+
+
 def _auth_enabled() -> bool:
     return bool(AUTH_USER and AUTH_PASS)
 
@@ -255,6 +277,10 @@ def api_dashboard():
             payload["actuals"] = get_actuals(date_from, date_to)
         except Exception:
             payload["actuals"] = None
+        try:
+            payload["daily_actual_profit"] = get_daily_actual_profit(date_from, date_to)
+        except Exception:
+            payload["daily_actual_profit"] = []
         _update_data_source("postgres", True)
     except Exception as exc:
         logger.exception("dashboard payload failed")

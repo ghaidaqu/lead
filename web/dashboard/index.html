@@ -50,7 +50,7 @@
       background:var(--card-2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:650;}
 
     .grid{display:grid;gap:16px;}
-    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,2.35fr) minmax(250px,.65fr);align-items:start;}
+    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,1fr) minmax(280px,.42fr);align-items:start;}
     .tables{grid-template-columns:1fr 1fr;} .finance{grid-template-columns:repeat(5,1fr);}
     .summary{grid-template-columns:repeat(5,1fr);} .chips5{grid-template-columns:repeat(5,1fr);}
     .panel,.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
@@ -79,7 +79,7 @@
     .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
     .carrier-row .pct{margin-inline-start:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
     .seq{font-size:13px;line-height:2;color:var(--muted);}
-    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .daily-chart-box{height:600px;margin:4px auto 0;width:100%;} .donut-box{position:relative;height:200px;}
+    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .daily-panel{grid-column:1 / -1;} .daily-chart-box{height:430px;margin:4px auto 0;width:100%;} .donut-box{position:relative;height:200px;}
     footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;line-height:1.8;}
     footer .updated-at{display:block;font-variant-numeric:tabular-nums;}
 
@@ -190,7 +190,7 @@
         <div class="grid chips5" id="profitChips"></div>
       </section>
       <section class="grid two">
-        <article class="panel" style="margin-top:0;">
+        <article class="panel daily-panel" style="margin-top:0;">
           <h2>الأداء اليومي</h2><p class="sub">آخر 7 أيام</p>
           <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
         </article>
@@ -319,6 +319,24 @@
     let charts={};
     function draw(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),cfg);}
     const cssvar=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
+    const shortMoney=v=>Number(v||0).toLocaleString('en-US',{maximumFractionDigits:0})+' ر.س';
+    const profitValueLabels={
+      id:'profitValueLabels',
+      afterDatasetsDraw(chart){
+        const dsIndex=chart.data.datasets.findIndex(ds=>ds.label==='الأرباح');
+        if(dsIndex<0)return;
+        const meta=chart.getDatasetMeta(dsIndex),ctx=chart.ctx,ds=chart.data.datasets[dsIndex];
+        ctx.save();ctx.direction='rtl';ctx.textAlign='center';ctx.textBaseline='bottom';
+        ctx.font='700 11px "Noto Sans Arabic", Inter, sans-serif';
+        ctx.fillStyle=cssvar('--text');
+        meta.data.forEach((point,i)=>{
+          const value=Number(ds.data[i]||0);
+          if(!Number.isFinite(value))return;
+          ctx.fillText(shortMoney(value),point.x,point.y-10);
+        });
+        ctx.restore();
+      }
+    };
     // Force charts to re-measure their container. Mobile Safari doesn't always
     // fire Chart.js's ResizeObserver when the layout width changes (orientation,
     // shrink-to-fit), which can leave a chart stuck at its initial narrow width.
@@ -369,13 +387,15 @@
       $('profitChips').innerHTML=(ac?[['الإيرادات',money(ac.revenue)],['التكلفة الأساسية',money(ac.base_cost)],['رسوم وزن/COD (محمَّلة)',money(ac.absorbed_fees)],['الربح حسب تقارير ليد',money(ac.reports_profit)],['صافي الربح الفعلي',money(ac.true_profit)]]:(lr?[['الإيرادات',money(lr.revenue)],['التكلفة الأساسية',money(lr.base_cost)],['صافي الربح',money(lr.net_profit)]]:[['الحالة',NA]]))
         .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
       // daily: actual profit + actual revenue + order count
-      const profitMap=Object.fromEntries(d.daily||[]),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
-      const dailyKeys=[...new Set([...(d.daily||[]).map(([x])=>x),...(d.daily_revenue||[]).map(([x])=>x),...(d.daily_count||[]).map(([x])=>x)])].sort().slice(-7);
+      const profitSeries=(d.daily_actual_profit&&d.daily_actual_profit.length)?d.daily_actual_profit:(d.daily||[]);
+      const profitMap=Object.fromEntries(profitSeries),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
+      const dailyKeys=[...new Set([...(profitSeries||[]).map(([x])=>x),...(d.daily_revenue||[]).map(([x])=>x),...(d.daily_count||[]).map(([x])=>x)])].sort().slice(-7);
       draw('dailyChart',{data:{labels:dailyKeys.map(mmdd),datasets:[
         {type:'bar',label:'الإيراد',data:dailyKeys.map(x=>revMap[x]||0),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:6,barPercentage:.72,categoryPercentage:.58,order:3},
         {type:'line',label:'الأرباح',data:dailyKeys.map(x=>profitMap[x]||0),borderColor:cssvar('--positive'),backgroundColor:cssvar('--positive'),yAxisID:'money',tension:.35,pointRadius:4,pointHoverRadius:6,borderWidth:3,order:1},
         {type:'line',label:'عدد الطلبات',data:dailyKeys.map(x=>cntMap[x]||0),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.35,pointRadius:3,pointHoverRadius:5,borderWidth:2,order:2}]},
-        options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{usePointStyle:true,color:cssvar('--muted'),boxWidth:9,boxHeight:9}}},
+        plugins:[profitValueLabels],
+        options:{maintainAspectRatio:false,layout:{padding:{top:26,left:8,right:8}},interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{usePointStyle:true,color:cssvar('--muted'),boxWidth:9,boxHeight:9}}},
         scales:{money:{position:'right',beginAtZero:true,grid:{color:cssvar('--grid')},ticks:{color:cssvar('--muted')}},
         count:{position:'left',beginAtZero:true,grid:{display:false},ticks:{color:cssvar('--muted'),precision:0}},
         x:{grid:{display:false},ticks:{color:cssvar('--muted')}}}}});
