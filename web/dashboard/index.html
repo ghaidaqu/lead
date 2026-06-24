@@ -77,13 +77,14 @@
     .table-wrap{overflow-x:auto;}
     td input{height:34px;padding:0 8px;border-radius:8px;}
 
-    .carrier-legend{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
-    .carrier-row{display:flex;align-items:center;gap:8px;font-size:12px;min-width:0;}
+    .carrier-legend{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+    .carrier-row{display:flex;align-items:center;gap:7px;font-size:12px;min-width:0;padding:6px 8px;
+      border:1px solid var(--border);border-radius:9px;background:var(--card-2);}
     .carrier-row span:not(.dot):not(.pct){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
     .carrier-row .pct{margin-inline-start:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
     .seq{font-size:13px;line-height:2;color:var(--muted);}
-    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .chart-panel{display:flex;flex-direction:column;min-height:0;} .daily-chart-box{height:420px;margin:0 auto;width:100%;} .carrier-content{direction:ltr;display:grid;grid-template-columns:minmax(0,1fr) minmax(122px,.9fr);grid-template-areas:"donut legend";align-items:center;gap:12px;flex:1;min-height:0;} .donut-box{grid-area:donut;position:relative;height:230px;width:min(100%,230px);margin:0 auto;} .carrier-chart-card .carrier-legend{grid-area:legend;direction:rtl;margin-top:0;max-height:260px;overflow:auto;padding-inline-end:2px;}
+    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .chart-panel{height:460px;display:flex;flex-direction:column;min-height:0;} .chart-panel .sub{margin-bottom:10px;} .daily-chart-box{flex:1;min-height:340px;margin:0 auto;width:100%;} .carrier-content{direction:ltr;display:grid;grid-template-columns:minmax(150px,.95fr) minmax(128px,.9fr);grid-template-areas:"donut legend";align-items:center;gap:14px;flex:1;min-height:0;} .donut-box{grid-area:donut;position:relative;height:210px;width:min(100%,210px);margin:0 auto;} .carrier-chart-card .carrier-legend{grid-area:legend;direction:rtl;margin-top:0;max-height:300px;overflow:auto;padding-inline-end:2px;}
     footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;line-height:1.8;}
     footer .updated-at{display:block;font-variant-numeric:tabular-nums;}
 
