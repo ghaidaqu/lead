@@ -40,12 +40,15 @@
     .tab.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:650;}
 
     .hero{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
-    .brand-logo{width:64px;height:64px;object-fit:contain;flex:0 0 auto;margin-inline-start:auto;
+    .brand-logo{width:64px;height:64px;object-fit:contain;flex:0 0 auto;
       border:0;background:transparent;box-shadow:none;border-radius:0;}
     .hero-title h1{font-size:21px;font-weight:800;}
     .hero-title p{margin:2px 0 0;color:var(--muted);font-size:13px;}
-    .nav{display:flex;gap:8px;margin-inline-start:8px;}
-    .hero-tools{margin-inline-start:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .nav{display:flex;gap:8px;margin-inline-start:8px;align-items:flex-start;}
+    .nav-item{display:grid;gap:4px;justify-items:center;}
+    .period-under{color:var(--muted);font-size:11px;line-height:1.2;min-height:13px;}
+    .hero-left{margin-inline-start:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .hero-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .badge{height:var(--control);display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;
       background:var(--card-2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:650;}
 
@@ -160,16 +163,20 @@
         <p id="viewSub">نظرة عامة على أداء الأعمال</p>
       </div>
       <nav class="nav">
-        <button class="tab" data-view="dashboard">لوحة البيانات</button>
+        <span class="nav-item">
+          <button class="tab" data-view="dashboard">لوحة البيانات</button>
+          <span class="period-under num hidden" id="periodBadge">—</span>
+        </span>
         <button class="tab" data-view="pricing">الأسعار</button>
       </nav>
-      <div class="hero-tools">
-        <span class="badge num hidden" id="periodBadge">—</span>
-        <a class="link" id="reportLink" href="/report.xlsx?preset=month">تحميل Excel</a>
-        <button class="icon-btn" id="themeToggle" aria-label="تبديل الوضع الليلي"></button>
-        <button class="link" id="logoutBtn">خروج</button>
+      <div class="hero-left">
+        <div class="hero-tools">
+          <a class="link" id="reportLink" href="/report.xlsx?preset=month">تحميل Excel</a>
+          <button class="icon-btn" id="themeToggle" aria-label="تبديل الوضع الليلي"></button>
+          <button class="link" id="logoutBtn">خروج</button>
+        </div>
+        <img class="brand-logo" src="/dashboard/gf_logo_latest.png" alt="GF" onerror="this.style.display='none'" />
       </div>
-      <img class="brand-logo" src="/dashboard/gf_logo_latest.png" alt="GF" onerror="this.style.display='none'" />
     </header>
 
     <!-- DASHBOARD VIEW -->
