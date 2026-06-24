@@ -181,7 +181,6 @@ def load_data_from_db(date_from=None, date_to=None):
         extra_profit = money(row.get("extra_profit") if row.get("extra_profit") is not None else _row_value(raw, 20))
         fee_profit = money(row.get("cod_profit") if row.get("cod_profit") is not None else _row_value(raw, 21))
         total_profit = money(row.get("total_profit") if row.get("total_profit") is not None else _row_value(raw, 22))
-        actual_profit = money(row.get("actual_profit")) if row.get("actual_profit") is not None else 0.0
 
         item = {
             "order_id": raw[0],
@@ -203,7 +202,6 @@ def load_data_from_db(date_from=None, date_to=None):
             "extra_profit": extra_profit,
             "fee_profit": fee_profit,
             "total_profit": total_profit,
-            "actual_profit": actual_profit,
             "review_diff": shipping_profit,
             "collection_date": cod_date_map.get(str(raw[0]), {}).get("collection_date"),
             "transfer_date": cod_date_map.get(str(raw[0]), {}).get("transfer_date"),
@@ -221,14 +219,14 @@ def load_data_from_db(date_from=None, date_to=None):
         if item["cod_amount"] > 0:
             cod_items.append(item)
         by_merchant[item["merchant"]]["count"] += 1
-        by_merchant[item["merchant"]]["total"] += item["actual_profit"]
+        by_merchant[item["merchant"]]["total"] += item["total_profit"]
         by_city[item["city"]]["count"] += 1
-        by_city[item["city"]]["total"] += item["actual_profit"]
+        by_city[item["city"]]["total"] += item["total_profit"]
         by_carrier[item["carrier"]]["count"] += 1
-        by_carrier[item["carrier"]]["total"] += item["actual_profit"]
+        by_carrier[item["carrier"]]["total"] += item["total_profit"]
         by_status[item["status"]] += 1
         if item["date"]:
-            by_date[item["date"]] += item["actual_profit"]
+            by_date[item["date"]] += item["total_profit"]
             by_date_revenue[item["date"]] += item["customer_shipping"]
             by_date_count[item["date"]] += 1
 
@@ -307,7 +305,7 @@ def load_data_from_db(date_from=None, date_to=None):
     daily_count = sorted(by_date_count.items(), key=lambda kv: kv[0])
     period_label = period_label_from_dates(all_shipment_dates)
     return_revenue = sum(item["revenue"] for item in return_items)
-    return_profit = sum(item.get("actual_profit", 0) for item in return_items)
+    return_profit = sum(item["total_profit"] for item in return_items)
     return_platform_cost = sum(item["platform_shipping"] for item in return_items)
     totals = {
         "records": in_range_count,
@@ -323,7 +321,7 @@ def load_data_from_db(date_from=None, date_to=None):
         "return_revenue": return_revenue,
         "return_profit": return_profit,
         "return_count": len(return_items),
-        "total": sum(item["actual_profit"] for item in items) + return_profit,
+        "total": sum(item["total_profit"] for item in items) + return_profit,
         "excluded": in_range_count - len(items),
     }
     cod_items.sort(key=lambda x: (x["date"], x["order_id"]), reverse=True)

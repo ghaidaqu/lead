@@ -204,7 +204,7 @@
           <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
         </article>
         <article class="panel chart-panel carrier-chart-card" style="margin-top:0;">
-          <h2>شركات الشحن</h2><p class="sub">صافي الربح الفعلي لكل ناقل</p>
+          <h2>شركات الشحن</h2><p class="sub">إجمالي الربح لكل ناقل</p>
           <div class="carrier-content">
             <div class="donut-box"><canvas id="carrierChart"></canvas></div>
             <div class="carrier-legend" id="carrierLegend"></div>
@@ -213,7 +213,7 @@
       </section>
       <section class="grid tables">
         <article class="panel" style="margin-top:16px;">
-          <h2>أفضل العملاء</h2><p class="sub">حسب صافي الربح الفعلي</p>
+          <h2>أفضل العملاء</h2><p class="sub">حسب إجمالي الربح</p>
           <div class="table-wrap"><table><thead><tr><th class="rank">#</th><th>العميل</th><th>عدد</th><th>الربح</th></tr></thead><tbody id="merchantsBody"></tbody></table></div>
         </article>
         <article class="panel" style="margin-top:16px;">
@@ -424,26 +424,21 @@
       const d=await fetch('/api/dashboard'+(q.length?'?'+q.join('&'):'')).then(r=>r.json()).catch(()=>({}));
       if(!d.ok)return;
       const t=d.totals||{};
-      const ac=d.actuals||null;
-      const lr=(d.lead_reports&&d.lead_reports.totals)||null;
       const NA='غير متاح';
-      const actualProfit=ac&&ac.true_profit!=null?Number(ac.true_profit):(lr&&lr.net_profit!=null?Number(lr.net_profit):null);
-      const actualProfitNote=ac&&ac.absorbed_fees!=null
-        ?('رسوم وزن/COD محمَّلة: '+money(ac.absorbed_fees))
-        :(lr?'حسب تقارير ليد':'غير متاح لهذه الفترة');
       $('periodBadge').textContent=d.period_label||'';
       $('kpis').innerHTML=[
         ['إجمالي الإيرادات', money(t.revenue), 'إجمالي ما دفعه العملاء','revenue'],
-        ['صافي الربح الفعلي', actualProfit!=null?money(actualProfit):NA, actualProfitNote,'profit'],
+        ['إجمالي الأرباح', money(t.total), 'حسب معادلة بداية الملف','profit'],
         ['عدد الشحنات',intf(t.active),'غير داخلة في الربح: '+intf(t.excluded),'count'],
         ['مبلغ COD',money(t.cod_amount),'إجمالي مبالغ COD','cod'],
       ].map(([l,v,n,key])=>`<div class="kpi"><button class="info-btn" data-info="${key}" aria-label="شرح الطريقة">i</button><span class="label">${l}</span><span class="value num">${v}</span><span class="note num">${n}</span></div>`).join('');
       $('profitChips').innerHTML=[
         ['الإيرادات',money(t.revenue)],
-        ['صافي الربح الفعلي',actualProfit!=null?money(actualProfit):NA],
+        ['التكلفة الفعلية',money(t.cost)],
         ['ربح الشحنة',money(t.base)],
         ['ربح الوزن الزائد',money(t.extra)],
-        ['ربح COD',money(t.cod_profit)]
+        ['ربح COD',money(t.cod_profit)],
+        ['إجمالي الربح',money(t.total)]
       ]
         .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
       renderDailyChart(d);
@@ -507,13 +502,13 @@
     /* per-chart / per-number methodology (Arabic) */
     const INFO={
       revenue:['إجمالي الإيرادات','مجموع تكلفة الشحن التي دفعها العملاء على الشحنات المحسوبة ضمن الفترة المحددة، مضافًا إليها إيرادات الشحنات المرتجعة.'],
-      profit:['صافي الربح الفعلي','الربح الفعلي المعتمد من بيانات الشحنات الفعلية، مع خصم الرسوم المحمَّلة عند توفرها، وبدون استخدام أرقام وهمية.'],
+      profit:['إجمالي الأرباح','إجمالي الربح حسب معادلات بداية الملف: ربح الشحنة + ربح الوزن الزائد + ربح COD، مع احتساب الشحنات الداخلة في الربح فقط.'],
       count:['عدد الشحنات','عدد الشحنات الداخلة في احتساب الربح ضمن الفترة. تُستثنى الشحنات الملغية والمسودة.'],
       cod:['مبلغ COD','مجموع مبالغ الدفع عند الاستلام لكل الشحنات المحسوبة ضمن الفترة.'],
-      profitDetails:['ملخص الأرباح','تفصيل الأرباح حسب القيم المعتمدة من بيانات الشحنات: الإيرادات، صافي الربح الفعلي، ربح الشحنة، ربح الوزن الزائد، وربح COD.'],
+      profitDetails:['ملخص الأرباح','تفصيل معادلات بداية الملف: الإيرادات، التكلفة الفعلية، ربح الشحنة، ربح الوزن الزائد، ربح COD، ثم إجمالي الربح = ربح الشحنة + ربح الوزن الزائد + ربح COD.'],
       daily:['الأداء اليومي','آخر 7 أيام تحتوي على بيانات ضمن الفترة. الأعمدة تعرض الإيراد والأرباح لكل يوم؛ والخط يعرض عدد الطلبات.'],
-      carriers:['شركات الشحن','صافي الربح الفعلي لكل شركة شحن ضمن الفترة المحددة.'],
-      merchants:['أفضل العملاء','أعلى 5 عملاء حسب صافي الربح الفعلي، مع عدد شحناتهم ضمن الفترة المحددة.'],
+      carriers:['شركات الشحن','إجمالي الربح لكل شركة شحن حسب معادلات بداية الملف ضمن الفترة المحددة.'],
+      merchants:['أفضل العملاء','أعلى 5 عملاء حسب إجمالي الربح، مع عدد شحناتهم ضمن الفترة المحددة.'],
       cities:['أفضل المدن','أعلى 5 مدن حسب عدد الشحنات ضمن الفترة المحددة.'],
       finance:['العمليات المالية','«إجمالي الإيداعات» يساوي مجموع كل الإيداعات في المحفظة ضمن الفترة، وهو ثلاثة مكوّنات: إيداعات البنك (تحويل بنكي) + إيداعات ميسر + «شحن رصيد وإيداعات إدارية» (شحن الرصيد اليدوي من الإدارة والرصيد الابتدائي والتعويضات). لذلك الإجمالي أكبر من مجموع البنك وميسر وحدهما. أما «الخصومات والاستردادات» فهي خصم ضريبة القيمة المضافة واسترداد العمليات الملغية، وهي ليست إيداعات ولا تُحتسب ضمن الإجمالي.'],
       statement:['كشف الحساب الجاري','ملخص حركات الإيداعات والمصاريف ورسوم الحوالات البنكية.'],

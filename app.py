@@ -137,7 +137,7 @@ def get_daily_profit(date_from, date_to):
         with db_store.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """SELECT shipment_date::date day,
-                          COALESCE(sum(actual_profit) FILTER (WHERE included_in_profit), 0) AS profit
+                          COALESCE(sum(total_profit) FILTER (WHERE included_in_profit), 0) AS profit
                    FROM shipments
                    WHERE shipment_date >= %s AND shipment_date <= %s
                    GROUP BY shipment_date::date
