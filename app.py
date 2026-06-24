@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 import os
+import json
 import logging
+from functools import wraps
+from io import BytesIO
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory, session, url_for, make_response
 
 try:
-    from web.generate_site import build_html, load_data_from_db
+    from web.generate_site import load_data_from_db
 except Exception:  # pragma: no cover
-    build_html = None
     load_data_from_db = None
 
 try:
+    from scripts import db_store
     from scripts.db_store import db_url as pg_db_url
 except Exception:  # pragma: no cover
+    db_store = None
     pg_db_url = lambda: None
 
 
@@ -32,15 +36,118 @@ LAST_DATA_SOURCE = "unknown"
 LAST_POSTGRES_AVAILABLE = False
 LAST_ERROR_TYPE = ""
 
+# --- Lead reports (actuals) ---------------------------------------------------
+# The dashboard sources cost/profit from Lead's own reports.php (exact for any
+# period), not from a price sheet. The WORKER (whose Lead session is reliable)
+# captures the reports per range into the `lead_reports` DB setting; here we just
+# read that and match the selected range — no Lead login in the request path.
+import datetime as _dt
+
+
+def _range_label(date_from, date_to):
+    """Map a selected (from,to) to the worker's semantic snapshot label.
+    date_from/date_to are date objects or None. Returns 'all' | 'month' | '30d' |
+    'YYYY-MM' (closed month) | None (custom range with no captured snapshot)."""
+    today = _dt.date.today()
+    if not date_from:
+        return "all"
+    end = date_to or today
+    # this month (1st .. today)
+    if date_from == today.replace(day=1) and end == today:
+        return "month"
+    # last 30 days
+    if date_from == today - _dt.timedelta(days=29) and end == today:
+        return "30d"
+    # a full calendar month (1st .. last day)
+    if date_from.day == 1:
+        nxt = _dt.date(date_from.year + (date_from.month == 12),
+                       1 if date_from.month == 12 else date_from.month + 1, 1)
+        if end == nxt - _dt.timedelta(days=1):
+            return f"{date_from.year:04d}-{date_from.month:02d}"
+    return None
+
+
+_PRESET_LABELS = {"all": "all", "month": "month", "30": "30d"}
+
+
+def get_lead_reports(date_from, date_to, preset=None):
+    """Lead's actual revenue/cost/profit (+ per-carrier/-merchant) for the selected
+    range, read from the worker-captured `lead_reports` setting. `preset` (from the
+    dashboard tab) maps directly and avoids any server/browser timezone mismatch;
+    custom ranges fall back to month-boundary detection. Returns None when the range
+    wasn't snapshotted (dashboard then keeps its own figure)."""
+    if db_store is None:
+        return None
+    label = _PRESET_LABELS.get(preset) or _range_label(date_from, date_to)
+    if label is None:
+        return None
+    try:
+        with db_store.get_conn() as conn:
+            raw = db_store.get_setting(conn, "lead_reports", "")
+        store = json.loads(raw) if raw else None
+    except Exception:
+        return None
+    if not store:
+        return None
+    return store.get("ranges", {}).get(label)
+
+
+def get_actuals(date_from, date_to):
+    """Per-shipment TRUE profit for the range, aggregated from the stored actuals.
+    True profit = Policy charge - (Base Cost + Over + COD), i.e. it subtracts the
+    over-weight/COD fees Lead pays نفوذ but never bills merchants. Also returns the
+    reports.php-style profit (charge - Base) and the absorbed fees, so the dashboard
+    can show both the headline number and the leakage."""
+    if db_store is None or not db_store.db_enabled():
+        return None
+    start = date_from.isoformat() if date_from else "2026-02-01"
+    end = date_to.isoformat() if date_to else _dt.date.today().isoformat()
+    try:
+        with db_store.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """SELECT sum(actual_revenue) rev,
+                          sum(actual_base_cost) FILTER (WHERE actual_revenue>0) base,
+                          sum(actual_extra_cost) extra, sum(actual_profit) profit,
+                          count(*) FILTER (WHERE actual_revenue>0) n
+                   FROM shipments WHERE shipment_date >= %s AND shipment_date <= %s""",
+                (start, end),
+            )
+            r = cur.fetchone()
+    except Exception:
+        return None
+    rev = float(r["rev"] or 0); base = float(r["base"] or 0)
+    extra = float(r["extra"] or 0); profit = float(r["profit"] or 0)
+    return {
+        "revenue": round(rev, 2),
+        "base_cost": round(base, 2),
+        "absorbed_fees": round(extra, 2),
+        "reports_profit": round(rev - base, 2),
+        "true_profit": round(profit, 2),
+        "count": int(r["n"] or 0),
+    }
+
 
 def _auth_enabled() -> bool:
     return bool(AUTH_USER and AUTH_PASS)
 
 
 def _check_credentials(user: str, password: str) -> bool:
+    # Fail closed: if no credentials are configured, deny all logins rather than
+    # accepting any non-empty pair (the previous behaviour was a security hole).
     if not _auth_enabled():
-        return bool(user.strip() and password.strip())
+        logger.warning("login denied: LEAD_AUTH_USER/LEAD_AUTH_PASS not configured")
+        return False
     return user == AUTH_USER and password == AUTH_PASS
+
+
+def require_auth(view):
+    """Gate write endpoints behind an authenticated session."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("lead_authenticated"):
+            return jsonify({"ok": False, "error": "unauthorized"}), 401
+        return view(*args, **kwargs)
+    return wrapped
 
 
 def _update_data_source(source: str, postgres_available: bool, error_type: str = "") -> None:
@@ -55,7 +162,7 @@ def _probe_postgres() -> tuple[str, bool, str | None]:
     url = pg_db_url()
     if not url:
         return "missing_database_url", False, None
-    if build_html is None or load_data_from_db is None:
+    if load_data_from_db is None:
         return "postgres_unavailable", False, "ImportError"
     try:
         from scripts.db_store import get_conn, compare_counts
@@ -66,8 +173,18 @@ def _probe_postgres() -> tuple[str, bool, str | None]:
         return "postgres_error", False, type(exc).__name__
 
 
-def _dashboard_payload_from_db():
-    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label, missing_sequence_numbers = load_data_from_db()
+def _parse_date_arg(value):
+    import datetime as _dt
+    if not value:
+        return None
+    try:
+        return _dt.date.fromisoformat(value.strip()[:10])
+    except (ValueError, AttributeError):
+        return None
+
+
+def _dashboard_payload_from_db(date_from=None, date_to=None):
+    totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label, missing_sequence_numbers = load_data_from_db(date_from, date_to)
     return {
         "totals": totals,
         "top_merchants": top_merchants,
@@ -84,6 +201,67 @@ def _dashboard_payload_from_db():
         "missing_sequence_numbers": missing_sequence_numbers,
         "statuses": statuses,
     }
+
+
+def _json_safe(value):
+    import datetime as _dt
+    from decimal import Decimal
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (_dt.datetime, _dt.date)):
+        return value.isoformat()
+    return str(value)
+
+
+@app.get("/api/dashboard")
+@require_auth
+def api_dashboard():
+    if load_data_from_db is None:
+        return jsonify({"ok": False, "error": "dashboard_unavailable"}), 503
+    try:
+        date_from = _parse_date_arg(request.args.get("from"))
+        date_to = _parse_date_arg(request.args.get("to"))
+        payload = _dashboard_payload_from_db(date_from, date_to)
+        # our own current-month figures, so the dashboard can always show a
+        # like-for-like comparison against the platform's month KPIs (site_kpis),
+        # no matter which range the user is currently viewing.
+        try:
+            import datetime as _dt
+            _today = _dt.date.today()
+            _mtotals = load_data_from_db(_today.replace(day=1), _today)[0]
+            payload["month_self"] = {
+                "revenue": _mtotals.get("revenue"),
+                "profit": _mtotals.get("total"),
+                "count": _mtotals.get("records"),
+                "cod_amount": _mtotals.get("cod_amount"),
+            }
+        except Exception:
+            payload["month_self"] = None
+        site_kpis = None
+        if db_store is not None:
+            try:
+                with db_store.get_conn() as conn:
+                    raw = db_store.get_setting(conn, "site_kpis", "")
+                site_kpis = json.loads(raw) if raw else None
+            except Exception:
+                site_kpis = None
+        payload["site_kpis"] = site_kpis
+        # Lead's own actuals for the selected range (exact cost/profit, no sheet).
+        try:
+            payload["lead_reports"] = get_lead_reports(date_from, date_to, request.args.get("preset"))
+        except Exception:
+            payload["lead_reports"] = None
+        try:
+            payload["actuals"] = get_actuals(date_from, date_to)
+        except Exception:
+            payload["actuals"] = None
+        _update_data_source("postgres", True)
+    except Exception as exc:
+        logger.exception("dashboard payload failed")
+        _update_data_source("error", False, type(exc).__name__)
+        return jsonify({"ok": False, "error": type(exc).__name__}), 500
+    body = json.dumps({"ok": True, **payload}, ensure_ascii=False, default=_json_safe)
+    return Response(body, mimetype="application/json")
 
 
 @app.post("/api/login")
@@ -107,6 +285,44 @@ def api_logout():
 @app.get("/api/session")
 def api_session():
     return jsonify({"authenticated": bool(session.get("lead_authenticated"))})
+
+
+# ---------------------------------------------------------------------------
+# Pricing admin API. Carrier prices are auto-synced from the Lead site and are
+# read-only here; the COD fee, extra-kilo pricing, and per-merchant overrides
+# are admin-editable and persisted in PostgreSQL.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/pricing")
+def api_pricing_get():
+    """Read-only pricing reference. Everything is sourced automatically from Lead
+    (carrier prices from shipping-companies.php, COD fee from cod-settings.php);
+    nothing here is editable — profit is computed from Lead's actuals."""
+    if db_store is None or not db_store.db_enabled():
+        return jsonify({"ok": False, "error": "database_unavailable"}), 503
+    cod_fee = None
+    with db_store.get_conn() as conn:
+        snap = db_store.load_pricing_snapshot(conn)
+        data_floor = db_store.get_setting(conn, "min_sync_date", "")
+        raw = db_store.get_setting(conn, "lead_reports", "")
+    if raw:
+        try:
+            cod_fee = json.loads(raw).get("cod_fee")
+        except Exception:
+            cod_fee = None
+    return jsonify({"ok": True, "carriers": snap.get("carriers", {}),
+                    "cod_fee": cod_fee, "data_floor": data_floor})
+
+
+@app.get("/admin")
+@app.get("/admin/")
+def admin_page() -> Response:
+    # Same single-page app as the dashboard; the SPA opens the pricing view
+    # client-side based on the /admin path (no separate page, no reload).
+    spa = WEB_DIR / "dashboard" / "index.html"
+    if spa.exists():
+        return send_file(spa)
+    return Response("Not found", status=404, mimetype="text/plain")
 
 
 def _dashboard_dir() -> Path | None:
@@ -194,35 +410,47 @@ def home() -> Response:
     return redirect(url_for("dashboard_index"))
 
 
+DASHBOARD_DIR = WEB_DIR / "dashboard"
+
+
 @app.get("/dashboard/")
 @app.get("/dashboard/index.html")
 def dashboard_index() -> Response:
-    if build_html is not None and load_data_from_db is not None:
-        try:
-            data = _dashboard_payload_from_db()
-            _update_data_source("postgres", True)
-            return Response(build_html(data), mimetype="text/html")
-        except Exception as exc:
-            _update_data_source("excel_fallback", False, type(exc).__name__)
-    if _dashboard_dir() is not None:
-        _update_data_source("excel_fallback", False)
-        return send_from_directory(WEB_DIR, "index.html")
-    _update_data_source("excel_fallback", False)
+    # Static SPA — it fetches its data from GET /api/dashboard.
+    spa = DASHBOARD_DIR / "index.html"
+    if spa.exists():
+        return send_file(spa)
     return Response(_fallback_page(), mimetype="text/html")
 
 
 @app.get("/dashboard/<path:filename>")
 def dashboard_assets(filename: str):
-    if _dashboard_dir() is None:
-        return Response(_fallback_page(), mimetype="text/html")
-    return send_from_directory(WEB_DIR, filename)
+    # Serve SPA-local files first (none yet), then shared assets/logos from web/.
+    if (DASHBOARD_DIR / filename).exists():
+        return send_from_directory(DASHBOARD_DIR, filename)
+    if (WEB_DIR / filename).exists():
+        return send_from_directory(WEB_DIR, filename)
+    return Response("Not found", status=404, mimetype="text/plain")
 
 
 @app.get("/report.xlsx")
 def report_download():
-    if REPORT_PATH.exists():
-        return send_file(REPORT_PATH, as_attachment=True, download_name="lead_report.xlsx")
-    return Response("Report not found. Run scripts/build_report.py first.", status=404, mimetype="text/plain")
+    # Built on demand from PostgreSQL — no .xlsx is stored on disk.
+    if db_store is None or not db_store.db_enabled():
+        return Response("Database unavailable.", status=503, mimetype="text/plain")
+    try:
+        from scripts.export_report import build_report_xlsx
+        with db_store.get_conn() as conn:
+            data = build_report_xlsx(conn)
+    except Exception as exc:
+        logger.exception("report export failed")
+        return Response(f"Report export failed: {type(exc).__name__}", status=500, mimetype="text/plain")
+    return send_file(
+        BytesIO(data),
+        as_attachment=True,
+        download_name="lead_report.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @app.get("/health")

@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة التحكم المالية — Lead</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      color-scheme:light;
+      --bg:#F6F1EA; --card:#FFFFFF; --card-2:#FBF8F3; --border:#E7DDD3;
+      --text:#1C1C1C; --muted:#6F6A66; --accent:#7A2438; --accent-light:#B04A64;
+      --beige:#D8CABE; --positive:#587F63; --negative:#A24D4D; --grid:#E8DED5;
+      --shadow:0 18px 45px rgba(45,31,25,.08); --control:42px; --radius:16px;
+    }
+    body.dark{
+      color-scheme:dark;
+      --bg:#0F1113; --card:#171A1F; --card-2:#1C2027; --border:#252932;
+      --text:#F5F2EE; --muted:#A7A7A7; --accent:#B04A64; --accent-light:#C97089;
+      --beige:#D8CABE; --positive:#8FBF9F; --negative:#C86B6B; --grid:#2A2D33;
+      --shadow:0 18px 52px rgba(0,0,0,.30);
+    }
+    *,*::before,*::after{box-sizing:border-box;}
+    body{margin:0;min-height:100vh;overflow-x:hidden;background:var(--bg);color:var(--text);
+      font-family:"Noto Sans Arabic",Inter,"Segoe UI",system-ui,sans-serif;
+      transition:background-color .3s,color .3s;}
+    .page{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:20px 0 48px;}
+    h1,h2,h3{margin:0;}
+    a{color:inherit;text-decoration:none;}
+    .num{font-variant-numeric:tabular-nums;}
+    .hidden{display:none !important;}
+
+    .btn,.icon-btn,.link,.tab{height:var(--control);border-radius:11px;border:1px solid var(--border);
+      background:var(--card);color:var(--text);cursor:pointer;font:inherit;display:inline-flex;
+      align-items:center;justify-content:center;gap:8px;transition:border-color .2s,background .2s,color .2s;}
+    .btn{padding:0 18px;} .link,.tab{padding:0 16px;font-size:14px;} .icon-btn{width:var(--control);padding:0;}
+    .btn:hover,.icon-btn:hover,.link:hover,.tab:hover{border-color:var(--accent);}
+    .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-light));color:#fff;border:none;font-weight:650;}
+    .btn.ghost{background:none;}
+    .tab.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:650;}
+
+    .hero{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
+    .hero-title h1{font-size:21px;font-weight:800;}
+    .hero-title p{margin:2px 0 0;color:var(--muted);font-size:13px;}
+    .nav{display:flex;gap:8px;margin-inline-start:8px;}
+    .hero-tools{margin-inline-start:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .badge{height:var(--control);display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;
+      background:var(--card-2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:650;}
+
+    .grid{display:grid;gap:16px;}
+    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:1.3fr .92fr;}
+    .tables{grid-template-columns:1fr 1fr;} .finance{grid-template-columns:repeat(5,1fr);}
+    .summary{grid-template-columns:repeat(5,1fr);} .chips5{grid-template-columns:repeat(5,1fr);}
+    .panel,.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+    .panel{padding:20px;margin-top:16px;} .panel h2{font-size:16px;}
+    .panel .sub{color:var(--muted);font-size:12px;margin:3px 0 16px;}
+
+    .kpi{padding:18px;min-height:104px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;}
+    .kpi::before{content:"";position:absolute;inset-block-start:0;inset-inline:0;height:3px;
+      background:linear-gradient(90deg,var(--accent),var(--accent-light));}
+    .kpi .label{color:var(--muted);font-size:13px;font-weight:560;}
+    .kpi .value{font-size:23px;font-weight:800;} .kpi .note{color:var(--muted);font-size:12px;margin-top:auto;}
+
+    .chip{background:var(--card-2);border:1px solid var(--border);border-radius:12px;padding:12px;
+      display:flex;flex-direction:column;gap:6px;min-height:70px;}
+    .chip .label{color:var(--muted);font-size:12px;} .chip .value{font-size:17px;font-weight:750;}
+
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    th,td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--border);}
+    th{color:var(--muted);font-weight:700;font-size:12px;} .rank{color:var(--muted);width:24px;}
+    .table-wrap{overflow-x:auto;}
+    td input{height:34px;padding:0 8px;border-radius:8px;}
+
+    .carrier-legend{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+    .carrier-row{display:flex;align-items:center;gap:8px;font-size:13px;}
+    .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
+    .carrier-row .pct{margin-inline-start:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
+    .seq{font-size:13px;line-height:2;color:var(--muted);}
+    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .donut-box{position:relative;height:200px;}
+    footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;}
+
+    .grid2{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
+    label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:650;}
+    input[type=number],input[type=text],input[type=password],input[type=date]{font:inherit;height:var(--control);padding:0 12px;
+      border-radius:11px;border:1px solid var(--border);background:var(--card-2);color:var(--text);width:100%;}
+    input:focus{outline:none;border-color:var(--accent);}
+    /* date-range filter bar */
+    .filter-bar{margin-top:0;margin-bottom:18px;display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
+    .filter-bar .presets{display:flex;gap:8px;flex-wrap:wrap;}
+    .filter-bar .range-fields{display:flex;align-items:flex-end;gap:10px;margin-inline-start:auto;}
+    .filter-bar label{font-size:12px;gap:5px;}
+    .filter-bar input[type=date]{width:150px;}
+    body.dark .filter-bar input[type=date]{color-scheme:dark;}
+    .btn.sm{height:36px;padding:0 18px;font-size:13px;}
+    @media(max-width:560px){ .filter-bar .range-fields{margin-inline-start:0;width:100%;} .filter-bar input[type=date]{width:100%;} }
+    .pill{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--card-2);color:var(--muted);}
+    .row-actions{display:flex;gap:6px;}
+
+    .login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:40;padding:20px;}
+    .login-card{width:min(390px,100%);background:var(--card);border:1px solid var(--border);
+      border-radius:20px;padding:32px;box-shadow:var(--shadow);text-align:center;}
+    .login-card img{width:120px;height:auto;margin-bottom:12px;}
+    .login-card h2{font-size:22px;} .login-card p{margin:6px 0 22px;color:var(--muted);font-size:13px;}
+    .login-form{display:grid;gap:14px;text-align:start;}
+    .pw-wrap{position:relative;} .pw-wrap input{padding-inline-end:42px;}
+    .pw-wrap .toggle{position:absolute;inset-block-start:0;inset-inline-end:0;width:var(--control);height:var(--control);
+      border:none;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center;}
+    .login-error{color:var(--accent);font-size:13px;min-height:18px;}
+
+    .toast{position:fixed;inset-block-end:22px;inset-inline-start:50%;transform:translateX(-50%);
+      background:var(--accent);color:#fff;padding:12px 22px;border-radius:999px;opacity:0;pointer-events:none;
+      transition:opacity .3s;font-size:14px;z-index:50;} .toast.show{opacity:1;}
+    /* per-chart methodology info button + modal */
+    .info-btn{position:absolute;top:14px;left:14px;width:22px;height:22px;border-radius:50%;border:1px solid var(--border);
+      background:var(--card-2);color:var(--muted);font:italic 700 12px Georgia,serif;cursor:pointer;
+      display:grid;place-items:center;line-height:1;z-index:3;padding:0;}
+    .info-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .info-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:60;padding:20px;}
+    .info-modal.hidden{display:none;}
+    .info-card{width:min(440px,100%);background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px;box-shadow:var(--shadow);}
+    .info-card h3{font-size:17px;margin:0 0 10px;} .info-card p{color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 18px;}
+
+    @media(max-width:1000px){ .kpis,.finance{grid-template-columns:1fr 1fr;}
+      .two,.tables,.summary,.chips5{grid-template-columns:1fr;} }
+    @media(max-width:560px){ .kpis,.finance{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+  <!-- LOGIN (hidden until the session check decides) -->
+  <section class="login hidden" id="loginScreen">
+    <div class="login-card">
+      <img src="/dashboard/gf_logo_mark_clean.png" alt="GF" onerror="this.style.display='none'" />
+      <h2>تسجيل الدخول</h2>
+      <p>أدخل بيانات الدخول للوصول إلى لوحة التحكم</p>
+      <form class="login-form" id="loginForm">
+        <label>اسم المستخدم<input type="text" id="loginUser" autocomplete="username" required /></label>
+        <label>كلمة المرور
+          <span class="pw-wrap">
+            <input type="password" id="loginPass" autocomplete="current-password" required />
+            <button type="button" class="toggle" id="pwToggle" aria-label="إظهار كلمة المرور" aria-pressed="false"></button>
+          </span>
+        </label>
+        <button class="btn primary" type="submit" style="width:100%;">دخول</button>
+        <div class="login-error" id="loginError"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- APP SHELL (hidden until authenticated) -->
+  <main class="page hidden" id="shell">
+    <header class="hero">
+      <div class="hero-title">
+        <h1 id="viewTitle">لوحة التحكم المالية</h1>
+        <p id="viewSub">نظرة عامة على أداء الأعمال</p>
+      </div>
+      <nav class="nav">
+        <button class="tab" data-view="dashboard">لوحة البيانات</button>
+        <button class="tab" data-view="pricing">الأسعار</button>
+      </nav>
+      <div class="hero-tools">
+        <span class="badge num hidden" id="periodBadge">—</span>
+        <a class="link" href="/report.xlsx">تحميل Excel</a>
+        <button class="icon-btn" id="themeToggle" aria-label="تبديل الوضع الليلي"></button>
+        <button class="link" id="logoutBtn">خروج</button>
+      </div>
+    </header>
+
+    <!-- DASHBOARD VIEW -->
+    <div class="view" id="view-dashboard">
+      <section class="panel filter-bar">
+        <div class="presets">
+          <button class="tab active" data-range="all">الكل</button>
+          <button class="tab" data-range="month">هذا الشهر</button>
+          <button class="tab" data-range="30">آخر 30 يوم</button>
+        </div>
+        <div class="range-fields">
+          <label>من<input type="date" id="rangeFrom" /></label>
+          <label>إلى<input type="date" id="rangeTo" /></label>
+          <button class="btn primary sm" id="applyRange">تطبيق</button>
+        </div>
+      </section>
+      <section class="grid kpis" id="kpis"></section>
+      <section class="panel">
+        <h2>ملخص الأرباح</h2><p class="sub">أرقام ليد الفعلية للفترة المحددة</p>
+        <div class="grid chips5" id="profitChips"></div>
+      </section>
+      <section class="grid two">
+        <article class="panel" style="margin-top:0;">
+          <h2>الأداء اليومي</h2><p class="sub">آخر 7 أيام</p>
+          <div class="chart-box"><canvas id="dailyChart"></canvas></div>
+        </article>
+        <article class="panel" style="margin-top:0;">
+          <h2>شركات الشحن</h2><p class="sub">صافي الربح الفعلي لكل ناقل</p>
+          <div class="donut-box"><canvas id="carrierChart"></canvas></div>
+          <div class="carrier-legend" id="carrierLegend"></div>
+        </article>
+      </section>
+      <section class="grid tables">
+        <article class="panel" style="margin-top:16px;">
+          <h2>أفضل العملاء</h2><p class="sub">حسب الربح الفعلي من ليد</p>
+          <div class="table-wrap"><table><thead><tr><th class="rank">#</th><th>العميل</th><th>عدد</th><th>الربح</th></tr></thead><tbody id="merchantsBody"></tbody></table></div>
+        </article>
+        <article class="panel" style="margin-top:16px;">
+          <h2>أفضل المدن</h2><p class="sub">حسب عدد الشحنات</p>
+          <div class="table-wrap"><table><thead><tr><th class="rank">#</th><th>المدينة</th><th>عدد الشحنات</th></tr></thead><tbody id="citiesBody"></tbody></table></div>
+        </article>
+      </section>
+      <section class="panel">
+        <h2>العمليات المالية</h2><p class="sub">إيداعات ومخصومات واستردادات</p>
+        <div class="grid finance" id="finance"></div>
+      </section>
+      <section class="panel">
+        <h2>كشف الحساب الجاري</h2><p class="sub">ملخص الحركات</p>
+        <div class="grid summary" id="stmtSummary" style="margin-bottom:16px;"></div>
+        <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>نوع المصروف</th><th>المبلغ</th></tr></thead><tbody id="stmtBody"></tbody></table></div>
+      </section>
+      <section class="panel">
+        <h2>طلبات COD</h2><p class="sub">كل طلب على حدة</p>
+        <div class="table-wrap"><table><thead><tr><th>رقم الطلب</th><th>التاجر</th><th>المدينة</th><th>مبلغ COD</th><th>تاريخ الطلب</th><th>تاريخ التحصيل</th><th>تاريخ التحويل</th><th>الحالة</th></tr></thead><tbody id="codBody"></tbody></table></div>
+        <button class="btn ghost sm hidden" id="codToggle" style="margin-top:12px;"></button>
+      </section>
+      <section class="panel">
+        <h2>الأرقام المتسلسلة الناقصة</h2><p class="sub">الفجوات بين أول وآخر رقم</p>
+        <div class="seq num" id="missingSeq">—</div>
+      </section>
+      <footer>GF Smart Accounting Solutions</footer>
+    </div>
+
+    <!-- PRICING VIEW -->
+    <div class="view hidden" id="view-pricing">
+      <section class="panel" style="margin-top:0;">
+        <h2>الأسعار <span class="pill">للعرض فقط</span></h2>
+        <p class="sub">كل الأسعار والتكاليف تُسحب تلقائيًا من موقع Lead في كل مزامنة (أسعار شركات الشحن، رسوم COD، تكلفة كل شحنة من الفواتير). تُحسب الأرباح من الأرقام الفعلية مباشرةً — لا يوجد إدخال يدوي.</p>
+        <div class="grid finance" id="priceMeta"></div>
+      </section>
+      <section class="panel">
+        <h2>أسعار شركات الشحن <span class="pill">تُزامن تلقائيًا</span></h2>
+        <p class="sub">تُسحب من صفحة شركات الشحن في Lead — «سعر العميل» هو ما تتقاضاه من التاجر، و«تكلفة المنصة» هي ما تدفعه للناقل.</p>
+        <div class="table-wrap"><table id="carrierTable"><thead><tr>
+          <th>الشركة</th><th>سعر العميل</th><th>تكلفة المنصة</th>
+        </tr></thead><tbody></tbody></table></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <div class="info-modal hidden" id="infoModal">
+    <div class="info-card">
+      <h3 id="infoTitle"></h3>
+      <p id="infoText"></p>
+      <button class="btn primary sm" id="infoClose">إغلاق</button>
+    </div>
+  </div>
+
+  <script>
+    const EYE='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    const EYE_OFF='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3.2 4.2M6.6 6.6A18 18 0 0 0 2 12s3.5 7 10 7a10.9 10.9 0 0 0 4-.7"/></svg>';
+    const SUN='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>';
+    const MOON='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>';
+    const TRASH='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
+    const PALETTE=['#7A2438','#B04A64','#D8CABE','#8FBF9F','#C86B6B','#6F6A66','#A58374','#587F63'];
+    const $=id=>document.getElementById(id);
+    const money=v=>Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' ريال';
+    const intf=v=>Number(v||0).toLocaleString('en-US');
+    const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const mmdd=s=>{const m=String(s).match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      return m?m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0'):String(s).slice(5);};
+    const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);};
+
+    /* theme (shared key across views) */
+    const themeToggle=$('themeToggle');
+    function applyTheme(dark){document.body.classList.toggle('dark',dark);themeToggle.innerHTML=dark?SUN:MOON;
+      localStorage.setItem('lead-theme',dark?'dark':'light');}
+    applyTheme((localStorage.getItem('lead-theme')||'dark')==='dark');
+    themeToggle.addEventListener('click',()=>applyTheme(!document.body.classList.contains('dark')));
+
+    /* password toggle */
+    const pw=$('pwToggle');pw.innerHTML=EYE;
+    pw.addEventListener('click',()=>{const i=$('loginPass');const show=i.type==='password';
+      i.type=show?'text':'password';pw.innerHTML=show?EYE_OFF:EYE;pw.setAttribute('aria-pressed',String(show));
+      pw.setAttribute('aria-label',show?'إخفاء كلمة المرور':'إظهار كلمة المرور');});
+
+    /* ---- client-side routing (no reload, no login flash between views) ---- */
+    const VIEWS={dashboard:{title:'لوحة التحكم المالية',sub:'نظرة عامة على أداء الأعمال',path:'/dashboard/'},
+                 pricing:{title:'الأسعار',sub:'مرجع للعرض فقط — تُسحب تلقائيًا من Lead',path:'/admin'}};
+    let dashboardLoaded=false;
+    function viewFromPath(){return location.pathname.replace(/\/+$/,'').endsWith('/admin')?'pricing':'dashboard';}
+    function setView(name,push){
+      if(!VIEWS[name])name='dashboard';
+      for(const v of ['dashboard','pricing'])$('view-'+v).classList.toggle('hidden',v!==name);
+      document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===name));
+      $('viewTitle').textContent=VIEWS[name].title;$('viewSub').textContent=VIEWS[name].sub;
+      $('periodBadge').classList.toggle('hidden',name!=='dashboard');
+      if(push&&location.pathname!==VIEWS[name].path)history.pushState({view:name},'',VIEWS[name].path);
+      if(name==='dashboard'&&!dashboardLoaded){dashboardLoaded=true;loadDashboard();}
+      else if(name==='dashboard')requestAnimationFrame(resizeCharts);
+      if(name==='pricing')loadPricing();
+      window.scrollTo(0,0);
+    }
+    document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>setView(t.dataset.view,true)));
+    window.addEventListener('popstate',()=>setView(viewFromPath(),false));
+
+    /* auth — checked ONCE; switching views never re-auths or reloads */
+    async function authed(){try{return (await (await fetch('/api/session')).json()).authenticated;}catch{return false;}}
+    function enterApp(){$('loginScreen').classList.add('hidden');$('shell').classList.remove('hidden');setView(viewFromPath(),false);}
+    function showLogin(){$('shell').classList.add('hidden');$('loginScreen').classList.remove('hidden');}
+    $('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginError').textContent='';
+      const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:$('loginUser').value,password:$('loginPass').value})}).then(r=>r.json()).catch(()=>({}));
+      if(r.ok)enterApp();else $('loginError').textContent='بيانات الدخول غير صحيحة';});
+    $('logoutBtn').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST'});dashboardLoaded=false;showLogin();});
+
+    /* ---- dashboard data ---- */
+    let charts={};
+    function draw(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),cfg);}
+    const cssvar=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
+    // Force charts to re-measure their container. Mobile Safari doesn't always
+    // fire Chart.js's ResizeObserver when the layout width changes (orientation,
+    // shrink-to-fit), which can leave a chart stuck at its initial narrow width.
+    function resizeCharts(){Object.values(charts).forEach(c=>{try{c.resize();}catch(e){}});}
+    window.addEventListener('resize',resizeCharts);
+    window.addEventListener('orientationchange',()=>setTimeout(resizeCharts,250));
+    /* COD list with show-more (first 10, rest collapsed) */
+    const COD_LIMIT=10;
+    let codItems=[],codExpanded=false;
+    function drawCod(){
+      const rows=codExpanded?codItems:codItems.slice(0,COD_LIMIT);
+      $('codBody').innerHTML=rows.map(c=>`<tr><td class="num">${esc(c.order_id)}</td><td>${esc(c.merchant)}</td><td>${esc(c.city)}</td><td class="num">${money(c.cod_amount)}</td><td class="num">${esc(c.date||'-')}</td><td class="num">${esc(c.collection_date||'-')}</td><td class="num">${esc(c.transfer_date||'-')}</td><td>${esc(c.status)}</td></tr>`).join('')||'<tr><td colspan="8" style="color:var(--muted)">لا يوجد</td></tr>';
+      const tog=$('codToggle');
+      if(codItems.length>COD_LIMIT){tog.classList.remove('hidden');tog.textContent=codExpanded?'عرض أقل':`عرض الكل (${codItems.length})`;}
+      else tog.classList.add('hidden');
+    }
+    function renderCod(items){codItems=items;codExpanded=false;drawCod();}
+    $('codToggle').addEventListener('click',()=>{codExpanded=!codExpanded;drawCod();});
+
+    let range={from:'',to:'',preset:'all'};
+    async function loadDashboard(){
+      const q=[]; if(range.from)q.push('from='+range.from); if(range.to)q.push('to='+range.to);
+      if(range.preset)q.push('preset='+range.preset);
+      const d=await fetch('/api/dashboard'+(q.length?'?'+q.join('&'):'')).then(r=>r.json()).catch(()=>({}));
+      if(!d.ok)return;
+      const t=d.totals||{};
+      // ACTUALS ONLY — every profit/cost number comes from Lead's own reports
+      // (d.lead_reports). We NEVER fall back to price-sheet estimates: if Lead's
+      // actuals aren't available for the range, we show "غير متاح", not a guess.
+      const lr=(d.lead_reports&&d.lead_reports.totals)||null;
+      const lc=(d.lead_reports&&d.lead_reports.carriers)||[];
+      const lm=(d.lead_reports&&d.lead_reports.merchants)||[];
+      const ac=d.actuals||null;  // per-shipment TRUE profit (subtracts absorbed over/COD)
+      const NA='غير متاح';
+      // headline profit = TRUE profit (charge − base − over/COD that Lead absorbs)
+      const profitVal=ac?ac.true_profit:(lr?lr.net_profit:null);
+      const profitNote=ac
+        ?('رسوم وزن/COD محمَّلة: '+money(ac.absorbed_fees)+' · حسب تقارير ليد: '+money(ac.reports_profit))
+        :(lr?'التكلفة: '+money(lr.base_cost):'غير متاح');
+      const revVal=lr?lr.revenue:(ac?ac.revenue:null);
+      $('periodBadge').textContent=d.period_label||'';
+      $('kpis').innerHTML=[
+        ['إجمالي الإيرادات', revVal!=null?money(revVal):NA, 'إجمالي ما دفعه العملاء','revenue'],
+        ['صافي الربح الفعلي', profitVal!=null?money(profitVal):NA, profitVal!=null?profitNote:'غير متاح لهذه الفترة','profit'],
+        ['عدد الشحنات',intf(t.active),'غير داخلة في الربح: '+intf(t.excluded),'count'],
+        ['مبلغ COD',money(t.cod_amount),'إجمالي مبالغ COD','cod'],
+      ].map(([l,v,n,key])=>`<div class="kpi"><button class="info-btn" data-info="${key}" aria-label="شرح الطريقة">i</button><span class="label">${l}</span><span class="value num">${v}</span><span class="note num">${n}</span></div>`).join('');
+      $('profitChips').innerHTML=(ac?[['الإيرادات',money(ac.revenue)],['التكلفة الأساسية',money(ac.base_cost)],['رسوم وزن/COD (محمَّلة)',money(ac.absorbed_fees)],['الربح حسب تقارير ليد',money(ac.reports_profit)],['صافي الربح الفعلي',money(ac.true_profit)]]:(lr?[['الإيرادات',money(lr.revenue)],['التكلفة الأساسية',money(lr.base_cost)],['صافي الربح',money(lr.net_profit)]]:[['الحالة',NA]]))
+        .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
+      // daily: actual revenue (real charges) + order count only — no sheet profit series
+      const daily=(d.daily||[]).slice(-7),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
+      draw('dailyChart',{data:{labels:daily.map(([x])=>mmdd(x)),datasets:[
+        {type:'bar',label:'الإيراد',data:daily.map(([x])=>revMap[x]||0),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:5},
+        {type:'line',label:'عدد الطلبات',data:daily.map(([x])=>cntMap[x]||0),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.35,pointRadius:3}]},
+        options:{maintainAspectRatio:false,plugins:{legend:{labels:{usePointStyle:true,color:cssvar('--muted')}}},
+        scales:{money:{position:'right',grid:{color:cssvar('--grid')},ticks:{color:cssvar('--muted')}},
+        count:{position:'left',grid:{display:false},ticks:{color:cssvar('--muted'),precision:0}},
+        x:{grid:{display:false},ticks:{color:cssvar('--muted')}}}}});
+      // carriers: Lead's actual net profit per carrier (negatives shown in legend, clamped in donut)
+      const carriers=lc.map(c=>[c.carrier,c.profit]),colors=carriers.map((_,i)=>PALETTE[i%PALETTE.length]);
+      draw('carrierChart',{type:'doughnut',data:{labels:carriers.map(([n])=>n),datasets:[{data:carriers.map(([,p])=>Math.max(0,p)),backgroundColor:colors,borderWidth:0}]},
+        options:{maintainAspectRatio:false,cutout:'58%',plugins:{legend:{display:false}}}});
+      $('carrierLegend').innerHTML=carriers.map(([n,p],i)=>`<div class="carrier-row"><span class="dot" style="background:${colors[i]}"></span><span>${esc(n)}</span><span class="pct num">${money(p)}</span></div>`).join('')||`<div style="color:var(--muted)">${NA}</div>`;
+      // merchants: Lead's actual profit per merchant (special pricing already baked in)
+      $('merchantsBody').innerHTML=lm.slice(0,5).map((m,i)=>`<tr><td class="rank num">${i+1}</td><td>${esc(m.merchant)}</td><td class="num">${intf(m.count)}</td><td class="num">${money(m.profit)}</td></tr>`).join('')||`<tr><td colspan="4" style="color:var(--muted)">${NA}</td></tr>`;
+      // cities: ranked by ACTUAL shipment count (Lead doesn't publish per-city profit)
+      const cityRows=(d.top_cities||[]).map(([n,x])=>[n,x.count||0]).sort((a,b)=>b[1]-a[1]).slice(0,5);
+      $('citiesBody').innerHTML=cityRows.map(([n,c],i)=>`<tr><td class="rank num">${i+1}</td><td>${esc(n)}</td><td class="num">${intf(c)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
+      const f=d.finance||{};
+      $('finance').innerHTML=[['إيداعات البنك',money(f.bank?.total),intf(f.bank?.count)+' عملية'],
+        ['إيداعات ميسر',money(f.moyasar?.total),intf(f.moyasar?.count)+' عملية'],
+        ['شحن رصيد وإيداعات إدارية',money(f.other?.total),intf(f.other?.count)+' عملية'],
+        ['إجمالي الإيداعات',money(f.total),'البنك + ميسر + شحن الرصيد'],
+        ['الخصومات والاستردادات','خصم الضريبة: '+money(f.tax_deduction?.total),'الملغية: '+money(f.shipping_refund?.total)]]
+        .map(([l,v,n])=>`<div class="chip"><span class="label">${l}</span><span class="value num" style="font-size:15px;">${v}</span><span class="label num">${n}</span></div>`).join('');
+      const s=(d.statement&&d.statement.summary)||{};
+      $('stmtSummary').innerHTML=[['إجمالي الإيداعات',money(s.deposits_total)],['إجمالي المصاريف',money(s.expenses_total)],
+        ['رسوم الحوالات',money(s.transfer_fees_total)],['صافي الحركة',money(s.net_total)],['عدد المصاريف',intf(s.expenses_count)]]
+        .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num" style="font-size:15px;">${v}</span></div>`).join('');
+      $('stmtBody').innerHTML=((d.statement&&d.statement.rows)||[]).map(r=>`<tr><td class="num">${esc(r.date||'-')}</td><td>${esc(r.expense_type||'-')}</td><td class="num">${money(r.amount)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
+      renderCod(d.cod_items||[]);
+      const ms=d.missing_sequence_numbers||[];$('missingSeq').textContent=ms.length?ms.join('، '):'لا يوجد';
+      // re-measure once layout has fully settled (covers mobile first-render sizing)
+      requestAnimationFrame(resizeCharts);setTimeout(resizeCharts,350);
+    }
+
+    /* ---- prices (read-only reference; everything is sourced from Lead) ---- */
+    const cell=v=>v==null?'—':Number(v).toFixed(2);
+    async function loadPricing(){
+      const r=await fetch('/api/pricing').then(r=>r.json()).catch(()=>({}));
+      if(!r.ok){toast('تعذّر تحميل الأسعار');return;}
+      $('priceMeta').innerHTML=[
+        ['رسوم COD لكل طلب', r.cod_fee!=null?money(r.cod_fee):'—', 'تُسحب من إعدادات COD في Lead'],
+        ['بداية البيانات', r.data_floor||'الكل', 'أقدم تاريخ معروض في اللوحة'],
+        ['عدد شركات الشحن', intf(Object.keys(r.carriers||{}).length), 'مُزامَنة تلقائيًا'],
+      ].map(([l,v,n])=>`<div class="chip"><span class="label">${l}</span><span class="value num" style="font-size:15px;">${v}</span><span class="label">${n}</span></div>`).join('');
+      const tb=$('carrierTable').querySelector('tbody');
+      tb.innerHTML=Object.entries(r.carriers||{}).map(([name,c])=>`<tr><td>${esc(name)}</td><td class="num">${cell(c.customer_gross)}</td><td class="num">${cell(c.platform_gross)}</td></tr>`).join('')
+        ||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
+    }
+
+    /* date-range controls */
+    // local Y-M-D (NOT toISOString, which is UTC and shifts the day in +offset zones)
+    const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    function applyRange(from,to,preset){
+      range={from,to,preset};$('rangeFrom').value=from;$('rangeTo').value=to;
+      document.querySelectorAll('[data-range]').forEach(b=>b.classList.toggle('active',b.dataset.range===preset));
+      loadDashboard();
+    }
+    document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{
+      const now=new Date(),p=b.dataset.range;
+      if(p==='all')applyRange('','','all');
+      else if(p==='month')applyRange(fmtD(new Date(now.getFullYear(),now.getMonth(),1)),fmtD(now),'month');
+      else if(p==='30'){const f=new Date(now);f.setDate(f.getDate()-29);applyRange(fmtD(f),fmtD(now),'30');}
+    }));
+    $('applyRange').addEventListener('click',()=>{
+      range={from:$('rangeFrom').value,to:$('rangeTo').value,preset:''};
+      document.querySelectorAll('[data-range]').forEach(b=>b.classList.remove('active'));
+      loadDashboard();
+    });
+
+    /* per-chart / per-number methodology (Arabic) */
+    const INFO={
+      revenue:['إجمالي الإيرادات','مجموع تكلفة الشحن التي دفعها العملاء على الشحنات المحسوبة ضمن الفترة المحددة، مضافًا إليها إيرادات الشحنات المرتجعة.'],
+      profit:['صافي الربح الفعلي','الربح الحقيقي = ما دفعه العملاء (سعر البوليصة) − تكلفتك الكاملة على نفوذ، والتي تشمل التكلفة الأساسية + رسوم الوزن الزائد + رسوم COD. هذه الرسوم تدفعها أنت لنفوذ لكنك لا تحمّلها على عملائك، لذلك تُخصم من الربح. الرقم «حسب تقارير ليد» لا يخصم هذه الرسوم، لذا يكون أعلى من الربح الفعلي.'],
+      count:['عدد الشحنات','عدد الشحنات الداخلة في احتساب الربح ضمن الفترة. تُستثنى الشحنات الملغية والمسودة.'],
+      cod:['مبلغ COD','مجموع مبالغ الدفع عند الاستلام لكل الشحنات المحسوبة ضمن الفترة.'],
+      profitDetails:['ملخص الأرباح','تفصيل الربح الفعلي: الإيرادات (ما دفعه العملاء)، التكلفة الأساسية (تكلفة الشحن من الشركات)، رسوم الوزن/COD المحمَّلة (التي تدفعها لنفوذ ولا تستردها من العملاء)، الربح حسب تقارير ليد (= الإيراد − التكلفة الأساسية فقط)، وصافي الربح الفعلي (= الإيراد − التكلفة الأساسية − رسوم الوزن/COD). الفرق بين الرقمين هو ما تتحمّله من رسوم لا تُحصّلها.'],
+      daily:['الأداء اليومي','آخر 7 أيام تحتوي على بيانات ضمن الفترة. العمودان لكل يوم: صافي الربح والإيراد؛ والخط: عدد الطلبات في ذلك اليوم.'],
+      carriers:['شركات الشحن','صافي الربح الفعلي لكل شركة شحن من تقارير ليد للفترة. القيمة المعروضة بجانب كل شركة هي ربحها بالريال (قد يكون سالبًا في بعض الفترات).'],
+      merchants:['أفضل العملاء','أعلى 5 عملاء حسب الربح الفعلي من تقارير ليد، مع عدد شحناتهم. التسعير الخاص لكل عميل محتسب تلقائيًا في أرقام ليد.'],
+      cities:['أفضل المدن','أعلى 5 مدن حسب عدد الشحنات الفعلي. (ليد لا تنشر الربح على مستوى المدينة، لذلك نعرض عدد الشحنات وهو رقم فعلي.)'],
+      finance:['العمليات المالية','«إجمالي الإيداعات» يساوي مجموع كل الإيداعات في المحفظة ضمن الفترة، وهو ثلاثة مكوّنات: إيداعات البنك (تحويل بنكي) + إيداعات ميسر + «شحن رصيد وإيداعات إدارية» (شحن الرصيد اليدوي من الإدارة والرصيد الابتدائي والتعويضات). لذلك الإجمالي أكبر من مجموع البنك وميسر وحدهما. أما «الخصومات والاستردادات» فهي خصم ضريبة القيمة المضافة واسترداد العمليات الملغية، وهي ليست إيداعات ولا تُحتسب ضمن الإجمالي.'],
+      statement:['كشف الحساب الجاري','ملخص حركات الإيداعات والمصاريف ورسوم الحوالات البنكية.'],
+      codList:['طلبات COD','كل شحنة دفع عند الاستلام مع مبلغها وتاريخ الطلب وتاريخ التحصيل وتاريخ التحويل البنكي، المسحوبة مباشرة من صفحة تحصيل COD في موقع Lead.'],
+      missing:['الأرقام المتسلسلة الناقصة','الأرقام المفقودة في تسلسل أرقام الطلبات بين أصغر وأكبر رقم — قد تدل على طلبات غير ظاهرة في القائمة.'],
+    };
+    const PANEL_KEYS={'ملخص الأرباح':'profitDetails','الأداء اليومي':'daily','شركات الشحن':'carriers','أفضل العملاء':'merchants','أفضل المدن':'cities','العمليات المالية':'finance','كشف الحساب الجاري':'statement','طلبات COD':'codList','الأرقام المتسلسلة الناقصة':'missing'};
+    function showInfo(key){const it=INFO[key];if(!it)return;$('infoTitle').textContent=it[0];$('infoText').textContent=it[1];$('infoModal').classList.remove('hidden');}
+    document.addEventListener('click',e=>{const b=e.target.closest('[data-info]');if(b)showInfo(b.dataset.info);});
+    $('infoClose').addEventListener('click',()=>$('infoModal').classList.add('hidden'));
+    $('infoModal').addEventListener('click',e=>{if(e.target===$('infoModal'))$('infoModal').classList.add('hidden');});
+    // inject an "i" button into each dashboard panel by matching its heading
+    document.querySelectorAll('#view-dashboard .panel').forEach(panel=>{
+      const h=panel.querySelector('h2');if(!h)return;
+      const key=Object.keys(PANEL_KEYS).find(k=>h.textContent.includes(k));if(!key)return;
+      panel.style.position='relative';
+      const b=document.createElement('button');b.className='info-btn';b.textContent='i';
+      b.setAttribute('data-info',PANEL_KEYS[key]);b.setAttribute('aria-label','شرح الطريقة');
+      panel.appendChild(b);
+    });
+
+    /* boot: decide login vs app once */
+    authed().then(ok=>ok?enterApp():showLogin());
+  </script>
+</body>
+</html>

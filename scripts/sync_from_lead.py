@@ -5,30 +5,24 @@ import datetime as dt
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
+import time
 import urllib.parse
 import urllib.request
 import http.cookiejar
-import traceback
 import importlib
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
-from openpyxl import load_workbook
-from openpyxl import Workbook
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-REPORT_XLSX = PROJECT_DIR / "output" / "lead6_report.xlsx"
-BACKUP_DIR = PROJECT_DIR / "backups"
-FALLBACK_BACKUP_DIR = Path(os.environ.get("LEAD_BACKUP_DIR", Path("/private/tmp/lead6_backups")))
 STATE_PATH = PROJECT_DIR / "sync_state.json"
 ENV_PATH = PROJECT_DIR / ".env"
 AUTH_DIR = PROJECT_DIR / ".auth"
 AUTH_STATE_PATH = AUTH_DIR / "lead_state.json"
-MIN_SYNC_DATE = dt.date(2026, 6, 18)
+# The sync-floor date is not hardcoded — it is read from the DB `min_sync_date`
+# setting (editable in the admin page). Empty/unset means "no floor".
 
 
 def load_db_store():
@@ -80,93 +74,16 @@ def parse_date_text(value: Any) -> dt.date | None:
     return None
 
 
-def row_date_at_or_after(row: list[Any], indexes: tuple[int, ...], minimum: dt.date = MIN_SYNC_DATE) -> bool:
+def row_date_at_or_after(row: list[Any], indexes: tuple[int, ...], minimum: dt.date | None) -> bool:
+    # No configured floor → keep every row (the DB upsert is idempotent).
+    if minimum is None:
+        return True
     for idx in indexes:
         if idx < len(row):
             parsed = parse_date_text(row[idx])
             if parsed and parsed >= minimum:
                 return True
     return False
-
-
-def make_backup(src: Path) -> Path:
-    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    candidates = [BACKUP_DIR, FALLBACK_BACKUP_DIR]
-    last_error: Exception | None = None
-    for folder in candidates:
-        try:
-            folder.mkdir(parents=True, exist_ok=True)
-            dst = folder / f"{src.stem}-{stamp}{src.suffix}"
-            shutil.copy2(src, dst)
-            return dst
-        except Exception as exc:
-            last_error = exc
-            continue
-    if last_error is not None:
-        raise last_error
-    raise RuntimeError("Unable to create backup")
-
-
-def desired_source_mode() -> str:
-    mode = os.environ.get("LEAD_SYNC_SOURCE", "website").strip().lower()
-    return mode if mode in {"website", "excel"} else "website"
-
-
-def create_workbook_with_raw_sheets() -> Workbook:
-    wb = Workbook()
-    default = wb.active
-    wb.remove(default)
-    for name in ("Raw_Shipments", "Raw_Wallet", "Raw_Payments", "Raw_COD"):
-        wb.create_sheet(title=name)
-    return wb
-
-
-def create_source_workbook_from_website(ship_rows: list[list[Any]], wallet_rows: list[list[Any]]) -> Workbook:
-    wb = create_workbook_with_raw_sheets()
-    for name in ("الشحنات", "العمليات المالية"):
-        if name in wb.sheetnames:
-            del wb[name]
-    ship_sheet = wb.create_sheet("الشحنات")
-    ops_sheet = wb.create_sheet("العمليات المالية")
-    if ship_rows:
-        write_sheet(ship_sheet, ship_rows)
-    if wallet_rows:
-        write_sheet(ops_sheet, wallet_rows)
-    return wb
-
-
-def copy_sheet(source_wb: Workbook, target_wb: Workbook, sheet_name: str) -> bool:
-    if sheet_name not in source_wb.sheetnames:
-        return False
-    if sheet_name in target_wb.sheetnames:
-        del target_wb[sheet_name]
-    source = source_wb[sheet_name]
-    target = target_wb.create_sheet(sheet_name)
-    for row in source.iter_rows():
-        for cell in row:
-            new_cell = target[cell.coordinate]
-            new_cell.value = cell.value
-            if cell.has_style:
-                new_cell._style = cell._style.copy()
-            if cell.number_format:
-                new_cell.number_format = cell.number_format
-            if cell.font:
-                new_cell.font = cell.font.copy()
-            if cell.fill:
-                new_cell.fill = cell.fill.copy()
-            if cell.border:
-                new_cell.border = cell.border.copy()
-            if cell.alignment:
-                new_cell.alignment = cell.alignment.copy()
-            if cell.protection:
-                new_cell.protection = cell.protection.copy()
-    for key, dim in source.column_dimensions.items():
-        target.column_dimensions[key].width = dim.width
-    for idx, dim in source.row_dimensions.items():
-        target.row_dimensions[idx].height = dim.height
-    for merged in source.merged_cells.ranges:
-        target.merge_cells(str(merged))
-    return True
 
 
 def load_auth_state() -> dict[str, Any]:
@@ -242,45 +159,8 @@ def parse_tables(html: str) -> list[list[list[str]]]:
     return parser.tables
 
 
-def write_sheet(ws, rows: list[list[Any]]) -> None:
-    ws.delete_rows(1, ws.max_row)
-    for row in rows:
-        ws.append(row)
-
-
-def find_sheet(wb, names: list[str]):
-    wanted = {re.sub(r"\s+", "", n).replace("أ", "ا").replace("إ", "ا").replace("آ", "ا") for n in names}
-    for s in wb.sheetnames:
-        key = re.sub(r"\s+", "", s).replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
-        if key in wanted:
-            return wb[s]
-    return wb.create_sheet(names[0])
-
-
 def data_key(row: list[Any], idxs: tuple[int, ...]) -> str:
     return " | ".join(norm(row[i]) if i < len(row) else "" for i in idxs)
-
-
-def upsert_sheet_rows(ws, incoming: list[list[Any]], key_indexes: tuple[int, ...]) -> tuple[int, int]:
-    existing: dict[str, int] = {}
-    for r in range(2, ws.max_row + 1):
-        key = data_key([ws.cell(r, c).value for c in range(1, ws.max_column + 1)], key_indexes)
-        if key.strip("| "):
-            existing[key] = r
-    added = updated = 0
-    for row in incoming:
-        key = data_key(row, key_indexes)
-        if not key.strip("| "):
-            continue
-        if key in existing:
-            target = existing[key]
-            for c, value in enumerate(row, start=1):
-                ws.cell(target, c).value = value
-            updated += 1
-        else:
-            ws.append(row)
-            added += 1
-    return added, updated
 
 
 class FormParser(HTMLParser):
@@ -319,13 +199,27 @@ class LinkParser(HTMLParser):
                 self.links.append(href)
 
 
+HTTP_RETRIES = 3
+HTTP_BACKOFF_SECONDS = 1.5
+
+
 def http_get_meta(opener, url: str) -> tuple[str, int, str]:
-    req = urllib.request.Request(url)
-    with opener.open(req) as resp:
-        html = resp.read().decode("utf-8", errors="ignore")
-        final_url = getattr(resp, "geturl", lambda: url)()
-        status = int(getattr(resp, "status", resp.getcode()))
-        return final_url, status, html
+    # Retry transient failures with backoff so one flaky request doesn't silently
+    # drop a date window's rows during the complete scrape.
+    last_exc: Exception | None = None
+    for attempt in range(HTTP_RETRIES):
+        try:
+            req = urllib.request.Request(url)
+            with opener.open(req, timeout=60) as resp:
+                html = resp.read().decode("utf-8", errors="ignore")
+                final_url = getattr(resp, "geturl", lambda: url)()
+                status = int(getattr(resp, "status", resp.getcode()))
+                return final_url, status, html
+        except Exception as exc:  # noqa: BLE001 — retry any transient network/HTTP error
+            last_exc = exc
+            if attempt < HTTP_RETRIES - 1:
+                time.sleep(HTTP_BACKOFF_SECONDS * (attempt + 1))
+    raise last_exc if last_exc is not None else RuntimeError(f"GET failed: {url}")
 
 
 def http_get(opener, url: str) -> str:
@@ -333,11 +227,88 @@ def http_get(opener, url: str) -> str:
     return html
 
 
-def http_post(opener, url: str, data: dict[str, str]) -> str:
-    body = urllib.parse.urlencode(data).encode("utf-8")
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/x-www-form-urlencoded"})
-    with opener.open(req) as resp:
-        return resp.read().decode("utf-8", errors="ignore")
+def safe_http_get(opener, url: str) -> str:
+    """GET that never raises — returns "" after exhausting retries. Used for
+    optional pages so one page hiccup can't abort the whole sync."""
+    try:
+        return http_get(opener, url)
+    except Exception:
+        return ""
+
+
+def http_get_bytes(opener, url: str) -> bytes:
+    """Binary GET (for invoice .xlsx downloads), with the same retry/backoff."""
+    last_exc: Exception | None = None
+    for attempt in range(HTTP_RETRIES):
+        try:
+            with opener.open(urllib.request.Request(url), timeout=60) as resp:
+                return resp.read()
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt < HTTP_RETRIES - 1:
+                time.sleep(HTTP_BACKOFF_SECONDS * (attempt + 1))
+    raise last_exc if last_exc is not None else RuntimeError(f"GET failed: {url}")
+
+
+# Invoice .xlsx columns (admin/invoices.php downloads) -> our field names. These
+# carry the EXACT per-shipment economics: Policy Price (= the stored shipping
+# charge), Base Cost (actual carrier cost), Over Fee, COD Fixed.
+_INVOICE_COLS = {
+    "id": "order_id", "policy price": "policy", "base cost": "base_cost",
+    "over fee": "over_fee", "cod fixed": "cod_fixed", "status": "status",
+}
+
+
+def parse_invoice_workbook(data: bytes) -> list[dict[str, Any]]:
+    """Parse one invoice .xlsx into per-shipment rows via openpyxl."""
+    from io import BytesIO
+    import openpyxl
+    wb = openpyxl.load_workbook(BytesIO(data), read_only=True, data_only=True)
+    try:
+        ws = wb.active
+        it = ws.iter_rows(values_only=True)
+        try:
+            header = [str(h).strip().lower() if h is not None else "" for h in next(it)]
+        except StopIteration:
+            return []
+        col = {_INVOICE_COLS[h]: i for i, h in enumerate(header) if h in _INVOICE_COLS}
+        if "order_id" not in col:
+            return []
+        out: list[dict[str, Any]] = []
+        for r in it:
+            if not r:
+                continue
+            oid = r[col["order_id"]]
+            if oid in (None, ""):
+                continue
+            out.append({
+                "order_id": norm(oid).lstrip("#"),
+                "base_cost": money(r[col["base_cost"]]) if "base_cost" in col else 0.0,
+                "policy": money(r[col["policy"]]) if "policy" in col else 0.0,
+                "over_fee": money(r[col["over_fee"]]) if "over_fee" in col else 0.0,
+                "cod_fixed": money(r[col["cod_fixed"]]) if "cod_fixed" in col else 0.0,
+                "status": norm(r[col["status"]]) if "status" in col else "",
+            })
+        return out
+    finally:
+        wb.close()
+
+
+def collect_invoice_costs(opener, base: str) -> dict[str, dict[str, Any]]:
+    """Download every invoice .xlsx and map order_id -> per-shipment actuals.
+    Invoices don't overlap, so each shipment appears at most once."""
+    base = base.rstrip("/")
+    html = safe_http_get(opener, f"{base}/admin/invoices.php?date_from=2024-01-01&date_to=2031-12-31")
+    urls = sorted(set(re.findall(r"/uploads/invoices/[^\s\"'<>]+\.xlsx", html)))
+    costs: dict[str, dict[str, Any]] = {}
+    for u in urls:
+        try:
+            data = http_get_bytes(opener, f"{base}{u}")
+            for row in parse_invoice_workbook(data):
+                costs[row["order_id"]] = row
+        except Exception as exc:  # noqa: BLE001
+            print(f"[sync] invoice parse skipped {u}: {exc}", file=sys.stderr)
+    return costs
 
 
 def http_post_meta(opener, url: str, data: dict[str, str]) -> tuple[str, int, str]:
@@ -420,9 +391,12 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
                 "wallet.php": wallet_probe,
                 "collect-cod.php": cod_probe,
                 "sync-status.php": http_get(opener, f"{base}/admin/sync-status.php"),
+                "shipping-companies.php": safe_http_get(opener, f"{base}/admin/shipping-companies.php"),
+                "reports.php": safe_http_get(opener, f"{base}/admin/reports.php"),
             }
             logs.append({"kind": "session", "source": "saved_state", "used": True})
             return {
+                "opener": opener,
                 "logs": logs,
                 "html": html,
                 "checks": {
@@ -531,9 +505,12 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
         "wallet.php": wallet_probe,
         "collect-cod.php": cod_probe,
         "sync-status.php": http_get(opener, f"{base}/admin/sync-status.php"),
+        "shipping-companies.php": safe_http_get(opener, f"{base}/admin/shipping-companies.php"),
+                "reports.php": safe_http_get(opener, f"{base}/admin/reports.php"),
     }
     logs.append({"kind": "request", "url": f"{base}/admin/sync-status.php"})
     return {
+        "opener": opener,
         "logs": logs,
         "html": html,
         "checks": {
@@ -568,8 +545,8 @@ def normalize_headers(row: list[str]) -> list[str]:
     return [norm(v) for v in row]
 
 
-def shipment_record(row: list[list[Any]]) -> dict[str, Any]:
-    return {
+def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None) -> dict[str, Any]:
+    record = {
         "order_id": norm(row[0]) if len(row) > 0 else "",
         "tracking_number": norm(row[1]) if len(row) > 1 else "",
         "merchant_name": norm(row[2]) if len(row) > 2 else "",
@@ -584,20 +561,81 @@ def shipment_record(row: list[list[Any]]) -> dict[str, Any]:
         "weight": money(row[11]) if len(row) > 11 else 0.0,
         "cod_amount": money(row[7]) if len(row) > 7 else 0.0,
         "shipping_charge": money(row[6]) if len(row) > 6 else 0.0,
-        "raw_payload": row,
         "source_row": None,
         "source_hash": norm(row[0]) if row else "",
     }
+    # Per-shipment ACTUALS — Lead's real economics (no price sheet).
+    # Billed shipments take Base Cost from the invoice (exact); the current
+    # (un-invoiced) cycle is computed from Lead's LIVE carrier prices
+    # (shipping-companies.php -> carriers.platform_gross).
+    # REALIZED basis — reconciles to reports.php صافي الأرباح exactly:
+    #   profit = charge(Policy Price) - Base Cost, over realized shipments only
+    #   (revenue is the charge; Over Fee / COD Fixed are NOT in Lead's profit).
+    # Realized excludes cancelled (ملغي), draft (مسودة) and returned (مرتجع).
+    # Lead's TRUE cost = what Lead pays نفوذ = Base Cost + Over Fee + COD Fixed.
+    # Merchants are billed only the Policy Price (verified: over/COD never appear on
+    # a merchant's wallet), so the over+COD are absorbed by Lead. We keep base_cost
+    # and extra_cost separate so the dashboard can show real profit AND the leakage.
+    #   true profit = charge(Policy) - (base_cost + extra_cost)
+    from scripts import pricing as _pr
+    realized_excluded = _pr.EXCLUDED_STATUSES + ("مرتجع",)
+    charge = record["shipping_charge"]
+    weight = record["weight"]
+    realized = record["status"] not in realized_excluded
+    is_cod = "COD" in record["payment_type"]
+    inv = (invoice_costs or {}).get(record["order_id"])
+    if inv:
+        base_cost = inv["base_cost"]
+        extra_cost = round(inv["over_fee"] + inv["cod_fixed"], 2)
+        cost_source = "invoice"
+    else:
+        carrier_key = _pr.CARRIER_ALIASES.get(record["carrier"], record["carrier"])
+        carrier = (snap.carriers.get(carrier_key) if snap else None) or {}
+        platform_gross = _pr.money(carrier.get("platform_gross"))
+        if platform_gross:
+            base_cost = platform_gross  # flat carrier rate (overweight is NOT in base)
+            # current un-invoiced cycle: included weight is 10 kg and the over rate
+            # Lead pays نفوذ is 2/kg, COD is 3/order (all observed in the invoices).
+            extra_cost = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
+            cost_source = "computed"
+        else:
+            base_cost = extra_cost = 0.0
+            cost_source = "unknown"
+    counted = realized and cost_source != "unknown"
+    total_cost = round(base_cost + extra_cost, 2)
+    record.update({
+        "actual_base_cost": round(base_cost, 2),
+        "actual_extra_cost": extra_cost if counted else 0.0,
+        "actual_revenue": round(charge, 2) if counted else 0.0,
+        "actual_profit": round(charge - total_cost, 2) if counted else 0.0,
+        "cost_source": cost_source,
+        "included_in_profit": realized,
+    })
+    record["raw_payload"] = _shipment_raw_payload(row, record)
+    return record
+
+
+def _shipment_raw_payload(row: list[Any], record: dict[str, Any]) -> list[Any]:
+    # Keep the first 14 scraped columns + the included flag; the trailing slots
+    # (legacy sheet-profit positions) are retained as None so older positional
+    # readers don't shift. Real per-shipment economics live in the typed
+    # actual_base_cost / actual_revenue / actual_profit columns.
+    base = list(row[:14]) + [None] * max(0, 14 - len(row))
+    included = "نعم" if record.get("included_in_profit", True) else "لا"
+    return base[:14] + [included] + [None] * 9
 
 
 def wallet_record(row: list[list[Any]], page: str, kind: str) -> dict[str, Any]:
+    # Canonical wallet columns (WALLET_SPEC): 0=id 1=date 2=customer 3=type
+    # 4=amount 5=description 6=tracking. Key on the unique transaction id (col 0)
+    # so the row is stable even if other columns shift.
     return {
-        "transaction_key": data_key(row, (0, 1, 2, 3)),
+        "transaction_key": data_key(row, (0,)),
         "transaction_date": parse_date_text(row[1]) if len(row) > 1 else None,
         "user_name": norm(row[2]) if len(row) > 2 else "",
-        "description": norm(row[3]) if len(row) > 3 else "",
+        "description": norm(row[5]) if len(row) > 5 else "",
         "amount": money(row[4]) if len(row) > 4 else 0.0,
-        "transaction_type": kind,
+        "transaction_type": norm(row[3]) if len(row) > 3 else kind,
         "balance_before": None,
         "balance_after": None,
         "source_page": page,
@@ -607,107 +645,413 @@ def wallet_record(row: list[list[Any]], page: str, kind: str) -> dict[str, Any]:
 
 def payment_record(row: list[list[Any]]) -> dict[str, Any]:
     return {
-        "payment_key": data_key(row, (0, 1, 2, 3)),
+        "payment_key": data_key(row, (0,)),
         "payment_date": parse_date_text(row[1]) if len(row) > 1 else None,
         "customer_name": norm(row[2]) if len(row) > 2 else "",
         "amount": money(row[4]) if len(row) > 4 else 0.0,
-        "method": norm(row[6]) if len(row) > 6 else "",
-        "status": norm(row[5]) if len(row) > 5 else "",
+        "method": norm(row[3]) if len(row) > 3 else "",
+        "status": "",
         "source_page": "wallet.php",
         "raw_payload": row,
     }
 
 
 def cod_record(row: list[list[Any]]) -> dict[str, Any]:
+    # collect-cod.php has 5 columns: الشحنة | العميل | المبلغ | تاريخ التحصيل | تاريخ التحويل
+    # (the order id is prefixed with '#', which we strip so it joins to shipments.order_id).
     return {
-        "order_id": norm(row[0]) if len(row) > 0 else "",
-        "tracking_number": norm(row[1]) if len(row) > 1 else "",
-        "merchant_name": norm(row[2]) if len(row) > 2 else "",
-        "customer_name": norm(row[3]) if len(row) > 3 else "",
-        "cod_amount": money(row[4]) if len(row) > 4 else 0.0,
-        "collection_date": parse_date_text(row[5]) if len(row) > 5 else None,
-        "transfer_date": parse_date_text(row[6]) if len(row) > 6 else None,
-        "settlement_status": norm(row[7]) if len(row) > 7 else "",
-        "shipment_status": norm(row[8]) if len(row) > 8 else "",
+        "order_id": norm(row[0]).lstrip("#").strip() if len(row) > 0 else "",
+        "tracking_number": "",
+        "merchant_name": norm(row[1]) if len(row) > 1 else "",
+        "customer_name": norm(row[1]) if len(row) > 1 else "",
+        "cod_amount": money(row[2]) if len(row) > 2 else 0.0,
+        "collection_date": parse_date_text(row[3]) if len(row) > 3 else None,
+        "transfer_date": parse_date_text(row[4]) if len(row) > 4 else None,
+        "settlement_status": "",
+        "shipment_status": "",
         "raw_payload": row,
     }
 
 
-def extract_shipments(html: str) -> tuple[list[list[Any]], int]:
+# ---------------------------------------------------------------------------
+# Header-based column mapping. We match each field by its Arabic header text and
+# remap every table into a fixed canonical column order, so the scrape is
+# resilient to the site reordering / renaming columns (positional parsing would
+# silently corrupt data instead — that was the root cause of the COD bug).
+# Each spec entry is (canonical_field, [header aliases]).
+# ---------------------------------------------------------------------------
+
+SHIPMENT_SPEC = [
+    ("order_id", ["#", "الرقم", "رقم الطلب"]),
+    ("tracking_number", ["رقم التتبع", "التتبع"]),
+    ("merchant", ["العميل", "التاجر"]),
+    ("store", ["المرسل", "المتجر"]),
+    ("customer", ["المستلم", "العميل النهائي"]),
+    ("city", ["المدينة"]),
+    ("shipping_charge", ["التكلفة", "تكلفة الشحن", "قيمة الشحن"]),
+    ("cod_amount", ["مبلغ COD", "مبلغ cod"]),
+    ("order_amount", ["قيمة المنتجات", "قيمة الطلب"]),
+    ("payment_type", ["نوع الدفع", "الدفع"]),
+    ("carrier", ["شركة الشحن", "الناقل"]),
+    ("weight", ["الوزن"]),
+    ("status", ["الحالة"]),
+    ("shipment_date", ["التاريخ", "تاريخ الشحن"]),
+    ("delivery_date", ["تاريخ التسليم", "تاريخ التوصيل"]),
+]
+
+WALLET_SPEC = [
+    ("id", ["الرقم"]),
+    ("date", ["التاريخ"]),
+    ("customer", ["العميل"]),
+    ("type", ["النوع"]),
+    ("amount", ["المبلغ"]),
+    ("description", ["الوصف"]),
+    ("tracking", ["رقم التتبع"]),
+]
+
+COD_SPEC = [
+    ("order_id", ["الشحنة", "#", "رقم الطلب"]),
+    ("customer", ["العميل"]),
+    ("amount", ["المبلغ"]),
+    ("collection_date", ["تاريخ التحصيل"]),
+    ("transfer_date", ["تاريخ التحويل"]),
+]
+
+
+def _header_key(value: Any) -> str:
+    text = re.sub(r"\s+", "", norm(value)).lower()
+    return text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
+
+
+def remap_table(rows: list[list[Any]], spec: list[tuple[str, list[str]]]) -> list[list[Any]]:
+    """Reorder a parsed table into the spec's canonical column order by matching
+    each field's header aliases. Returns [canonical_header] + remapped data rows.
+    Missing columns become None (not a wrong neighbouring column)."""
+    if not rows:
+        return rows
+    header = {_header_key(h): i for i, h in enumerate(rows[0])}
+    used: set[int] = set()
+    col_for: list[int | None] = []
+    for _field, aliases in spec:
+        idx = None
+        for alias in aliases:
+            cand = header.get(_header_key(alias))
+            if cand is not None and cand not in used:
+                idx = cand
+                break
+        if idx is not None:
+            used.add(idx)
+        col_for.append(idx)
+    out: list[list[Any]] = [[field for field, _ in spec]]
+    for row in rows[1:]:
+        out.append([(row[ci] if ci is not None and ci < len(row) else None) for ci in col_for])
+    return out
+
+
+def _largest_table(html: str) -> list[list[str]]:
     tables = parse_tables(html)
-    if not tables:
-        return [], 0
-    table = max(tables, key=len)
-    rows = [normalize_headers(r) for r in table]
+    return max(tables, key=len) if tables else []
+
+
+def extract_shipments(html: str) -> tuple[list[list[Any]], int]:
+    rows = remap_table([normalize_headers(r) for r in _largest_table(html)], SHIPMENT_SPEC)
     return rows, max(0, len(rows) - 1)
 
 
 def extract_wallet(html: str) -> tuple[list[list[Any]], int, int]:
-    tables = parse_tables(html)
     tx_rows: list[list[Any]] = []
-    cod_rows: list[list[Any]] = []
-    for table in tables:
-        headers = normalize_headers(table[0]) if table else []
-        joined = " ".join(headers)
+    for table in parse_tables(html):
+        joined = " ".join(normalize_headers(table[0])) if table else ""
         if "الرقم" in joined and "الوصف" in joined:
-            tx_rows = [normalize_headers(r) for r in table]
-        if "تاريخ التحصيل" in joined and "تاريخ التحويل" in joined:
-            cod_rows = [normalize_headers(r) for r in table]
-    return tx_rows, max(0, len(tx_rows) - 1), max(0, len(cod_rows) - 1)
+            tx_rows = remap_table([normalize_headers(r) for r in table], WALLET_SPEC)
+            break
+    return tx_rows, max(0, len(tx_rows) - 1), 0
 
 
 def extract_cod(html: str) -> list[list[Any]]:
-    tables = parse_tables(html)
-    for table in tables:
-        headers = normalize_headers(table[0]) if table else []
-        if "تاريخ التحصيل" in " ".join(headers) and "تاريخ التحويل" in " ".join(headers):
-            return [normalize_headers(r) for r in table]
+    for table in parse_tables(html):
+        joined = " ".join(normalize_headers(table[0])) if table else ""
+        if "تاريخ التحصيل" in joined and "تاريخ التحويل" in joined:
+            return remap_table([normalize_headers(r) for r in table], COD_SPEC)
     return []
+
+
+def extract_shipping_companies(html: str, vat_rate: float = 0.15) -> list[dict[str, Any]]:
+    """Parse /admin/shipping-companies.php into carrier price rows.
+
+    Each carrier card exposes: a name (`🚚 ...`), the platform cost
+    (`تكلفتك من المنصة: X ريال`), and an editable `customer_price` input. The
+    site only shows gross prices, so we derive the ex-VAT net (gross / (1+vat))
+    using the admin-configured VAT rate from the DB. Raw labels are mapped to the
+    canonical carrier names via CARRIER_ALIASES (unknown carriers keep their
+    raw label, so newly-added companies still flow through)."""
+    if not html:
+        return []
+    from scripts.pricing import CARRIER_ALIASES
+
+    def net(gross: float) -> float:
+        return round(gross / (1 + vat_rate), 2)
+
+    rows: list[dict[str, Any]] = []
+    for m in re.finditer(r'<input\b[^>]*\bname="customer_price"[^>]*>', html):
+        value_match = re.search(r'\bvalue="([0-9.]+)"', m.group(0))
+        if not value_match:
+            continue
+        before = html[max(0, m.start() - 3200):m.start()]
+        name_matches = re.findall(r'🚚\s*([^<>]{2,60}?)\s*<', before)
+        plat_matches = re.findall(r'تكلفتك من المنصة[^0-9]{0,80}?([0-9]+(?:\.[0-9]+)?)\s*ريال', before)
+        if not name_matches or not plat_matches:
+            continue
+        raw_name = norm(name_matches[-1])
+        carrier_name = CARRIER_ALIASES.get(raw_name, raw_name)
+        customer_gross = float(value_match.group(1))
+        platform_gross = float(plat_matches[-1])
+        if not customer_gross:
+            continue
+        rows.append({
+            "carrier_name": carrier_name,
+            "customer_gross": customer_gross,
+            "customer_net": net(customer_gross),
+            "platform_gross": platform_gross,
+            "platform_net": net(platform_gross),
+            "source": "scrape",
+        })
+    return rows
+
+
+class _PlainText(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+
+    def handle_data(self, data):
+        data = data.strip()
+        if data:
+            self.parts.append(data)
+
+
+def _page_text(html: str) -> str:
+    p = _PlainText()
+    try:
+        p.feed(html or "")
+    except Exception:
+        pass
+    return re.sub(r"\s+", " ", " ".join(p.parts))
+
+
+def _num_after(text: str, label: str):
+    m = re.search(re.escape(label) + r"\s*([\d,]+(?:\.\d+)?)", text)
+    return float(m.group(1).replace(",", "")) if m else None
+
+
+def extract_site_kpis(html: dict[str, str]) -> dict[str, Any]:
+    """The platform's own reported KPI cards (dashboard / reports / wallet), so the
+    dashboard can show — and explain — where our aggregates differ from the site."""
+    d = _page_text(html.get("dashboard.php", ""))
+    r = _page_text(html.get("reports.php", ""))
+    w = _page_text(html.get("wallet.php", ""))
+    return {
+        "total_orders": _num_after(d, "اجمالي الطلبات"),
+        "delivered": _num_after(d, "تم التسليم"),
+        "in_progress": _num_after(d, "قيد التنفيذ"),
+        "customers": _num_after(d, "إجمالي العملاء"),
+        "month_shipments": _num_after(r, "إجمالي الشحنات"),
+        "month_revenue": _num_after(r, "إجمالي الإيرادات"),
+        "month_realized_revenue": _num_after(r, "الإيرادات المحققة"),
+        "month_base_cost": _num_after(r, "التكلفة الأساسية"),
+        "month_net_profit": _num_after(r, "صافي الأرباح"),
+        "deposits": _num_after(w, "إجمالي الإيداعات"),
+    }
+
+
+def _label_key(s: Any) -> str:
+    return re.sub(r"\s+", "", norm(s))
+
+
+_TOTAL_ROW_TOKENS = ("الإجمالي", "المجموع", "الاجمالي", "الكلي")
+
+
+def extract_reports(html: str) -> dict[str, Any]:
+    """Parse Lead's التقارير الشاملة (reports.php) — the platform's OWN actual
+    revenue/cost/profit for the queried period. This is Lead's source of truth,
+    so we never need a price sheet: `base_cost`/`net_profit` are the real carrier
+    costs Lead paid, by construction (net_profit = realized_revenue - base_cost).
+
+    Returns {totals, carriers, merchants}. carrier/merchant cost & profit are
+    Lead's actuals (special-merchant pricing already baked in)."""
+    text = _page_text(html)
+    totals = {
+        "revenue": _num_after(text, "إجمالي الإيرادات"),
+        "realized_revenue": _num_after(text, "الإيرادات المحققة"),
+        "base_cost": _num_after(text, "التكلفة الأساسية"),
+        "net_profit": _num_after(text, "صافي الأرباح"),
+    }
+    carriers: list[dict[str, Any]] = []
+    merchants: list[dict[str, Any]] = []
+
+    def is_total_row(name: str) -> bool:
+        return any(tok in name for tok in _TOTAL_ROW_TOKENS)
+
+    for table in parse_tables(html):
+        if not table or len(table) < 2:
+            continue
+        header = [_label_key(h) for h in table[0]]
+        hset = set(header)
+        # Per-carrier breakdown: شركة الشحن + التكلفة + صافي الربح.
+        if _label_key("شركة الشحن") in hset and _label_key("صافي الربح") in hset:
+            for row in table[1:]:
+                name = norm(row[0]) if row else ""
+                if not name or is_total_row(name):
+                    continue
+                carriers.append({
+                    "carrier": name,
+                    "count": int(money(row[1])) if len(row) > 1 else 0,
+                    "revenue": money(row[2]) if len(row) > 2 else 0.0,
+                    "cost": money(row[3]) if len(row) > 3 else 0.0,
+                    "profit": money(row[4]) if len(row) > 4 else 0.0,
+                })
+        # Per-merchant breakdown: العميل (col 0) + الربح, but NOT صافي الربح.
+        elif header and header[0] == _label_key("العميل") and _label_key("الربح") in hset:
+            for row in table[1:]:
+                name = norm(row[0]) if row else ""
+                if not name or is_total_row(name):
+                    continue
+                revenue = money(row[3]) if len(row) > 3 else 0.0
+                profit = money(row[4]) if len(row) > 4 else 0.0
+                merchants.append({
+                    "merchant": name,
+                    "store": norm(row[1]) if len(row) > 1 else "",
+                    "count": int(money(row[2])) if len(row) > 2 else 0,
+                    "revenue": revenue,
+                    "profit": profit,
+                    "cost": round(revenue - profit, 2),
+                })
+    return {"totals": totals, "carriers": carriers, "merchants": merchants}
+
+
+def extract_cod_fee(html: str) -> float | None:
+    """The fixed COD fee from cod-settings.php (e.g. 5 ريال per COD order)."""
+    if not html:
+        return None
+    m = re.search(r'name="cod_fee"[^>]*\bvalue="([0-9.]+)"', html)
+    if m:
+        return float(m.group(1))
+    m = re.search(r"الرسوم الحالية[:：]?\s*([0-9.]+)", _page_text(html))
+    return float(m.group(1)) if m else None
+
+
+def fetch_reports(opener, base: str, start_date: str, end_date: str) -> str:
+    """Fetch reports.php for an explicit date window (period=custom). Lead returns
+    that period's frozen actuals, so any range — past or present — is exact."""
+    url = (f"{base.rstrip('/')}/admin/reports.php?period=custom"
+           f"&start_date={start_date}&end_date={end_date}")
+    return safe_http_get(opener, url)
+
+
+def _report_ranges(today: dt.date, floor: dt.date | None = None) -> list[tuple[str, str, str]]:
+    """(label, start, end) windows to capture Lead's actual reports for. Labels are
+    SEMANTIC ('all' / 'month' / '30d' / 'YYYY-MM') so the dashboard maps its presets
+    to them without exact-date arithmetic — robust to the day rolling over between
+    a capture and a page load. Closed months are frozen, so they stay stable.
+
+    `floor` (the admin-set min_sync_date) anchors the 'all' window so all-time
+    matches the data we actually keep — no pre-floor noise."""
+    all_start = floor.isoformat() if floor else "2024-01-01"
+    out: list[tuple[str, str, str]] = [
+        ("all", all_start, today.isoformat()),
+        ("month", today.replace(day=1).isoformat(), today.isoformat()),
+        ("30d", (today - dt.timedelta(days=29)).isoformat(), today.isoformat()),
+    ]
+    y, m = today.year, today.month
+    for _ in range(6):                                                       # last 6 closed months
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+        first = dt.date(y, m, 1)
+        nxt = dt.date(y + (1 if m == 12 else 0), 1 if m == 12 else m + 1, 1)
+        out.append((f"{y:04d}-{m:02d}", first.isoformat(), (nxt - dt.timedelta(days=1)).isoformat()))
+    return out
+
+
+LIST_CAP = 100  # the Lead admin list pages hard-cap at 100 rows
+
+
+def window_scrape(opener, base, path, extract_rows, key_fn, date_indexes):
+    """Capture EVERY row from a list page the server caps at LIST_CAP, by slicing
+    the date range (month -> week -> day) until each window is under the cap and
+    deduping by key_fn. Mirrors the sister project's window-scrape technique.
+
+    extract_rows(html) -> list of rows (row[0] is the header).
+    key_fn(row) -> dedup key. date_indexes -> columns holding the row's date
+    (used only to anchor the walk at the most recent data, guarding clock skew).
+    """
+    seen: dict[str, list[Any]] = {}
+    header: list[Any] = []
+
+    def grab(a: dt.date, b: dt.date) -> list[list[Any]]:
+        url = f"{base}/admin/{path}?date_from={a.isoformat()}&date_to={b.isoformat()}"
+        rows = extract_rows(safe_http_get(opener, url))
+        if rows:
+            if not header:
+                header.extend(rows[0])
+            return rows[1:]
+        return []
+
+    def keep(rows: list[list[Any]]) -> None:
+        for row in rows:
+            key = key_fn(row)
+            if key and key.strip("| "):
+                seen[key] = row
+
+    def split_days(a: dt.date, b: dt.date) -> None:
+        day = a
+        while day <= b:
+            keep(grab(day, day))
+            day += dt.timedelta(days=1)
+
+    def handle(a: dt.date, b: dt.date) -> int:
+        rows = grab(a, b)
+        if len(rows) < LIST_CAP:
+            keep(rows)
+            return len(rows)
+        start = a
+        while start <= b:
+            end = min(start + dt.timedelta(days=6), b)
+            week = grab(start, end)
+            if len(week) < LIST_CAP:
+                keep(week)
+            else:
+                split_days(start, end)
+            start = end + dt.timedelta(days=1)
+        return len(rows)
+
+    today = dt.date.today()
+    # Anchor the walk at the most recent data so a lagging server clock can't
+    # make us start "before" the newest rows and miss them.
+    newest = today
+    for row in (extract_rows(safe_http_get(opener, f"{base}/admin/{path}")) or [])[1:]:
+        for idx in date_indexes:
+            parsed = parse_date_text(row[idx]) if idx < len(row) else None
+            if parsed and parsed > newest:
+                newest = parsed
+
+    year, month, empty = newest.year, newest.month, 0
+    while True:
+        first = dt.date(year, month, 1)
+        last = dt.date(year + (month == 12), (month % 12) + 1, 1) - dt.timedelta(days=1)
+        count = handle(first, last)
+        empty = empty + 1 if count == 0 else 0
+        if empty >= 4 or year < 2023:
+            break
+        month -= 1
+        if month == 0:
+            month, year = 12, year - 1
+
+    return [header or []] + list(seen.values())
 
 
 def normalize_row(values: list[Any]) -> list[Any]:
     return [None if v == "" else v for v in values]
-
-
-def dedupe_rows(rows: list[list[Any]], key_indexes: tuple[int, ...]) -> tuple[list[list[Any]], int]:
-    seen: dict[str, list[Any]] = {}
-    duplicates = 0
-    for row in rows:
-        key = data_key(row, key_indexes)
-        if not key.strip("| "):
-            continue
-        if key in seen:
-            duplicates += 1
-            continue
-        seen[key] = normalize_row(row)
-    return list(seen.values()), duplicates
-
-
-def merge_raw_sheet(ws, incoming: list[list[Any]], key_indexes: tuple[int, ...]) -> tuple[int, int, int]:
-    incoming_unique, dup_incoming = dedupe_rows(incoming[1:] if incoming else [], key_indexes)
-    existing: dict[str, int] = {}
-    for r in range(2, ws.max_row + 1):
-        row = [ws.cell(r, c).value for c in range(1, max(ws.max_column, len(incoming[0]) if incoming else 0) + 1)]
-        key = data_key(row, key_indexes)
-        if key.strip("| "):
-            existing[key] = r
-    added = updated = 0
-    for row in incoming_unique:
-        key = data_key(row, key_indexes)
-        if key in existing:
-            target = existing[key]
-            for c, value in enumerate(row, start=1):
-                ws.cell(target, c).value = value
-            updated += 1
-        else:
-            ws.append(row)
-            added += 1
-    return added, updated, dup_incoming
-
-
-def ensure_raw_sheets(wb):
-    for name in ("Raw_Shipments", "Raw_Wallet", "Raw_Payments", "Raw_COD"):
-        find_sheet(wb, [name])
 
 
 def main() -> int:
@@ -716,72 +1060,72 @@ def main() -> int:
     database_url_present = bool(database_url_value.strip())
     database_url_length = len(database_url_value.strip())
     db_module, db_import_error = load_db_store()
+    # load_db_store() puts PROJECT_DIR on sys.path, so scripts.* is importable now.
+    from scripts import pricing
+
+    # Sync-floor date + VAT rate come from the DB (admin-editable), not hardcoded.
+    min_sync_date = None
+    carrier_vat_rate = 0.15
+    if db_module is not None:
+        try:
+            with db_module.get_conn() as conn:
+                raw_floor = db_module.get_setting(conn, "min_sync_date", "")
+                if raw_floor.strip():
+                    min_sync_date = dt.date.fromisoformat(raw_floor.strip())
+                snap_settings = db_module.load_pricing_snapshot(conn).get("settings", {})
+                if snap_settings.get("vat_rate") is not None:
+                    carrier_vat_rate = float(snap_settings["vat_rate"])
+        except Exception as exc:
+            print(f"[sync] settings read skipped: {exc}", file=sys.stderr)
+
     for key in ("LEAD_USERNAME", "LEAD_PASSWORD", "LEAD_BASE_URL"):
         if not env.get(key):
             print(f"Missing {key} in .env", file=sys.stderr)
             return 2
     payload = scrape_site(env)
-    source_mode = desired_source_mode()
-    source_xlsx = None
     source_type = "website"
-    if source_mode == "excel":
-        source_xlsx = REPORT_XLSX if REPORT_XLSX.exists() else None
-    if source_mode == "excel" and source_xlsx is not None and source_xlsx.exists():
-        source_type = "excel"
-        backup = make_backup(source_xlsx)
-        wb = load_workbook(source_xlsx)
-    else:
-        wb = create_workbook_with_raw_sheets()
-        source_xlsx = REPORT_XLSX
-        backup = Path("/private/tmp/lead6-no-backup.xlsx")
 
-    raw_ship = find_sheet(wb, ["Raw_Shipments"])
-    raw_wallet = find_sheet(wb, ["Raw_Wallet"])
-    raw_payments = find_sheet(wb, ["Raw_Payments"])
-    raw_cod = find_sheet(wb, ["Raw_COD"])
-
-    ship_rows, shipments_total = extract_shipments(payload["html"].get("shipments.php", ""))
-    wallet_rows, wallet_total, payments_total = extract_wallet(payload["html"].get("wallet.php", ""))
+    # Pure scrape → parse → upsert. No Excel staging: rows are parsed straight
+    # from the scraped HTML, date-filtered, and handed to the DB upsert (which
+    # dedupes on the natural keys).
+    # Complete scrape: shipments.php and wallet.php are server-capped at 100 rows,
+    # so we date-window-slice them to capture EVERY row (not just the first page).
+    # collect-cod.php ignores date filters (a fixed current-state view), so it
+    # stays a single fetch.
+    base_url = env["LEAD_BASE_URL"].rstrip("/")
+    opener = payload.get("opener")
+    scrape_complete = opener is not None  # windowed (complete) scrape, not single-page
+    if opener is not None:
+        ship_rows = window_scrape(opener, base_url, "shipments.php",
+                                  lambda h: extract_shipments(h)[0],
+                                  lambda r: norm(r[0]) if r else "", (13,))
+        wallet_rows = window_scrape(opener, base_url, "wallet.php",
+                                    lambda h: extract_wallet(h)[0],
+                                    lambda r: data_key(r, (0,)), (1,))
+    else:  # fallback: single-page fetch (e.g. opener unavailable)
+        ship_rows = extract_shipments(payload["html"].get("shipments.php", ""))[0]
+        wallet_rows = extract_wallet(payload["html"].get("wallet.php", ""))[0]
+    wallet_total = max(0, len(wallet_rows) - 1)
+    payments_total = wallet_total
     cod_rows = extract_cod(payload["html"].get("collect-cod.php", ""))
 
-    if source_type == "website":
-        wb = create_source_workbook_from_website(ship_rows, wallet_rows)
-        if REPORT_XLSX.exists():
-            try:
-                existing_report = load_workbook(REPORT_XLSX)
-                copy_sheet(existing_report, wb, "الاسعار")
-            except Exception:
-                pass
-        raw_ship = find_sheet(wb, ["Raw_Shipments"])
-        raw_wallet = find_sheet(wb, ["Raw_Wallet"])
-        raw_payments = find_sheet(wb, ["Raw_Payments"])
-        raw_cod = find_sheet(wb, ["Raw_COD"])
-    else:
-        raw_ship = find_sheet(wb, ["Raw_Shipments"])
-        raw_wallet = find_sheet(wb, ["Raw_Wallet"])
-        raw_payments = find_sheet(wb, ["Raw_Payments"])
-        raw_cod = find_sheet(wb, ["Raw_COD"])
     shipments_added = shipments_updated = shipments_dups = 0
+    shipments_pruned = 0
     wallet_added = wallet_updated = wallet_dups = 0
     payments_added = payments_updated = payments_dups = 0
     cod_added = cod_updated = cod_dups = 0
 
     if ship_rows:
-        ship_rows = [ship_rows[0]] + [row for row in ship_rows[1:] if row_date_at_or_after(row, (13,))]
-        shipments_added, shipments_updated, shipments_dups = merge_raw_sheet(raw_ship, ship_rows, (1,))
+        ship_rows = [ship_rows[0]] + [row for row in ship_rows[1:] if row_date_at_or_after(row, (13,), min_sync_date)]
+        shipments_added = len(ship_rows) - 1
     if wallet_rows:
-        wallet_rows = [wallet_rows[0]] + [row for row in wallet_rows[1:] if row_date_at_or_after(row, (1,))]
-        wallet_added, wallet_updated, wallet_dups = merge_raw_sheet(raw_wallet, wallet_rows, (0, 1, 2, 3))
-        payments_added, payments_updated, payments_dups = merge_raw_sheet(raw_payments, wallet_rows, (0, 1, 2, 3))
+        wallet_rows = [wallet_rows[0]] + [row for row in wallet_rows[1:] if row_date_at_or_after(row, (1,), min_sync_date)]
+        wallet_added = payments_added = len(wallet_rows) - 1
     if cod_rows:
-        cod_rows = [cod_rows[0]] + [row for row in cod_rows[1:] if row_date_at_or_after(row, (3, 4))]
-        cod_added, cod_updated, cod_dups = merge_raw_sheet(raw_cod, cod_rows, (0,))
-
-    wb.save(source_xlsx)
-    canonical_source = PROJECT_DIR / "source" / "lead6.xlsx"
-    if source_xlsx != canonical_source:
-        canonical_source.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_xlsx, canonical_source)
+        # collect-cod.php lists only a small, current set of COD orders, so capture
+        # all of them (no date filter) — this is what carries the real collection /
+        # transfer dates for every COD order, including older ones.
+        cod_added = len(cod_rows) - 1
 
     postgres_enabled = bool(
         os.environ.get("DATABASE_URL", "").strip()
@@ -806,20 +1150,91 @@ def main() -> int:
                     postgres_connected = True
                     db_module.ensure_schema(conn)
                     sync_run_id = db_module.make_sync_run(conn, "sync_from_lead.py")
-                    if db_module.replace_price_rules is not None and "الاسعار" in wb.sheetnames:
-                        price_rows = [list(row) for row in wb["الاسعار"].iter_rows(values_only=True)]
-                        db_module.replace_price_rules(conn, price_rows)
-                    shipments_payload = [shipment_record(row) for row in ship_rows[1:]]
+                    # Refresh carrier prices from the Lead site (non-fatal: a scrape
+                    # hiccup must not zero out profits — fall back to seeded carriers).
+                    try:
+                        carrier_rows = extract_shipping_companies(payload["html"].get("shipping-companies.php", ""), carrier_vat_rate)
+                        if carrier_rows:
+                            db_module.upsert_carriers(conn, carrier_rows)
+                    except Exception as carrier_exc:
+                        print(f"[sync] carrier price refresh skipped: {carrier_exc}", file=sys.stderr)
+                    snapshot = pricing.PricingSnapshot.from_db(db_module.load_pricing_snapshot(conn))
+                    # Capture the platform's own KPI cards so the dashboard can show /
+                    # explain where our aggregates differ from the site (non-fatal).
+                    try:
+                        site_kpis = extract_site_kpis(payload["html"])
+                        site_kpis["captured_at"] = dt.datetime.now().isoformat(timespec="seconds")
+                        db_module.set_setting(conn, "site_kpis", json.dumps(site_kpis, ensure_ascii=False))
+                    except Exception as site_exc:
+                        print(f"[sync] site KPI capture skipped: {site_exc}", file=sys.stderr)
+                    # Capture Lead's OWN actual reports (revenue/cost/profit +
+                    # per-carrier/-merchant) for the dashboard's common ranges, so
+                    # the dashboard shows Lead's books, not a price-sheet estimate.
+                    try:
+                        if opener is not None:
+                            # Start from the previous good snapshot so a failed fetch
+                            # (e.g. the single-session Lead account got kicked by a
+                            # concurrent browser login) can't blank out the actuals —
+                            # we only ever REPLACE a range we successfully re-fetched.
+                            prev = {}
+                            try:
+                                raw_prev = db_module.get_setting(conn, "lead_reports", "")
+                                if raw_prev:
+                                    prev = json.loads(raw_prev)
+                            except Exception:
+                                prev = {}
+                            snaps: dict[str, Any] = dict(prev.get("ranges", {}))
+                            captured = 0
+                            for r_label, r_start, r_end in _report_ranges(dt.date.today(), min_sync_date):
+                                parsed = extract_reports(fetch_reports(opener, base_url, r_start, r_end))
+                                if parsed["totals"].get("revenue") is not None:
+                                    parsed["range"] = {"start": r_start, "end": r_end}
+                                    snaps[r_label] = parsed
+                                    captured += 1
+                            cod_html = safe_http_get(opener, f"{base_url}/admin/cod-settings.php")
+                            cod_fee = extract_cod_fee(cod_html) or prev.get("cod_fee")
+                            # Only persist if we actually captured something this run
+                            # (else keep the prior good snapshot untouched).
+                            if captured:
+                                db_module.set_setting(conn, "lead_reports", json.dumps({
+                                    "ranges": snaps, "cod_fee": cod_fee,
+                                    "captured_at": dt.datetime.now().isoformat(timespec="seconds"),
+                                }, ensure_ascii=False))
+                            else:
+                                print("[sync] lead reports: 0 ranges captured — kept previous snapshot", file=sys.stderr)
+                    except Exception as rep_exc:
+                        print(f"[sync] lead reports capture skipped: {rep_exc}", file=sys.stderr)
+                    # Exact per-shipment cost from the billed invoices (non-fatal:
+                    # if download/parse fails, the unbilled path computes from the
+                    # live carrier prices for everyone).
+                    invoice_costs: dict[str, Any] = {}
+                    try:
+                        if opener is not None:
+                            invoice_costs = collect_invoice_costs(opener, base_url)
+                    except Exception as inv_exc:
+                        print(f"[sync] invoice cost collection skipped: {inv_exc}", file=sys.stderr)
+                    invoiced_n = sum(1 for r in ship_rows[1:] if norm(r[0]) in invoice_costs)
+                    print(f"[sync] invoice costs: {len(invoice_costs)} billed shipments, {invoiced_n} match this scrape", file=sys.stderr)
+                    shipments_payload = [shipment_record(row, snapshot, invoice_costs) for row in ship_rows[1:]]
                     wallet_payload = [wallet_record(row, "wallet.php", "transaction") for row in wallet_rows[1:]]
                     payments_payload = [payment_record(row) for row in wallet_rows[1:]]
                     cod_payload = [cod_record(row) for row in cod_rows[1:]]
                     shipment_ins, shipment_upd = db_module.upsert_rows(conn, "shipments", shipments_payload, ["order_id"], [
                         "tracking_number", "merchant_name", "store_name", "customer_name", "city", "carrier", "payment_type",
                         "status", "shipment_date", "delivery_date", "weight", "cod_amount", "shipping_charge",
-                        "customer_price_gross", "customer_price_net", "platform_cost_gross", "platform_cost_net",
-                        "base_profit", "extra_kg", "extra_profit", "cod_profit", "total_profit", "included_in_profit",
-                        "source_row", "source_hash", "raw_payload",
+                        "included_in_profit", "actual_base_cost", "actual_extra_cost", "actual_revenue", "actual_profit", "cost_source",
+                        "source_hash", "raw_payload",
                     ])
+                    # Prune shipments the site no longer returns (deleted/draft orders),
+                    # but ONLY after a healthy complete scrape: require the windowed
+                    # path AND that we captured at least 90% of the rows already stored,
+                    # so a partial/failed scrape can never delete valid data.
+                    shipments_pruned = 0
+                    kept_ids = [norm(r[0]) for r in ship_rows[1:] if r and norm(r[0])]
+                    if scrape_complete and len(kept_ids) >= 100:
+                        existing = db_module.compare_counts(conn)["shipments"]
+                        if existing == 0 or len(kept_ids) >= 0.9 * existing:
+                            shipments_pruned = db_module.prune_missing_shipments(conn, kept_ids)
                     wallet_ins, wallet_upd = db_module.upsert_rows(conn, "wallet_transactions", wallet_payload, ["transaction_key"], [
                         "transaction_date", "user_name", "description", "amount", "transaction_type", "balance_before",
                         "balance_after", "source_page", "raw_payload",
@@ -859,63 +1274,16 @@ def main() -> int:
                     "sync_run_id": sync_run_id,
                 }
 
+    # Profit is now computed inline (above) from the DB pricing snapshot, and the
+    # dashboard is rendered live from PostgreSQL by app.py — so the legacy
+    # Excel report build and the static site-generation subprocesses are gone.
     build_report_error = None
     site_error = None
     build_completed = None
     site_completed = None
-    try:
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(PROJECT_DIR) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
-        build_completed = subprocess.run(
-            [sys.executable, str(PROJECT_DIR / "scripts" / "build_report.py")],
-            cwd=str(PROJECT_DIR),
-            check=False,
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        if build_completed.returncode != 0:
-            build_report_error = {
-                "type": "build_report_failed",
-                "exit_code": build_completed.returncode,
-                "stdout": build_completed.stdout[-5000:],
-                "stderr": build_completed.stderr[-5000:],
-            }
-    except Exception as exc:
-        build_report_error = {
-            "type": type(exc).__name__,
-            "traceback": traceback.format_exc()[-5000:],
-        }
-
-    try:
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(PROJECT_DIR) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
-        site_completed = subprocess.run(
-            [sys.executable, str(PROJECT_DIR / "web" / "generate_site.py")],
-            cwd=str(PROJECT_DIR),
-            check=False,
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        if site_completed.returncode != 0:
-            site_error = {
-                "type": "generate_site_failed",
-                "exit_code": site_completed.returncode,
-                "stdout": site_completed.stdout[-5000:],
-                "stderr": site_completed.stderr[-5000:],
-            }
-    except Exception as exc:
-        site_error = {
-            "type": type(exc).__name__,
-            "traceback": traceback.format_exc()[-5000:],
-        }
 
     report = {
-        "backup": str(backup),
-        "source_workbook": str(source_xlsx),
         "source_type": source_type,
-        "output_excel": str(REPORT_XLSX),
         "shipments_rows": max(0, len(ship_rows) - 1),
         "shipments_new": shipments_added,
         "shipments_updated": shipments_updated,
@@ -956,7 +1324,6 @@ def main() -> int:
 
     state = load_state()
     state["last_run_at"] = dt.datetime.now().isoformat(timespec="seconds")
-    state["backup"] = str(backup)
     state["network_events"] = len(payload.get("logs", []))
     save_state(state)
     login_ok = bool(
@@ -977,6 +1344,7 @@ def main() -> int:
         "rows_updated": db_report.get("db_rows_updated", 0),
         "rows_skipped": db_report.get("db_rows_skipped", 0),
         "shipments_rows": max(0, len(ship_rows) - 1),
+        "shipments_pruned": shipments_pruned,
         "wallet_rows": wallet_total,
         "payments_rows": payments_total,
         "cod_rows": max(0, len(cod_rows) - 1),

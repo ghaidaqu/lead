@@ -1,7 +1,6 @@
-# Generated workbooks and published copies
+# Generated/published copies (no Excel artifacts are tracked anymore)
 output/*
-!output/lead6_report.xlsx
-web/lead6_report.xlsx
+*.xlsx
 web/index.html
 web/gf_logo_transparent.png
 web/gf_logo_transparent_2x.png
