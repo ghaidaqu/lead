@@ -164,7 +164,7 @@
       </nav>
       <div class="hero-tools">
         <span class="badge num hidden" id="periodBadge">—</span>
-        <a class="link" href="/report.xlsx">تحميل Excel</a>
+        <a class="link" id="reportLink" href="/report.xlsx?preset=month">تحميل Excel</a>
         <button class="icon-btn" id="themeToggle" aria-label="تبديل الوضع الليلي"></button>
         <button class="link" id="logoutBtn">خروج</button>
       </div>
@@ -357,7 +357,13 @@
     $('codToggle').addEventListener('click',()=>{codExpanded=!codExpanded;drawCod();});
 
     let range={from:'',to:'',preset:'month'};
+    function updateReportLink(){
+      const q=[]; if(range.from)q.push('from='+encodeURIComponent(range.from)); if(range.to)q.push('to='+encodeURIComponent(range.to));
+      if(range.preset)q.push('preset='+encodeURIComponent(range.preset));
+      $('reportLink').href='/report.xlsx'+(q.length?'?'+q.join('&'):'');
+    }
     async function loadDashboard(){
+      updateReportLink();
       const q=[]; if(range.from)q.push('from='+range.from); if(range.to)q.push('to='+range.to);
       if(range.preset)q.push('preset='+range.preset);
       const d=await fetch('/api/dashboard'+(q.length?'?'+q.join('&'):'')).then(r=>r.json()).catch(()=>({}));

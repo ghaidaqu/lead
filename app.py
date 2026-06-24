@@ -205,6 +205,22 @@ def _parse_date_arg(value):
         return None
 
 
+def _resolve_date_range(date_from, date_to, preset=None):
+    """Resolve dashboard/export presets to concrete dates.
+
+    Explicit custom from/to values win; presets only fill an otherwise empty
+    range so existing custom filters keep behaving as selected by the user.
+    """
+    if date_from or date_to:
+        return date_from, date_to
+    today = _dt.date.today()
+    if preset == "month":
+        return today.replace(day=1), today
+    if preset == "30":
+        return today - _dt.timedelta(days=29), today
+    return date_from, date_to
+
+
 def _dashboard_payload_from_db(date_from=None, date_to=None):
     totals, top_merchants, top_cities, top_carriers, statuses, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label, missing_sequence_numbers = load_data_from_db(date_from, date_to)
     return {
@@ -243,6 +259,7 @@ def api_dashboard():
     try:
         date_from = _parse_date_arg(request.args.get("from"))
         date_to = _parse_date_arg(request.args.get("to"))
+        date_from, date_to = _resolve_date_range(date_from, date_to, request.args.get("preset"))
         payload = _dashboard_payload_from_db(date_from, date_to)
         # our own current-month figures, so the dashboard can always show a
         # like-for-like comparison against the platform's month KPIs (site_kpis),
@@ -466,8 +483,11 @@ def report_download():
         return Response("Database unavailable.", status=503, mimetype="text/plain")
     try:
         from scripts.export_report import build_report_xlsx
+        date_from = _parse_date_arg(request.args.get("from"))
+        date_to = _parse_date_arg(request.args.get("to"))
+        date_from, date_to = _resolve_date_range(date_from, date_to, request.args.get("preset"))
         with db_store.get_conn() as conn:
-            data = build_report_xlsx(conn)
+            data = build_report_xlsx(conn, date_from, date_to)
     except Exception as exc:
         logger.exception("report export failed")
         return Response(f"Report export failed: {type(exc).__name__}", status=500, mimetype="text/plain")
