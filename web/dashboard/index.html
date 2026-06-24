@@ -50,7 +50,7 @@
       background:var(--card-2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:650;}
 
     .grid{display:grid;gap:16px;}
-    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,2.8fr) minmax(300px,.75fr);align-items:start;}
+    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,65fr) minmax(300px,35fr);align-items:start;}
     .tables{grid-template-columns:1fr 1fr;} .finance{grid-template-columns:repeat(5,1fr);}
     .summary{grid-template-columns:repeat(5,1fr);} .chips5{grid-template-columns:repeat(5,1fr);}
     .panel,.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
@@ -387,7 +387,11 @@
       $('profitChips').innerHTML=(ac?[['الإيرادات',money(ac.revenue)],['التكلفة الأساسية',money(ac.base_cost)],['رسوم وزن/COD (محمَّلة)',money(ac.absorbed_fees)],['الربح حسب تقارير ليد',money(ac.reports_profit)],['صافي الربح الفعلي',money(ac.true_profit)]]:(lr?[['الإيرادات',money(lr.revenue)],['التكلفة الأساسية',money(lr.base_cost)],['صافي الربح',money(lr.net_profit)]]:[['الحالة',NA]]))
         .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
       // daily: actual profit + actual revenue + order count
-      const profitSeries=(d.daily_actual_profit&&d.daily_actual_profit.length)?d.daily_actual_profit:(d.daily||[]);
+      const actualProfitSeries=d.daily_actual_profit||[];
+      const fallbackProfitSeries=d.daily||[];
+      const actualProfitTotal=actualProfitSeries.reduce((sum,[,v])=>sum+Number(v||0),0);
+      const fallbackProfitTotal=fallbackProfitSeries.reduce((sum,[,v])=>sum+Number(v||0),0);
+      const profitSeries=(actualProfitSeries.length&&(Math.abs(actualProfitTotal)>.005||Math.abs(fallbackProfitTotal)<=.005))?actualProfitSeries:fallbackProfitSeries;
       const profitMap=Object.fromEntries(profitSeries),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
       const dailyKeys=[...new Set([...(profitSeries||[]).map(([x])=>x),...(d.daily_revenue||[]).map(([x])=>x),...(d.daily_count||[]).map(([x])=>x)])].sort().slice(-7);
       draw('dailyChart',{data:{labels:dailyKeys.map(mmdd),datasets:[
