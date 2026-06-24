@@ -50,7 +50,7 @@
       background:var(--card-2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:650;}
 
     .grid{display:grid;gap:16px;}
-    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,1fr) minmax(280px,.42fr);align-items:start;}
+    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,2.8fr) minmax(300px,.75fr);align-items:start;}
     .tables{grid-template-columns:1fr 1fr;} .finance{grid-template-columns:repeat(5,1fr);}
     .summary{grid-template-columns:repeat(5,1fr);} .chips5{grid-template-columns:repeat(5,1fr);}
     .panel,.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
@@ -79,7 +79,7 @@
     .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
     .carrier-row .pct{margin-inline-start:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
     .seq{font-size:13px;line-height:2;color:var(--muted);}
-    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .daily-panel{grid-column:1 / -1;} .daily-chart-box{height:430px;margin:4px auto 0;width:100%;} .donut-box{position:relative;height:200px;}
+    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .daily-chart-box{height:430px;margin:4px auto 0;width:100%;} .donut-box{position:relative;height:220px;}
     footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;line-height:1.8;}
     footer .updated-at{display:block;font-variant-numeric:tabular-nums;}
 
@@ -190,7 +190,7 @@
         <div class="grid chips5" id="profitChips"></div>
       </section>
       <section class="grid two">
-        <article class="panel daily-panel" style="margin-top:0;">
+        <article class="panel" style="margin-top:0;">
           <h2>الأداء اليومي</h2><p class="sub">آخر 7 أيام</p>
           <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
         </article>
