@@ -24,7 +24,7 @@
     body{margin:0;min-height:100vh;overflow-x:hidden;background:var(--bg);color:var(--text);
       font-family:"Noto Sans Arabic",Inter,"Segoe UI",system-ui,sans-serif;
       transition:background-color .3s,color .3s;}
-    .page{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:20px 0 48px;}
+    .page{width:min(1360px,calc(100% - 32px));margin:0 auto;padding:20px 0 48px;}
     h1,h2,h3{margin:0;}
     a{color:inherit;text-decoration:none;}
     .num{font-variant-numeric:tabular-nums;}
@@ -40,17 +40,17 @@
     .tab.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:650;}
 
     .hero{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
-    .brand-logo{width:52px;height:52px;object-fit:contain;flex:0 0 auto;border-radius:14px;
-      border:1px solid var(--border);background:#fff;box-shadow:0 8px 20px rgba(45,31,25,.06);}
+    .brand-logo{width:64px;height:64px;object-fit:contain;flex:0 0 auto;margin-inline-start:auto;
+      border:0;background:transparent;box-shadow:none;border-radius:0;}
     .hero-title h1{font-size:21px;font-weight:800;}
     .hero-title p{margin:2px 0 0;color:var(--muted);font-size:13px;}
     .nav{display:flex;gap:8px;margin-inline-start:8px;}
-    .hero-tools{margin-inline-start:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .hero-tools{margin-inline-start:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .badge{height:var(--control);display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;
       background:var(--card-2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:650;}
 
     .grid{display:grid;gap:16px;}
-    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,1.7fr) minmax(280px,.9fr);align-items:start;}
+    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,2.35fr) minmax(250px,.65fr);align-items:start;}
     .tables{grid-template-columns:1fr 1fr;} .finance{grid-template-columns:repeat(5,1fr);}
     .summary{grid-template-columns:repeat(5,1fr);} .chips5{grid-template-columns:repeat(5,1fr);}
     .panel,.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
@@ -79,7 +79,7 @@
     .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
     .carrier-row .pct{margin-inline-start:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
     .seq{font-size:13px;line-height:2;color:var(--muted);}
-    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .daily-chart-box{height:440px;margin:4px auto 0;width:100%;} .donut-box{position:relative;height:200px;}
+    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .daily-chart-box{height:600px;margin:4px auto 0;width:100%;} .donut-box{position:relative;height:200px;}
     footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;line-height:1.8;}
     footer .updated-at{display:block;font-variant-numeric:tabular-nums;}
 
@@ -103,8 +103,8 @@
     .login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:40;padding:20px;}
     .login-card{width:min(390px,100%);background:var(--card);border:1px solid var(--border);
       border-radius:20px;padding:32px;box-shadow:var(--shadow);text-align:center;}
-    .login-logo{width:128px;height:128px;object-fit:contain;margin-bottom:14px;border-radius:18px;
-      border:1px solid var(--border);background:#fff;box-shadow:0 10px 24px rgba(45,31,25,.08);}
+    .login-logo{width:140px;height:140px;object-fit:contain;margin-bottom:14px;border:0;
+      background:transparent;box-shadow:none;border-radius:0;}
     .login-card h2{font-size:22px;} .login-card p{margin:6px 0 22px;color:var(--muted);font-size:13px;}
     .login-form{display:grid;gap:14px;text-align:start;}
     .pw-wrap{position:relative;} .pw-wrap input{padding-inline-end:42px;}
@@ -154,7 +154,6 @@
   <!-- APP SHELL (hidden until authenticated) -->
   <main class="page hidden" id="shell">
     <header class="hero">
-      <img class="brand-logo" src="/dashboard/gf_logo_latest.png" alt="GF" onerror="this.style.display='none'" />
       <div class="hero-title">
         <h1 id="viewTitle">لوحة التحكم المالية</h1>
         <p id="viewSub">نظرة عامة على أداء الأعمال</p>
@@ -169,6 +168,7 @@
         <button class="icon-btn" id="themeToggle" aria-label="تبديل الوضع الليلي"></button>
         <button class="link" id="logoutBtn">خروج</button>
       </div>
+      <img class="brand-logo" src="/dashboard/gf_logo_latest.png" alt="GF" onerror="this.style.display='none'" />
     </header>
 
     <!-- DASHBOARD VIEW -->
