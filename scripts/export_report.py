@@ -99,28 +99,10 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
     ws.title = "الشحنات"
     ws.sheet_view.rightToLeft = True
     ws.append([label for _, label in SHIPMENT_COLUMNS])
-    included_count = 0
-    excluded_count = 0
-    cod_amount_total = 0.0
-    revenue_total = 0.0
-    platform_cost_total = 0.0
-    base_profit_total = 0.0
-    extra_profit_total = 0.0
-    cod_profit_total = 0.0
-    total_profit = 0.0
+    total = 0.0
     for row in rows:
         ws.append([_fmt(row.get(col)) for col, _ in SHIPMENT_COLUMNS])
-        if row.get("included_in_profit"):
-            included_count += 1
-            cod_amount_total += float(row.get("cod_amount") or 0)
-            revenue_total += float(row.get("customer_price_net") or 0)
-            platform_cost_total += float(row.get("platform_cost_net") or 0)
-            base_profit_total += float(row.get("base_profit") or 0)
-            extra_profit_total += float(row.get("extra_profit") or 0)
-            cod_profit_total += float(row.get("cod_profit") or 0)
-            total_profit += float(row.get("total_profit") or 0)
-        else:
-            excluded_count += 1
+        total += float(row.get("total_profit") or 0)
     _style_header(ws)
 
     summary = wb.create_sheet("الملخص")
@@ -128,15 +110,8 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
     summary.append(["البند", "القيمة"])
     summary.append(["الفترة من", date_from.isoformat() if date_from else ""])
     summary.append(["الفترة إلى", date_to.isoformat() if date_to else ""])
-    summary.append(["عدد الشحنات", included_count])
-    summary.append(["غير داخلة في الربح", excluded_count])
-    summary.append(["مبلغ COD", round(cod_amount_total, 2)])
-    summary.append(["إجمالي الإيرادات", round(revenue_total, 2)])
-    summary.append(["التكلفة الفعلية", round(platform_cost_total, 2)])
-    summary.append(["ربح الشحنة", round(base_profit_total, 2)])
-    summary.append(["ربح الوزن الزائد", round(extra_profit_total, 2)])
-    summary.append(["ربح COD", round(cod_profit_total, 2)])
-    summary.append(["إجمالي الربح", round(total_profit, 2)])
+    summary.append(["عدد الشحنات", len(rows)])
+    summary.append(["إجمالي الربح", round(total, 2)])
     summary.append(["المحتسبة في الربح", sum(1 for r in rows if r.get("included_in_profit"))])
     _style_header(summary)
 

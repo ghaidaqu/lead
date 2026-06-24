@@ -204,7 +204,7 @@
           <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
         </article>
         <article class="panel chart-panel carrier-chart-card" style="margin-top:0;">
-          <h2>شركات الشحن</h2><p class="sub">إجمالي الربح لكل ناقل</p>
+          <h2>شركات الشحن</h2><p class="sub">صافي الربح الفعلي لكل ناقل</p>
           <div class="carrier-content">
             <div class="donut-box"><canvas id="carrierChart"></canvas></div>
             <div class="carrier-legend" id="carrierLegend"></div>
@@ -213,7 +213,7 @@
       </section>
       <section class="grid tables">
         <article class="panel" style="margin-top:16px;">
-          <h2>أفضل العملاء</h2><p class="sub">حسب إجمالي الربح</p>
+          <h2>أفضل العملاء</h2><p class="sub">حسب الربح الفعلي من ليد</p>
           <div class="table-wrap"><table><thead><tr><th class="rank">#</th><th>العميل</th><th>عدد</th><th>الربح</th></tr></thead><tbody id="merchantsBody"></tbody></table></div>
         </article>
         <article class="panel" style="margin-top:16px;">
@@ -370,22 +370,17 @@
     window.addEventListener('resize',resizeCharts);
     window.addEventListener('orientationchange',()=>setTimeout(resizeCharts,250));
     function renderDailyChart(d){
-      const profitSeries=d.daily_profit||d.daily_actual_profit||d.daily||[];
-      const profitMap=Object.fromEntries(profitSeries),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
-      const dailyKeys=[...new Set([...(profitSeries||[]).map(([x])=>x),...(d.daily_revenue||[]).map(([x])=>x),...(d.daily_count||[]).map(([x])=>x)])].sort().slice(-7);
-      const profitData=dailyKeys.map(x=>Object.prototype.hasOwnProperty.call(profitMap,x)?Number(profitMap[x]||0):null);
-      draw('dailyChart',{data:{labels:dailyKeys.map(mmdd),datasets:[
-        {type:'bar',label:'الإيراد',data:dailyKeys.map(x=>Number(revMap[x]||0)),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:7,barPercentage:.70,categoryPercentage:.58,order:3},
-        {type:'line',label:'الأرباح',data:profitData,borderColor:cssvar('--positive'),backgroundColor:cssvar('--positive'),yAxisID:'money',tension:.32,pointRadius:5,pointHoverRadius:7,borderWidth:3.5,spanGaps:false,order:1},
-        {type:'line',label:'عدد الطلبات',data:dailyKeys.map(x=>Number(cntMap[x]||0)),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.32,pointRadius:3.5,pointHoverRadius:5.5,borderWidth:2.4,order:2}]},
-        plugins:[profitValueLabels],
+      const daily=(d.daily||[]).slice(-7),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
+      draw('dailyChart',{data:{labels:daily.map(([x])=>mmdd(x)),datasets:[
+        {type:'bar',label:'الإيراد',data:daily.map(([x])=>Number(revMap[x]||0)),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:7,barPercentage:.70,categoryPercentage:.58,order:2},
+        {type:'line',label:'عدد الطلبات',data:daily.map(([x])=>Number(cntMap[x]||0)),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.32,pointRadius:3.5,pointHoverRadius:5.5,borderWidth:2.4,order:1}]},
         options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:30,bottom:8,left:10,right:10}},interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',align:'center',labels:{usePointStyle:true,color:cssvar('--muted'),boxWidth:9,boxHeight:9,padding:14}}},
         scales:{money:{position:'right',beginAtZero:true,grid:{color:cssvar('--grid')},ticks:{color:cssvar('--muted')}},
         count:{position:'left',beginAtZero:true,grid:{display:false},ticks:{color:cssvar('--muted'),precision:0}},
         x:{grid:{display:false},ticks:{color:cssvar('--muted')}}}}});
     }
     function renderCarrierChart(d){
-      const rawCarriers=(d.top_carriers||[]).map(([name,x])=>[name,Number(x.total||0)]);
+      const rawCarriers=((d.lead_reports&&d.lead_reports.carriers)||[]).map(c=>[c.carrier,Number(c.profit||0)]);
       const carriers=rawCarriers.filter(([,p])=>p>0).slice(0,7);
       const chartCarriers=carriers.length?carriers:rawCarriers.slice(0,7);
       const colors=chartCarriers.map((_,i)=>PALETTE[i%PALETTE.length]);
@@ -424,26 +419,27 @@
       const d=await fetch('/api/dashboard'+(q.length?'?'+q.join('&'):'')).then(r=>r.json()).catch(()=>({}));
       if(!d.ok)return;
       const t=d.totals||{};
+      const lr=(d.lead_reports&&d.lead_reports.totals)||null;
+      const lm=(d.lead_reports&&d.lead_reports.merchants)||[];
+      const ac=d.actuals||null;
       const NA='غير متاح';
+      const profitVal=ac?ac.true_profit:(lr?lr.net_profit:null);
+      const profitNote=ac
+        ?('رسوم وزن/COD محمَّلة: '+money(ac.absorbed_fees)+' · حسب تقارير ليد: '+money(ac.reports_profit))
+        :(lr?'التكلفة: '+money(lr.base_cost):'غير متاح');
+      const revVal=lr?lr.revenue:(ac?ac.revenue:null);
       $('periodBadge').textContent=d.period_label||'';
       $('kpis').innerHTML=[
-        ['إجمالي الإيرادات', money(t.revenue), 'إجمالي ما دفعه العملاء','revenue'],
-        ['إجمالي الأرباح', money(t.total), 'حسب معادلة بداية الملف','profit'],
+        ['إجمالي الإيرادات', revVal!=null?money(revVal):NA, 'إجمالي ما دفعه العملاء','revenue'],
+        ['صافي الربح الفعلي', profitVal!=null?money(profitVal):NA, profitVal!=null?profitNote:'غير متاح لهذه الفترة','profit'],
         ['عدد الشحنات',intf(t.active),'غير داخلة في الربح: '+intf(t.excluded),'count'],
         ['مبلغ COD',money(t.cod_amount),'إجمالي مبالغ COD','cod'],
       ].map(([l,v,n,key])=>`<div class="kpi"><button class="info-btn" data-info="${key}" aria-label="شرح الطريقة">i</button><span class="label">${l}</span><span class="value num">${v}</span><span class="note num">${n}</span></div>`).join('');
-      $('profitChips').innerHTML=[
-        ['الإيرادات',money(t.revenue)],
-        ['التكلفة الفعلية',money(t.cost)],
-        ['ربح الشحنة',money(t.base)],
-        ['ربح الوزن الزائد',money(t.extra)],
-        ['ربح COD',money(t.cod_profit)],
-        ['إجمالي الربح',money(t.total)]
-      ]
+      $('profitChips').innerHTML=(ac?[['الإيرادات',money(ac.revenue)],['التكلفة الأساسية',money(ac.base_cost)],['رسوم وزن/COD (محمَّلة)',money(ac.absorbed_fees)],['الربح حسب تقارير ليد',money(ac.reports_profit)],['صافي الربح الفعلي',money(ac.true_profit)]]:(lr?[['الإيرادات',money(lr.revenue)],['التكلفة الأساسية',money(lr.base_cost)],['صافي الربح',money(lr.net_profit)]]:[['الحالة',NA]]))
         .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
       renderDailyChart(d);
       renderCarrierChart(d);
-      $('merchantsBody').innerHTML=(d.top_merchants||[]).slice(0,5).map(([name,x],i)=>`<tr><td class="rank num">${i+1}</td><td>${esc(name)}</td><td class="num">${intf(x.count)}</td><td class="num">${money(x.total)}</td></tr>`).join('')||`<tr><td colspan="4" style="color:var(--muted)">${NA}</td></tr>`;
+      $('merchantsBody').innerHTML=lm.slice(0,5).map((m,i)=>`<tr><td class="rank num">${i+1}</td><td>${esc(m.merchant)}</td><td class="num">${intf(m.count)}</td><td class="num">${money(m.profit)}</td></tr>`).join('')||`<tr><td colspan="4" style="color:var(--muted)">${NA}</td></tr>`;
       const cityRows=(d.top_cities||[]).map(([n,x])=>[n,x.count||0]).sort((a,b)=>b[1]-a[1]).slice(0,5);
       $('citiesBody').innerHTML=cityRows.map(([n,c],i)=>`<tr><td class="rank num">${i+1}</td><td>${esc(n)}</td><td class="num">${intf(c)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
       const f=d.finance||{};
@@ -502,13 +498,13 @@
     /* per-chart / per-number methodology (Arabic) */
     const INFO={
       revenue:['إجمالي الإيرادات','مجموع تكلفة الشحن التي دفعها العملاء على الشحنات المحسوبة ضمن الفترة المحددة، مضافًا إليها إيرادات الشحنات المرتجعة.'],
-      profit:['إجمالي الأرباح','إجمالي الربح حسب معادلات بداية الملف: ربح الشحنة + ربح الوزن الزائد + ربح COD، مع احتساب الشحنات الداخلة في الربح فقط.'],
+      profit:['صافي الربح الفعلي','الربح الحقيقي = ما دفعه العملاء (سعر البوليصة) − تكلفتك الكاملة على نفوذ، والتي تشمل التكلفة الأساسية + رسوم الوزن الزائد + رسوم COD. هذه الرسوم تدفعها أنت لنفوذ لكنك لا تحمّلها على عملائك، لذلك تُخصم من الربح. الرقم «حسب تقارير ليد» لا يخصم هذه الرسوم، لذا يكون أعلى من الربح الفعلي.'],
       count:['عدد الشحنات','عدد الشحنات الداخلة في احتساب الربح ضمن الفترة. تُستثنى الشحنات الملغية والمسودة.'],
       cod:['مبلغ COD','مجموع مبالغ الدفع عند الاستلام لكل الشحنات المحسوبة ضمن الفترة.'],
-      profitDetails:['ملخص الأرباح','تفصيل معادلات بداية الملف: الإيرادات، التكلفة الفعلية، ربح الشحنة، ربح الوزن الزائد، ربح COD، ثم إجمالي الربح = ربح الشحنة + ربح الوزن الزائد + ربح COD.'],
-      daily:['الأداء اليومي','آخر 7 أيام تحتوي على بيانات ضمن الفترة. الأعمدة تعرض الإيراد والأرباح لكل يوم؛ والخط يعرض عدد الطلبات.'],
-      carriers:['شركات الشحن','إجمالي الربح لكل شركة شحن حسب معادلات بداية الملف ضمن الفترة المحددة.'],
-      merchants:['أفضل العملاء','أعلى 5 عملاء حسب إجمالي الربح، مع عدد شحناتهم ضمن الفترة المحددة.'],
+      profitDetails:['ملخص الأرباح','تفصيل الربح الفعلي: الإيرادات (ما دفعه العملاء)، التكلفة الأساسية (تكلفة الشحن من الشركات)، رسوم الوزن/COD المحمَّلة (التي تدفعها لنفوذ ولا تستردها من العملاء)، الربح حسب تقارير ليد (= الإيراد − التكلفة الأساسية فقط)، وصافي الربح الفعلي (= الإيراد − التكلفة الأساسية − رسوم الوزن/COD). الفرق بين الرقمين هو ما تتحمّله من رسوم لا تُحصّلها.'],
+      daily:['الأداء اليومي','آخر 7 أيام تحتوي على بيانات ضمن الفترة. يعرض الإيراد وعدد الطلبات مثل ملف الأساس.'],
+      carriers:['شركات الشحن','صافي الربح الفعلي لكل شركة شحن من تقارير ليد للفترة. القيمة المعروضة بجانب كل شركة هي ربحها بالريال (قد يكون سالبًا في بعض الفترات).'],
+      merchants:['أفضل العملاء','أعلى 5 عملاء حسب الربح الفعلي من تقارير ليد، مع عدد شحناتهم. التسعير الخاص لكل عميل محتسب تلقائيًا في أرقام ليد.'],
       cities:['أفضل المدن','أعلى 5 مدن حسب عدد الشحنات ضمن الفترة المحددة.'],
       finance:['العمليات المالية','«إجمالي الإيداعات» يساوي مجموع كل الإيداعات في المحفظة ضمن الفترة، وهو ثلاثة مكوّنات: إيداعات البنك (تحويل بنكي) + إيداعات ميسر + «شحن رصيد وإيداعات إدارية» (شحن الرصيد اليدوي من الإدارة والرصيد الابتدائي والتعويضات). لذلك الإجمالي أكبر من مجموع البنك وميسر وحدهما. أما «الخصومات والاستردادات» فهي خصم ضريبة القيمة المضافة واسترداد العمليات الملغية، وهي ليست إيداعات ولا تُحتسب ضمن الإجمالي.'],
       statement:['كشف الحساب الجاري','ملخص حركات الإيداعات والمصاريف ورسوم الحوالات البنكية.'],

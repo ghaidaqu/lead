@@ -127,29 +127,6 @@ def get_actuals(date_from, date_to):
     }
 
 
-def get_daily_profit(date_from, date_to):
-    """Daily profit using the stored per-shipment profit rule."""
-    if db_store is None or not db_store.db_enabled():
-        return []
-    start = date_from.isoformat() if date_from else "2026-02-01"
-    end = date_to.isoformat() if date_to else _dt.date.today().isoformat()
-    try:
-        with db_store.get_conn() as conn, conn.cursor() as cur:
-            cur.execute(
-                """SELECT shipment_date::date day,
-                          COALESCE(sum(total_profit) FILTER (WHERE included_in_profit), 0) AS profit
-                   FROM shipments
-                   WHERE shipment_date >= %s AND shipment_date <= %s
-                   GROUP BY shipment_date::date
-                   ORDER BY shipment_date::date""",
-                (start, end),
-            )
-            rows = cur.fetchall()
-    except Exception:
-        return []
-    return [[r["day"].isoformat(), round(float(r["profit"] or 0), 2)] for r in rows]
-
-
 def _auth_enabled() -> bool:
     return bool(AUTH_USER and AUTH_PASS)
 
@@ -295,12 +272,6 @@ def api_dashboard():
             payload["actuals"] = get_actuals(date_from, date_to)
         except Exception:
             payload["actuals"] = None
-        try:
-            payload["daily_profit"] = get_daily_profit(date_from, date_to)
-            payload["daily_actual_profit"] = payload["daily_profit"]
-        except Exception:
-            payload["daily_profit"] = []
-            payload["daily_actual_profit"] = []
         _update_data_source("postgres", True)
     except Exception as exc:
         logger.exception("dashboard payload failed")
