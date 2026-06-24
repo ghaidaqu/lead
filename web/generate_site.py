@@ -175,27 +175,41 @@ def load_data_from_db(date_from=None, date_to=None):
             continue
         if raw[0] in (None, ""):
             continue
+        customer_net = money(row.get("customer_price_net") if row.get("customer_price_net") is not None else _row_value(raw, 16))
+        platform_shipping = money(row.get("platform_cost_net") if row.get("platform_cost_net") is not None else _row_value(raw, 17))
+        shipping_profit = money(row.get("base_profit") if row.get("base_profit") is not None else _row_value(raw, 19))
+        extra_profit = money(row.get("extra_profit") if row.get("extra_profit") is not None else _row_value(raw, 20))
+        fee_profit = money(row.get("cod_profit") if row.get("cod_profit") is not None else _row_value(raw, 21))
+        total_profit = money(row.get("total_profit") if row.get("total_profit") is not None else _row_value(raw, 22))
+        if not any((customer_net, platform_shipping, shipping_profit, extra_profit, fee_profit, total_profit)):
+            customer_net = money(row.get("actual_revenue") if row.get("actual_revenue") is not None else row.get("shipping_charge"))
+            platform_shipping = money(row.get("actual_base_cost"))
+            shipping_profit = customer_net - platform_shipping
+            extra_profit = 0.0
+            fee_profit = 0.0
+            total_profit = shipping_profit
+
         item = {
             "order_id": raw[0],
-            "tracking": clean(_row_value(raw, 1)),
-            "merchant": clean(_row_value(raw, 2)),
-            "customer": clean(_row_value(raw, 4)),
-            "city": clean(_row_value(raw, 5)),
-            "carrier": clean(_row_value(raw, 10)),
-            "date": _row_date(_row_value(raw, 13)),
-            "status": clean(_row_value(raw, 12)),
-            "weight": money(_row_value(raw, 11)),
-            "included": clean(_row_value(raw, 14)) == "نعم",
-            "customer_shipping": money(_row_value(raw, 6)),
-            "cod_amount": money(_row_value(raw, 7)),
-            "customer_gross": money(_row_value(raw, 15)),
-            "customer_net": money(_row_value(raw, 16)),
-            "platform_shipping": money(_row_value(raw, 17)),
-            "shipping_profit": money(_row_value(raw, 19)),
-            "extra_profit": money(_row_value(raw, 20)),
-            "fee_profit": money(_row_value(raw, 21)),
-            "total_profit": money(_row_value(raw, 22)),
-            "review_diff": money(_row_value(raw, 19)),
+            "tracking": clean(row.get("tracking_number") or _row_value(raw, 1)),
+            "merchant": clean(row.get("merchant_name") or _row_value(raw, 2)),
+            "customer": clean(row.get("customer_name") or _row_value(raw, 4)),
+            "city": clean(row.get("city") or _row_value(raw, 5)),
+            "carrier": clean(row.get("carrier") or _row_value(raw, 10)),
+            "date": _row_date(row.get("shipment_date") or _row_value(raw, 13)),
+            "status": clean(row.get("status") or _row_value(raw, 12)),
+            "weight": money(row.get("weight") if row.get("weight") is not None else _row_value(raw, 11)),
+            "included": bool(row.get("included_in_profit")),
+            "customer_shipping": money(row.get("shipping_charge") if row.get("shipping_charge") is not None else _row_value(raw, 6)),
+            "cod_amount": money(row.get("cod_amount") if row.get("cod_amount") is not None else _row_value(raw, 7)),
+            "customer_gross": money(row.get("customer_price_gross") if row.get("customer_price_gross") is not None else _row_value(raw, 15)),
+            "customer_net": customer_net,
+            "platform_shipping": platform_shipping,
+            "shipping_profit": shipping_profit,
+            "extra_profit": extra_profit,
+            "fee_profit": fee_profit,
+            "total_profit": total_profit,
+            "review_diff": shipping_profit,
             "collection_date": cod_date_map.get(str(raw[0]), {}).get("collection_date"),
             "transfer_date": cod_date_map.get(str(raw[0]), {}).get("transfer_date"),
         }
@@ -331,4 +345,3 @@ def load_data_from_db(date_from=None, date_to=None):
         expected = set(range(order_numbers[0], order_numbers[-1] + 1))
         missing_sequence_numbers = sorted(expected.difference(order_numbers))
     return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label, missing_sequence_numbers
-
