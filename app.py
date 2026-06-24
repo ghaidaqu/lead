@@ -136,7 +136,10 @@ def get_daily_actual_profit(date_from, date_to):
     try:
         with db_store.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """SELECT shipment_date::date day, sum(actual_profit) profit
+                """SELECT shipment_date::date day,
+                          COALESCE(sum(actual_revenue), 0)
+                          - COALESCE(sum(actual_base_cost) FILTER (WHERE actual_revenue > 0), 0)
+                          - COALESCE(sum(actual_extra_cost), 0) AS profit
                    FROM shipments
                    WHERE shipment_date >= %s AND shipment_date <= %s
                    GROUP BY shipment_date::date

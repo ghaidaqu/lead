@@ -50,7 +50,7 @@
       background:var(--card-2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:650;}
 
     .grid{display:grid;gap:16px;}
-    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,65fr) minmax(300px,35fr);align-items:start;}
+    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,65fr) minmax(300px,35fr);align-items:stretch;}
     .tables{grid-template-columns:1fr 1fr;} .finance{grid-template-columns:repeat(5,1fr);}
     .summary{grid-template-columns:repeat(5,1fr);} .chips5{grid-template-columns:repeat(5,1fr);}
     .panel,.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
@@ -79,7 +79,7 @@
     .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
     .carrier-row .pct{margin-inline-start:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
     .seq{font-size:13px;line-height:2;color:var(--muted);}
-    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .daily-chart-box{height:430px;margin:4px auto 0;width:100%;} .donut-box{position:relative;height:220px;}
+    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .chart-panel{height:520px;display:flex;flex-direction:column;min-height:0;} .daily-chart-box{flex:1;min-height:0;height:auto;margin:4px auto 0;width:100%;} .donut-box{position:relative;height:300px;width:min(100%,320px);margin:8px auto 0;} .carrier-chart-card .carrier-legend{max-height:128px;overflow:auto;padding-inline-end:2px;}
     footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;line-height:1.8;}
     footer .updated-at{display:block;font-variant-numeric:tabular-nums;}
 
@@ -190,11 +190,11 @@
         <div class="grid chips5" id="profitChips"></div>
       </section>
       <section class="grid two">
-        <article class="panel" style="margin-top:0;">
+        <article class="panel chart-panel daily-chart-card" style="margin-top:0;">
           <h2>الأداء اليومي</h2><p class="sub">آخر 7 أيام</p>
           <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
         </article>
-        <article class="panel" style="margin-top:0;">
+        <article class="panel chart-panel carrier-chart-card" style="margin-top:0;">
           <h2>شركات الشحن</h2><p class="sub">صافي الربح الفعلي لكل ناقل</p>
           <div class="donut-box"><canvas id="carrierChart"></canvas></div>
           <div class="carrier-legend" id="carrierLegend"></div>
@@ -330,7 +330,8 @@
         ctx.font='700 11px "Noto Sans Arabic", Inter, sans-serif';
         ctx.fillStyle=cssvar('--text');
         meta.data.forEach((point,i)=>{
-          const value=Number(ds.data[i]||0);
+          if(ds.data[i]==null)return;
+          const value=Number(ds.data[i]);
           if(!Number.isFinite(value))return;
           ctx.fillText(shortMoney(value),point.x,point.y-10);
         });
@@ -393,16 +394,12 @@
       $('profitChips').innerHTML=(ac?[['الإيرادات',money(ac.revenue)],['التكلفة الأساسية',money(ac.base_cost)],['رسوم وزن/COD (محمَّلة)',money(ac.absorbed_fees)],['الربح حسب تقارير ليد',money(ac.reports_profit)],['صافي الربح الفعلي',money(ac.true_profit)]]:(lr?[['الإيرادات',money(lr.revenue)],['التكلفة الأساسية',money(lr.base_cost)],['صافي الربح',money(lr.net_profit)]]:[['الحالة',NA]]))
         .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
       // daily: actual profit + actual revenue + order count
-      const actualProfitSeries=d.daily_actual_profit||[];
-      const fallbackProfitSeries=d.daily||[];
-      const actualProfitTotal=actualProfitSeries.reduce((sum,[,v])=>sum+Number(v||0),0);
-      const fallbackProfitTotal=fallbackProfitSeries.reduce((sum,[,v])=>sum+Number(v||0),0);
-      const profitSeries=(actualProfitSeries.length&&(Math.abs(actualProfitTotal)>.005||Math.abs(fallbackProfitTotal)<=.005))?actualProfitSeries:fallbackProfitSeries;
+      const profitSeries=d.daily_actual_profit||[];
       const profitMap=Object.fromEntries(profitSeries),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
       const dailyKeys=[...new Set([...(profitSeries||[]).map(([x])=>x),...(d.daily_revenue||[]).map(([x])=>x),...(d.daily_count||[]).map(([x])=>x)])].sort().slice(-7);
       draw('dailyChart',{data:{labels:dailyKeys.map(mmdd),datasets:[
         {type:'bar',label:'الإيراد',data:dailyKeys.map(x=>revMap[x]||0),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:6,barPercentage:.72,categoryPercentage:.58,order:3},
-        {type:'line',label:'الأرباح',data:dailyKeys.map(x=>profitMap[x]||0),borderColor:cssvar('--positive'),backgroundColor:cssvar('--positive'),yAxisID:'money',tension:.35,pointRadius:4,pointHoverRadius:6,borderWidth:3,order:1},
+        {type:'line',label:'الأرباح',data:dailyKeys.map(x=>Object.prototype.hasOwnProperty.call(profitMap,x)?profitMap[x]:null),borderColor:cssvar('--positive'),backgroundColor:cssvar('--positive'),yAxisID:'money',tension:.35,pointRadius:4,pointHoverRadius:6,borderWidth:3,order:1},
         {type:'line',label:'عدد الطلبات',data:dailyKeys.map(x=>cntMap[x]||0),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.35,pointRadius:3,pointHoverRadius:5,borderWidth:2,order:2}]},
         plugins:[profitValueLabels],
         options:{maintainAspectRatio:false,layout:{padding:{top:26,left:8,right:8}},interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{usePointStyle:true,color:cssvar('--muted'),boxWidth:9,boxHeight:9}}},
