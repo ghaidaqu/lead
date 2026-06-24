@@ -50,7 +50,7 @@
       background:var(--card-2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:650;}
 
     .grid{display:grid;gap:16px;}
-    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,65fr) minmax(300px,35fr);align-items:stretch;}
+    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,70fr) minmax(280px,30fr);align-items:stretch;}
     .tables{grid-template-columns:1fr 1fr;} .finance{grid-template-columns:repeat(5,1fr);}
     .summary{grid-template-columns:repeat(5,1fr);} .chips5{grid-template-columns:repeat(5,1fr);}
     .panel,.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
@@ -75,11 +75,12 @@
     td input{height:34px;padding:0 8px;border-radius:8px;}
 
     .carrier-legend{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
-    .carrier-row{display:flex;align-items:center;gap:8px;font-size:13px;}
+    .carrier-row{display:flex;align-items:center;gap:8px;font-size:12px;min-width:0;}
+    .carrier-row span:not(.dot):not(.pct){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
     .carrier-row .pct{margin-inline-start:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
     .seq{font-size:13px;line-height:2;color:var(--muted);}
-    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .chart-panel{height:520px;display:flex;flex-direction:column;min-height:0;} .daily-chart-box{flex:1;min-height:0;height:auto;margin:4px auto 0;width:100%;} .donut-box{position:relative;height:300px;width:min(100%,320px);margin:8px auto 0;} .carrier-chart-card .carrier-legend{max-height:128px;overflow:auto;padding-inline-end:2px;}
+    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .chart-panel{display:flex;flex-direction:column;min-height:0;} .daily-chart-box{height:420px;margin:0 auto;width:100%;} .carrier-content{direction:ltr;display:grid;grid-template-columns:minmax(0,1fr) minmax(122px,.9fr);grid-template-areas:"donut legend";align-items:center;gap:12px;flex:1;min-height:0;} .donut-box{grid-area:donut;position:relative;height:230px;width:min(100%,230px);margin:0 auto;} .carrier-chart-card .carrier-legend{grid-area:legend;direction:rtl;margin-top:0;max-height:260px;overflow:auto;padding-inline-end:2px;}
     footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;line-height:1.8;}
     footer .updated-at{display:block;font-variant-numeric:tabular-nums;}
 
@@ -196,8 +197,10 @@
         </article>
         <article class="panel chart-panel carrier-chart-card" style="margin-top:0;">
           <h2>شركات الشحن</h2><p class="sub">صافي الربح الفعلي لكل ناقل</p>
-          <div class="donut-box"><canvas id="carrierChart"></canvas></div>
-          <div class="carrier-legend" id="carrierLegend"></div>
+          <div class="carrier-content">
+            <div class="donut-box"><canvas id="carrierChart"></canvas></div>
+            <div class="carrier-legend" id="carrierLegend"></div>
+          </div>
         </article>
       </section>
       <section class="grid tables">
