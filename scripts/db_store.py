@@ -291,10 +291,6 @@ def fetch_dashboard_rows(conn) -> dict[str, Any]:
                 extra_profit,
                 cod_profit,
                 total_profit,
-                actual_revenue,
-                actual_base_cost,
-                actual_extra_cost,
-                actual_profit,
                 included_in_profit,
                 source_row,
                 raw_payload

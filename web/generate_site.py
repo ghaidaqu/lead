@@ -181,13 +181,6 @@ def load_data_from_db(date_from=None, date_to=None):
         extra_profit = money(row.get("extra_profit") if row.get("extra_profit") is not None else _row_value(raw, 20))
         fee_profit = money(row.get("cod_profit") if row.get("cod_profit") is not None else _row_value(raw, 21))
         total_profit = money(row.get("total_profit") if row.get("total_profit") is not None else _row_value(raw, 22))
-        if not any((customer_net, platform_shipping, shipping_profit, extra_profit, fee_profit, total_profit)):
-            customer_net = money(row.get("actual_revenue") if row.get("actual_revenue") is not None else row.get("shipping_charge"))
-            platform_shipping = money(row.get("actual_base_cost"))
-            shipping_profit = customer_net - platform_shipping
-            extra_profit = 0.0
-            fee_profit = 0.0
-            total_profit = shipping_profit
 
         item = {
             "order_id": raw[0],
