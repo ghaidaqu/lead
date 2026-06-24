@@ -329,7 +329,7 @@
     let charts={};
     function draw(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),cfg);}
     const cssvar=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
-    const shortMoney=v=>Number(v||0).toLocaleString('en-US',{maximumFractionDigits:0})+' ر.س';
+    const shortMoney=v=>Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' ر.س';
     const profitValueLabels={
       id:'profitValueLabels',
       afterDatasetsDraw(chart){
