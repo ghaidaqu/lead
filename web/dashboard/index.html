@@ -175,8 +175,8 @@
     <div class="view" id="view-dashboard">
       <section class="panel filter-bar">
         <div class="presets">
-          <button class="tab" data-range="month">هذا الشهر</button>
-          <button class="tab active" data-range="30">آخر 30 يوم</button>
+          <button class="tab active" data-range="month">هذا الشهر</button>
+          <button class="tab" data-range="30">آخر 30 يوم</button>
         </div>
         <div class="range-fields">
           <label>من<input type="date" id="rangeFrom" /></label>
@@ -338,7 +338,7 @@
     function renderCod(items){codItems=items;codExpanded=false;drawCod();}
     $('codToggle').addEventListener('click',()=>{codExpanded=!codExpanded;drawCod();});
 
-    let range={from:'',to:'',preset:'30'};
+    let range={from:'',to:'',preset:'month'};
     async function loadDashboard(){
       const q=[]; if(range.from)q.push('from='+range.from); if(range.to)q.push('to='+range.to);
       if(range.preset)q.push('preset='+range.preset);
