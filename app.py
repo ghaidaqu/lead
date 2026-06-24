@@ -128,7 +128,7 @@ def get_actuals(date_from, date_to):
 
 
 def get_daily_actual_profit(date_from, date_to):
-    """Daily TRUE profit, using the same actual_profit rule as the headline."""
+    """Daily profit using the stored per-shipment profit rule."""
     if db_store is None or not db_store.db_enabled():
         return []
     start = date_from.isoformat() if date_from else "2026-02-01"
@@ -137,9 +137,7 @@ def get_daily_actual_profit(date_from, date_to):
         with db_store.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """SELECT shipment_date::date day,
-                          COALESCE(sum(actual_revenue), 0)
-                          - COALESCE(sum(actual_base_cost) FILTER (WHERE actual_revenue > 0), 0)
-                          - COALESCE(sum(actual_extra_cost), 0) AS profit
+                          COALESCE(sum(total_profit) FILTER (WHERE included_in_profit), 0) AS profit
                    FROM shipments
                    WHERE shipment_date >= %s AND shipment_date <= %s
                    GROUP BY shipment_date::date
