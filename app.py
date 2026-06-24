@@ -465,7 +465,11 @@ def dashboard_index() -> Response:
     # Static SPA — it fetches its data from GET /api/dashboard.
     spa = DASHBOARD_DIR / "index.html"
     if spa.exists():
-        return send_file(spa)
+        response = make_response(send_file(spa))
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     return Response(_fallback_page(), mimetype="text/html")
 
 
