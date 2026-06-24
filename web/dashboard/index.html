@@ -77,14 +77,14 @@
     .table-wrap{overflow-x:auto;}
     td input{height:34px;padding:0 8px;border-radius:8px;}
 
-    .carrier-legend{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
-    .carrier-row{display:flex;align-items:center;gap:7px;font-size:12px;min-width:0;padding:6px 8px;
+    .carrier-legend{display:grid;grid-template-columns:1fr;gap:7px;width:100%;margin:0;}
+    .carrier-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:7px;font-size:12px;min-width:0;padding:7px 9px;
       border:1px solid var(--border);border-radius:9px;background:var(--card-2);}
     .carrier-row span:not(.dot):not(.pct){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
-    .carrier-row .pct{margin-inline-start:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
+    .carrier-row .pct{color:var(--muted);font-variant-numeric:tabular-nums;text-align:left;}
     .seq{font-size:13px;line-height:2;color:var(--muted);}
-    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .chart-panel{height:460px;display:flex;flex-direction:column;min-height:0;} .chart-panel .sub{margin-bottom:10px;} .daily-chart-box{flex:1;min-height:340px;margin:0 auto;width:100%;} .carrier-content{direction:ltr;display:grid;grid-template-columns:minmax(150px,.95fr) minmax(128px,.9fr);grid-template-areas:"donut legend";align-items:center;gap:14px;flex:1;min-height:0;} .donut-box{grid-area:donut;position:relative;height:210px;width:min(100%,210px);margin:0 auto;} .carrier-chart-card .carrier-legend{grid-area:legend;direction:rtl;margin-top:0;max-height:300px;overflow:auto;padding-inline-end:2px;}
+    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .chart-panel{height:460px;display:flex;flex-direction:column;min-height:0;overflow:hidden;} .chart-panel .sub{margin-bottom:10px;} .daily-chart-card{justify-content:flex-start;} .daily-chart-box{height:380px;flex:1;min-height:0;margin:auto 0 0;width:100%;display:flex;align-items:center;justify-content:center;} .daily-chart-box canvas{width:100%!important;height:100%!important;} .carrier-content{display:flex;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;gap:14px;width:100%;} .donut-box{position:relative;height:245px;width:min(100%,245px);margin:0 auto;display:flex;align-items:center;justify-content:center;} .donut-box canvas{width:100%!important;height:100%!important;} .carrier-chart-card .carrier-legend{direction:rtl;max-height:142px;overflow:auto;padding-inline-end:2px;}
     footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;line-height:1.8;}
     footer .updated-at{display:block;font-variant-numeric:tabular-nums;}
 
@@ -399,22 +399,27 @@
       ]
         .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
       // daily: original profit formula + revenue + order count
-      const profitSeries=d.daily_actual_profit||[];
+      const profitSeries=d.daily_profit||d.daily_actual_profit||[];
       const profitMap=Object.fromEntries(profitSeries),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
       const dailyKeys=[...new Set([...(profitSeries||[]).map(([x])=>x),...(d.daily_revenue||[]).map(([x])=>x),...(d.daily_count||[]).map(([x])=>x)])].sort().slice(-7);
+      const dailyProfitData=dailyKeys.map(x=>Object.prototype.hasOwnProperty.call(profitMap,x)?profitMap[x]:null);
       draw('dailyChart',{data:{labels:dailyKeys.map(mmdd),datasets:[
-        {type:'bar',label:'الإيراد',data:dailyKeys.map(x=>revMap[x]||0),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:6,barPercentage:.72,categoryPercentage:.58,order:3},
-        {type:'line',label:'الأرباح',data:dailyKeys.map(x=>Object.prototype.hasOwnProperty.call(profitMap,x)?profitMap[x]:null),borderColor:cssvar('--positive'),backgroundColor:cssvar('--positive'),yAxisID:'money',tension:.35,pointRadius:4,pointHoverRadius:6,borderWidth:3,order:1},
-        {type:'line',label:'عدد الطلبات',data:dailyKeys.map(x=>cntMap[x]||0),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.35,pointRadius:3,pointHoverRadius:5,borderWidth:2,order:2}]},
+        {type:'bar',label:'الإيراد',data:dailyKeys.map(x=>revMap[x]||0),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:7,barPercentage:.78,categoryPercentage:.62,order:3},
+        {type:'line',label:'الأرباح',data:dailyProfitData,borderColor:cssvar('--positive'),backgroundColor:cssvar('--positive'),yAxisID:'money',tension:.34,pointRadius:5,pointHoverRadius:7,borderWidth:3.5,spanGaps:false,order:1},
+        {type:'line',label:'عدد الطلبات',data:dailyKeys.map(x=>cntMap[x]||0),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.34,pointRadius:3.5,pointHoverRadius:5.5,borderWidth:2.4,order:2}]},
         plugins:[profitValueLabels],
-        options:{maintainAspectRatio:false,layout:{padding:{top:26,left:8,right:8}},interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{usePointStyle:true,color:cssvar('--muted'),boxWidth:9,boxHeight:9}}},
+        options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24,bottom:8,left:10,right:10}},interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',align:'center',labels:{usePointStyle:true,color:cssvar('--muted'),boxWidth:9,boxHeight:9,padding:14}}},
         scales:{money:{position:'right',beginAtZero:true,grid:{color:cssvar('--grid')},ticks:{color:cssvar('--muted')}},
         count:{position:'left',beginAtZero:true,grid:{display:false},ticks:{color:cssvar('--muted'),precision:0}},
         x:{grid:{display:false},ticks:{color:cssvar('--muted')}}}}});
-      const carriers=(d.top_carriers||[]).map(([name,x])=>[name,x.total||0]),colors=carriers.map((_,i)=>PALETTE[i%PALETTE.length]);
-      draw('carrierChart',{type:'doughnut',data:{labels:carriers.map(([n])=>n),datasets:[{data:carriers.map(([,p])=>Math.max(0,p)),backgroundColor:colors,borderWidth:0}]},
-        options:{maintainAspectRatio:false,cutout:'58%',plugins:{legend:{display:false}}}});
-      $('carrierLegend').innerHTML=carriers.map(([n,p],i)=>`<div class="carrier-row"><span class="dot" style="background:${colors[i]}"></span><span>${esc(n)}</span><span class="pct num">${money(p)}</span></div>`).join('')||`<div style="color:var(--muted)">${NA}</div>`;
+      const carriers=(d.top_carriers||[]).map(([name,x])=>[name,Number(x.total||0)]),colors=carriers.map((_,i)=>PALETTE[i%PALETTE.length]);
+      const positiveTotal=carriers.reduce((s,[,p])=>s+Math.max(0,p),0);
+      draw('carrierChart',{type:'doughnut',data:{labels:carriers.map(([n])=>n),datasets:[{data:carriers.map(([,p])=>Math.max(0,p)),backgroundColor:colors,borderWidth:0,hoverOffset:4}]},
+        options:{responsive:true,maintainAspectRatio:false,cutout:'61%',layout:{padding:4},plugins:{legend:{display:false}}}});
+      $('carrierLegend').innerHTML=carriers.map(([n,p],i)=>{
+        const pct=positiveTotal?((Math.max(0,p)/positiveTotal)*100).toFixed(1):'0.0';
+        return `<div class="carrier-row"><span class="dot" style="background:${colors[i]}"></span><span>${esc(n)}</span><span class="pct num">${pct}% · ${money(p)}</span></div>`;
+      }).join('')||`<div style="color:var(--muted)">${NA}</div>`;
       $('merchantsBody').innerHTML=(d.top_merchants||[]).slice(0,5).map(([name,x],i)=>`<tr><td class="rank num">${i+1}</td><td>${esc(name)}</td><td class="num">${intf(x.count)}</td><td class="num">${money(x.total)}</td></tr>`).join('')||`<tr><td colspan="4" style="color:var(--muted)">${NA}</td></tr>`;
       const cityRows=(d.top_cities||[]).map(([n,x])=>[n,x.count||0]).sort((a,b)=>b[1]-a[1]).slice(0,5);
       $('citiesBody').innerHTML=cityRows.map(([n,c],i)=>`<tr><td class="rank num">${i+1}</td><td>${esc(n)}</td><td class="num">${intf(c)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';

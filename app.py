@@ -127,7 +127,7 @@ def get_actuals(date_from, date_to):
     }
 
 
-def get_daily_actual_profit(date_from, date_to):
+def get_daily_profit(date_from, date_to):
     """Daily profit using the stored per-shipment profit rule."""
     if db_store is None or not db_store.db_enabled():
         return []
@@ -296,8 +296,10 @@ def api_dashboard():
         except Exception:
             payload["actuals"] = None
         try:
-            payload["daily_actual_profit"] = get_daily_actual_profit(date_from, date_to)
+            payload["daily_profit"] = get_daily_profit(date_from, date_to)
+            payload["daily_actual_profit"] = payload["daily_profit"]
         except Exception:
+            payload["daily_profit"] = []
             payload["daily_actual_profit"] = []
         _update_data_source("postgres", True)
     except Exception as exc:
