@@ -30,10 +30,6 @@ SHIPMENT_COLUMNS = [
     ("extra_profit", "ربح الوزن الزائد"),
     ("cod_profit", "ربح COD"),
     ("total_profit", "إجمالي الربح"),
-    ("actual_revenue", "الإيراد الفعلي"),
-    ("actual_base_cost", "التكلفة الأساسية الفعلية"),
-    ("actual_extra_cost", "رسوم وزن/COD محمَّلة"),
-    ("actual_profit", "صافي الربح الفعلي"),
     ("included_in_profit", "محتسب"),
 ]
 

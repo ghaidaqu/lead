@@ -299,6 +299,7 @@ def load_data_from_db(date_from=None, date_to=None):
     period_label = period_label_from_dates(all_shipment_dates)
     return_revenue = sum(item["revenue"] for item in return_items)
     return_profit = sum(item["total_profit"] for item in return_items)
+    return_platform_cost = sum(item["platform_shipping"] for item in return_items)
     totals = {
         "records": in_range_count,
         "active": len(items),
@@ -306,6 +307,7 @@ def load_data_from_db(date_from=None, date_to=None):
         "cod": sum(1 for item in items if item["fee_profit"] > 0),
         "cod_amount": sum(item["cod_amount"] for item in items if item["included"]),
         "revenue": total_customer_shipping + return_revenue,
+        "cost": sum(item["platform_shipping"] for item in items) + return_platform_cost,
         "base": sum(item["shipping_profit"] for item in items),
         "extra": sum(item["extra_profit"] for item in items),
         "cod_profit": sum(item["fee_profit"] for item in items),
@@ -329,5 +331,4 @@ def load_data_from_db(date_from=None, date_to=None):
         expected = set(range(order_numbers[0], order_numbers[-1] + 1))
         missing_sequence_numbers = sorted(expected.difference(order_numbers))
     return totals, top_merchants, top_cities, top_carriers, by_status, daily, daily_revenue, daily_count, finance, cod_items, return_items, statement, period_label, missing_sequence_numbers
-
 
