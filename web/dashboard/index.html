@@ -53,6 +53,7 @@
     .summary{grid-template-columns:repeat(5,1fr);} .chips5{grid-template-columns:repeat(5,1fr);}
     .panel,.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
     .panel{padding:20px;margin-top:16px;} .panel h2{font-size:16px;}
+    .profit-panel{margin-bottom:20px;}
     .panel .sub{color:var(--muted);font-size:12px;margin:3px 0 16px;}
 
     .kpi{padding:18px;min-height:104px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;}
@@ -76,8 +77,9 @@
     .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
     .carrier-row .pct{margin-inline-start:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
     .seq{font-size:13px;line-height:2;color:var(--muted);}
-    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .donut-box{position:relative;height:200px;}
-    footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;}
+    canvas{max-width:100%;} .chart-box{position:relative;height:300px;} .daily-chart-box{height:360px;margin:4px auto 0;width:min(100%,760px);} .donut-box{position:relative;height:200px;}
+    footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;line-height:1.8;}
+    footer .updated-at{display:block;font-variant-numeric:tabular-nums;}
 
     .grid2{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
     label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:650;}
@@ -169,9 +171,8 @@
     <div class="view" id="view-dashboard">
       <section class="panel filter-bar">
         <div class="presets">
-          <button class="tab active" data-range="all">الكل</button>
           <button class="tab" data-range="month">هذا الشهر</button>
-          <button class="tab" data-range="30">آخر 30 يوم</button>
+          <button class="tab active" data-range="30">آخر 30 يوم</button>
         </div>
         <div class="range-fields">
           <label>من<input type="date" id="rangeFrom" /></label>
@@ -180,14 +181,14 @@
         </div>
       </section>
       <section class="grid kpis" id="kpis"></section>
-      <section class="panel">
+      <section class="panel profit-panel">
         <h2>ملخص الأرباح</h2><p class="sub">أرقام ليد الفعلية للفترة المحددة</p>
         <div class="grid chips5" id="profitChips"></div>
       </section>
       <section class="grid two">
         <article class="panel" style="margin-top:0;">
           <h2>الأداء اليومي</h2><p class="sub">آخر 7 أيام</p>
-          <div class="chart-box"><canvas id="dailyChart"></canvas></div>
+          <div class="chart-box daily-chart-box"><canvas id="dailyChart"></canvas></div>
         </article>
         <article class="panel" style="margin-top:0;">
           <h2>شركات الشحن</h2><p class="sub">صافي الربح الفعلي لكل ناقل</p>
@@ -223,7 +224,7 @@
         <h2>الأرقام المتسلسلة الناقصة</h2><p class="sub">الفجوات بين أول وآخر رقم</p>
         <div class="seq num" id="missingSeq">—</div>
       </section>
-      <footer>GF Smart Accounting Solutions</footer>
+      <footer>GF Smart Accounting Solutions<span class="updated-at" id="lastUpdated">آخر تحديث: —</span></footer>
     </div>
 
     <!-- PRICING VIEW -->
@@ -333,7 +334,7 @@
     function renderCod(items){codItems=items;codExpanded=false;drawCod();}
     $('codToggle').addEventListener('click',()=>{codExpanded=!codExpanded;drawCod();});
 
-    let range={from:'',to:'',preset:'all'};
+    let range={from:'',to:'',preset:'30'};
     async function loadDashboard(){
       const q=[]; if(range.from)q.push('from='+range.from); if(range.to)q.push('to='+range.to);
       if(range.preset)q.push('preset='+range.preset);
@@ -363,10 +364,11 @@
       ].map(([l,v,n,key])=>`<div class="kpi"><button class="info-btn" data-info="${key}" aria-label="شرح الطريقة">i</button><span class="label">${l}</span><span class="value num">${v}</span><span class="note num">${n}</span></div>`).join('');
       $('profitChips').innerHTML=(ac?[['الإيرادات',money(ac.revenue)],['التكلفة الأساسية',money(ac.base_cost)],['رسوم وزن/COD (محمَّلة)',money(ac.absorbed_fees)],['الربح حسب تقارير ليد',money(ac.reports_profit)],['صافي الربح الفعلي',money(ac.true_profit)]]:(lr?[['الإيرادات',money(lr.revenue)],['التكلفة الأساسية',money(lr.base_cost)],['صافي الربح',money(lr.net_profit)]]:[['الحالة',NA]]))
         .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
-      // daily: actual revenue (real charges) + order count only — no sheet profit series
+      // daily: actual profit + actual revenue + order count
       const daily=(d.daily||[]).slice(-7),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
       draw('dailyChart',{data:{labels:daily.map(([x])=>mmdd(x)),datasets:[
-        {type:'bar',label:'الإيراد',data:daily.map(([x])=>revMap[x]||0),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:5},
+        {type:'bar',label:'الإيراد',data:daily.map(([x])=>revMap[x]||0),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:5,barPercentage:.68,categoryPercentage:.72},
+        {type:'bar',label:'الأرباح',data:daily.map(([,p])=>p||0),backgroundColor:cssvar('--positive'),yAxisID:'money',borderRadius:5,barPercentage:.68,categoryPercentage:.72},
         {type:'line',label:'عدد الطلبات',data:daily.map(([x])=>cntMap[x]||0),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.35,pointRadius:3}]},
         options:{maintainAspectRatio:false,plugins:{legend:{labels:{usePointStyle:true,color:cssvar('--muted')}}},
         scales:{money:{position:'right',grid:{color:cssvar('--grid')},ticks:{color:cssvar('--muted')}},
@@ -396,6 +398,7 @@
       $('stmtBody').innerHTML=((d.statement&&d.statement.rows)||[]).map(r=>`<tr><td class="num">${esc(r.date||'-')}</td><td>${esc(r.expense_type||'-')}</td><td class="num">${money(r.amount)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
       renderCod(d.cod_items||[]);
       const ms=d.missing_sequence_numbers||[];$('missingSeq').textContent=ms.length?ms.join('، '):'لا يوجد';
+      $('lastUpdated').textContent='آخر تحديث: '+new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(new Date());
       // re-measure once layout has fully settled (covers mobile first-render sizing)
       requestAnimationFrame(resizeCharts);setTimeout(resizeCharts,350);
     }
@@ -425,8 +428,7 @@
     }
     document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{
       const now=new Date(),p=b.dataset.range;
-      if(p==='all')applyRange('','','all');
-      else if(p==='month')applyRange(fmtD(new Date(now.getFullYear(),now.getMonth(),1)),fmtD(now),'month');
+      if(p==='month')applyRange(fmtD(new Date(now.getFullYear(),now.getMonth(),1)),fmtD(now),'month');
       else if(p==='30'){const f=new Date(now);f.setDate(f.getDate()-29);applyRange(fmtD(f),fmtD(now),'30');}
     }));
     $('applyRange').addEventListener('click',()=>{
@@ -442,7 +444,7 @@
       count:['عدد الشحنات','عدد الشحنات الداخلة في احتساب الربح ضمن الفترة. تُستثنى الشحنات الملغية والمسودة.'],
       cod:['مبلغ COD','مجموع مبالغ الدفع عند الاستلام لكل الشحنات المحسوبة ضمن الفترة.'],
       profitDetails:['ملخص الأرباح','تفصيل الربح الفعلي: الإيرادات (ما دفعه العملاء)، التكلفة الأساسية (تكلفة الشحن من الشركات)، رسوم الوزن/COD المحمَّلة (التي تدفعها لنفوذ ولا تستردها من العملاء)، الربح حسب تقارير ليد (= الإيراد − التكلفة الأساسية فقط)، وصافي الربح الفعلي (= الإيراد − التكلفة الأساسية − رسوم الوزن/COD). الفرق بين الرقمين هو ما تتحمّله من رسوم لا تُحصّلها.'],
-      daily:['الأداء اليومي','آخر 7 أيام تحتوي على بيانات ضمن الفترة. العمودان لكل يوم: صافي الربح والإيراد؛ والخط: عدد الطلبات في ذلك اليوم.'],
+      daily:['الأداء اليومي','آخر 7 أيام تحتوي على بيانات ضمن الفترة. الأعمدة تعرض الإيراد والأرباح لكل يوم؛ والخط يعرض عدد الطلبات.'],
       carriers:['شركات الشحن','صافي الربح الفعلي لكل شركة شحن من تقارير ليد للفترة. القيمة المعروضة بجانب كل شركة هي ربحها بالريال (قد يكون سالبًا في بعض الفترات).'],
       merchants:['أفضل العملاء','أعلى 5 عملاء حسب الربح الفعلي من تقارير ليد، مع عدد شحناتهم. التسعير الخاص لكل عميل محتسب تلقائيًا في أرقام ليد.'],
       cities:['أفضل المدن','أعلى 5 مدن حسب عدد الشحنات الفعلي. (ليد لا تنشر الربح على مستوى المدينة، لذلك نعرض عدد الشحنات وهو رقم فعلي.)'],
