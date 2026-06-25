@@ -45,7 +45,7 @@
     .hero-title h1{font-size:21px;font-weight:800;}
     .hero-title p{margin:2px 0 0;color:var(--muted);font-size:13px;}
     .nav{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;}
-    .period-under{color:var(--muted);font-size:12px;line-height:1.2;min-width:118px;}
+    .period-under{height:26px;display:inline-flex;align-items:center;color:var(--muted);font-size:11px;line-height:1.2;padding:0 8px;border-radius:999px;background:var(--card-2);border:1px solid var(--border);}
     .hero-left{margin-inline-start:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .hero-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .badge{height:var(--control);display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;
@@ -163,8 +163,8 @@
         <p id="viewSub">نظرة عامة على أداء الأعمال</p>
         <nav class="nav" aria-label="روابط اللوحة">
           <button class="tab" data-view="dashboard">لوحة البيانات</button>
-          <span class="tab period-under num hidden" id="periodBadge">—</span>
           <button class="tab" data-view="pricing">الأسعار</button>
+          <span class="period-under num hidden" id="periodBadge">—</span>
         </nav>
       </div>
       <div class="hero-left">
