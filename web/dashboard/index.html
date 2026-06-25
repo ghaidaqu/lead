@@ -367,10 +367,13 @@
     window.addEventListener('resize',resizeCharts);
     window.addEventListener('orientationchange',()=>setTimeout(resizeCharts,250));
     function renderDailyChart(d){
-      const daily=(d.daily||[]).slice(-7),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
-      draw('dailyChart',{data:{labels:daily.map(([x])=>mmdd(x)),datasets:[
-        {type:'bar',label:'الإيراد',data:daily.map(([x])=>Number(revMap[x]||0)),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:7,barPercentage:.70,categoryPercentage:.58,order:2},
-        {type:'line',label:'عدد الطلبات',data:daily.map(([x])=>Number(cntMap[x]||0)),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.32,pointRadius:3.5,pointHoverRadius:5.5,borderWidth:2.4,order:1}]},
+      const profitSeries=d.daily_profit||[];
+      const dailyKeys=[...new Set([...(d.daily||[]).map(([x])=>x),...profitSeries.map(([x])=>x),...(d.daily_revenue||[]).map(([x])=>x),...(d.daily_count||[]).map(([x])=>x)])].sort().slice(-7);
+      const profitMap=Object.fromEntries(profitSeries),revMap=Object.fromEntries(d.daily_revenue||[]),cntMap=Object.fromEntries(d.daily_count||[]);
+      draw('dailyChart',{data:{labels:dailyKeys.map(mmdd),datasets:[
+        {type:'bar',label:'الإيراد',data:dailyKeys.map(x=>Number(revMap[x]||0)),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:7,barPercentage:.70,categoryPercentage:.58,order:3},
+        {type:'bar',label:'الأرباح',data:dailyKeys.map(x=>Number(profitMap[x]||0)),backgroundColor:'#22C55E',yAxisID:'money',borderRadius:7,barPercentage:.38,categoryPercentage:.58,order:2},
+        {type:'line',label:'عدد الطلبات',data:dailyKeys.map(x=>Number(cntMap[x]||0)),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.32,pointRadius:3.5,pointHoverRadius:5.5,borderWidth:2.4,order:1}]},
         options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:30,bottom:8,left:10,right:10}},interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',align:'center',labels:{usePointStyle:true,color:cssvar('--muted'),boxWidth:9,boxHeight:9,padding:14}}},
         scales:{money:{position:'right',beginAtZero:true,grid:{color:cssvar('--grid')},ticks:{color:cssvar('--muted')}},
         count:{position:'left',beginAtZero:true,grid:{display:false},ticks:{color:cssvar('--muted'),precision:0}},
