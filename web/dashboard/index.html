@@ -44,9 +44,8 @@
       border:0;background:transparent;box-shadow:none;border-radius:0;}
     .hero-title h1{font-size:21px;font-weight:800;}
     .hero-title p{margin:2px 0 0;color:var(--muted);font-size:13px;}
-    .nav{display:flex;gap:8px;margin-inline-start:8px;align-items:flex-start;}
-    .nav-item{display:grid;gap:4px;justify-items:center;}
-    .period-under{color:var(--muted);font-size:11px;line-height:1.2;min-height:13px;}
+    .nav{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;}
+    .period-under{color:var(--muted);font-size:12px;line-height:1.2;min-width:118px;}
     .hero-left{margin-inline-start:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .hero-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .badge{height:var(--control);display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;
@@ -162,14 +161,12 @@
       <div class="hero-title">
         <h1 id="viewTitle">لوحة التحكم المالية</h1>
         <p id="viewSub">نظرة عامة على أداء الأعمال</p>
-      </div>
-      <nav class="nav">
-        <span class="nav-item">
+        <nav class="nav" aria-label="روابط اللوحة">
           <button class="tab" data-view="dashboard">لوحة البيانات</button>
-          <span class="period-under num hidden" id="periodBadge">—</span>
-        </span>
-        <button class="tab" data-view="pricing">الأسعار</button>
-      </nav>
+          <span class="tab period-under num hidden" id="periodBadge">—</span>
+          <button class="tab" data-view="pricing">الأسعار</button>
+        </nav>
+      </div>
       <div class="hero-left">
         <div class="hero-tools">
           <a class="link" id="reportLink" href="/report.xlsx?preset=month">تحميل Excel</a>
