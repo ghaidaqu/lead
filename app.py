@@ -135,7 +135,7 @@ def get_daily_actual_profit(date_from, date_to):
     try:
         with db_store.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """SELECT shipment_date::date day,
+                """SELECT shipment_date::date AS shipment_day,
                           COALESCE(sum(actual_profit), 0) AS profit
                    FROM shipments
                    WHERE shipment_date >= %s AND shipment_date <= %s
@@ -146,7 +146,7 @@ def get_daily_actual_profit(date_from, date_to):
             rows = cur.fetchall()
     except Exception:
         return []
-    return [[r["day"].isoformat(), round(float(r["profit"] or 0), 2)] for r in rows]
+    return [[r["shipment_day"].isoformat(), round(float(r["profit"] or 0), 2)] for r in rows]
 
 
 def _auth_enabled() -> bool:
