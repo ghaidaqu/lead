@@ -10,6 +10,7 @@ if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
 from scripts.db_store import fetch_dashboard_rows, get_conn
+from scripts.bank_statement import summarize_bank_statement
 
 
 OUT_DIR = Path(__file__).resolve().parent
@@ -138,7 +139,7 @@ def load_data_from_db(date_from=None, date_to=None):
         "other_net": 0.0,
         "other": {"count": 0, "total": 0.0},
     }
-    statement = {"summary": {}, "rows": []}
+    statement = summarize_bank_statement(date_from, date_to)
     return_items = []
     total_customer_shipping = 0.0
 

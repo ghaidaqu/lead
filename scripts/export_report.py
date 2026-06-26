@@ -12,6 +12,8 @@ from typing import Any
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
+from scripts.bank_statement import filtered_bank_transfer_fees, summarize_bank_statement
+
 SHIPMENT_COLUMNS = [
     ("order_id", "رقم الطلب"),
     ("merchant_name", "التاجر"),
@@ -113,10 +115,13 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
     summary.append(["عدد الشحنات", len(rows)])
     summary.append(["إجمالي الربح", round(total, 2)])
     summary.append(["المحتسبة في الربح", sum(1 for r in rows if r.get("included_in_profit"))])
+    bank_statement = summarize_bank_statement(date_from, date_to)
+    summary.append(["رسوم الحوالات البنكية", bank_statement["summary"]["transfer_fees_total"]])
     _style_header(summary)
 
     _append_raw_sheet(wb, "Raw_Wallet", WALLET_COLUMNS, wallet_rows)
     _append_raw_sheet(wb, "Raw_Payments", PAYMENT_COLUMNS, payment_rows)
+    _append_bank_fees_sheet(wb, filtered_bank_transfer_fees(date_from, date_to))
 
     buffer = io.BytesIO()
     wb.save(buffer)
@@ -141,6 +146,15 @@ def _append_raw_sheet(wb: Workbook, title: str, columns: list[tuple[str, str]], 
     ws.append([label for _, label in columns])
     for row in rows:
         ws.append([_fmt(row.get(col)) for col, _ in columns])
+    _style_header(ws)
+
+
+def _append_bank_fees_sheet(wb: Workbook, rows: list[dict[str, Any]]) -> None:
+    ws = wb.create_sheet("Bank_Transfer_Fees")
+    ws.sheet_view.rightToLeft = True
+    ws.append(["التاريخ", "نوع المصروف", "المبلغ", "المصدر"])
+    for row in rows:
+        ws.append([row["date"], row["expense_type"], row["amount"], row["source"]])
     _style_header(ws)
 
 
