@@ -32,6 +32,10 @@ SHIPMENT_COLUMNS = [
     ("extra_profit", "ربح الوزن الزائد"),
     ("cod_profit", "ربح COD"),
     ("total_profit", "إجمالي الربح"),
+    ("actual_revenue", "الإيراد الفعلي"),
+    ("actual_base_cost", "التكلفة الأساسية الفعلية"),
+    ("actual_extra_cost", "رسوم وزن/COD الفعلية"),
+    ("actual_profit", "صافي الربح الفعلي"),
     ("included_in_profit", "محتسب"),
 ]
 
@@ -104,7 +108,7 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
     total = 0.0
     for row in rows:
         ws.append([_fmt(row.get(col)) for col, _ in SHIPMENT_COLUMNS])
-        total += float(row.get("total_profit") or 0)
+        total += float(row.get("actual_profit") or 0)
     _style_header(ws)
 
     summary = wb.create_sheet("الملخص")
@@ -113,7 +117,7 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
     summary.append(["الفترة من", date_from.isoformat() if date_from else ""])
     summary.append(["الفترة إلى", date_to.isoformat() if date_to else ""])
     summary.append(["عدد الشحنات", len(rows)])
-    summary.append(["إجمالي الربح", round(total, 2)])
+    summary.append(["صافي الربح الفعلي", round(total, 2)])
     summary.append(["المحتسبة في الربح", sum(1 for r in rows if r.get("included_in_profit"))])
     bank_statement = summarize_bank_statement(date_from, date_to)
     summary.append(["رسوم الحوالات البنكية", bank_statement["summary"]["transfer_fees_total"]])

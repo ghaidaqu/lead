@@ -94,10 +94,9 @@ def get_lead_reports(date_from, date_to, preset=None):
 
 def get_actuals(date_from, date_to):
     """Per-shipment TRUE profit for the range, aggregated from the stored actuals.
-    True profit = Policy charge - (Base Cost + Over + COD), i.e. it subtracts the
-    over-weight/COD fees Lead pays نفوذ but never bills merchants. Also returns the
-    reports.php-style profit (charge - Base) and the absorbed fees, so the dashboard
-    can show both the headline number and the leakage."""
+    True profit = customer revenue after the applicable VAT treatment minus Lead's
+    net platform cost, including overweight/COD fees paid to the platform. Merchants
+    with wallet VAT deductions keep gross revenue because VAT was deducted separately."""
     if db_store is None or not db_store.db_enabled():
         return None
     start = date_from.isoformat() if date_from else "2026-02-01"

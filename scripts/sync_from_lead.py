@@ -545,7 +545,33 @@ def normalize_headers(row: list[str]) -> list[str]:
     return [norm(v) for v in row]
 
 
-def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None) -> dict[str, Any]:
+def _net_of_vat(amount: float, vat_rate: float) -> float:
+    return round(amount / (1 + vat_rate), 2) if vat_rate > -1 else round(amount, 2)
+
+
+def wallet_vat_customers(wallet_rows: list[list[Any]]) -> set[str]:
+    customers: set[str] = set()
+    for row in wallet_rows:
+        customer = norm(row[2]) if len(row) > 2 else ""
+        tx_type = norm(row[3]) if len(row) > 3 else ""
+        desc = norm(row[5]) if len(row) > 5 else ""
+        if not customer:
+            continue
+        is_vat_recharge = (
+            "ضريبة القيمة المضافة" in desc
+            and "شحن رصيد" in desc
+            and "مرفوض" not in desc
+            and "اضافة رصيد" not in desc
+            and ("خصم" in desc or tx_type == "admin_deduction")
+        )
+        if is_vat_recharge:
+            customers.add(customer)
+    return customers
+
+
+def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
+                    gross_revenue_customers: set[str] | None = None,
+                    vat_rate: float = 0.15) -> dict[str, Any]:
     record = {
         "order_id": norm(row[0]) if len(row) > 0 else "",
         "tracking_number": norm(row[1]) if len(row) > 1 else "",
@@ -564,39 +590,35 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None) -> dict
         "source_row": None,
         "source_hash": norm(row[0]) if row else "",
     }
-    # Per-shipment ACTUALS — Lead's real economics (no price sheet).
-    # Billed shipments take Base Cost from the invoice (exact); the current
-    # (un-invoiced) cycle is computed from Lead's LIVE carrier prices
-    # (shipping-companies.php -> carriers.platform_gross).
-    # REALIZED basis — reconciles to reports.php صافي الأرباح exactly:
-    #   profit = charge(Policy Price) - Base Cost, over realized shipments only
-    #   (revenue is the charge; Over Fee / COD Fixed are NOT in Lead's profit).
-    # Realized excludes cancelled (ملغي), draft (مسودة) and returned (مرتجع).
-    # Lead's TRUE cost = what Lead pays نفوذ = Base Cost + Over Fee + COD Fixed.
-    # Merchants are billed only the Policy Price (verified: over/COD never appear on
-    # a merchant's wallet), so the over+COD are absorbed by Lead. We keep base_cost
-    # and extra_cost separate so the dashboard can show real profit AND the leakage.
-    #   true profit = charge(Policy) - (base_cost + extra_cost)
+    # Per-shipment ACTUALS — Lead's real economics.
+    # Revenue is net of VAT unless the merchant has wallet VAT deductions for
+    # balance recharge; those merchants' shipping charge is kept gross because
+    # Lead already deducted the VAT separately from their wallet. Platform cost
+    # is always stored net of VAT.
     from scripts import pricing as _pr
     realized_excluded = _pr.EXCLUDED_STATUSES + ("مرتجع",)
     charge = record["shipping_charge"]
     weight = record["weight"]
     realized = record["status"] not in realized_excluded
     is_cod = "COD" in record["payment_type"]
+    gross_revenue_customers = gross_revenue_customers or set()
+    customer_revenue = charge if record["merchant_name"] in gross_revenue_customers else _net_of_vat(charge, vat_rate)
     inv = (invoice_costs or {}).get(record["order_id"])
     if inv:
-        base_cost = inv["base_cost"]
-        extra_cost = round(inv["over_fee"] + inv["cod_fixed"], 2)
+        base_cost = _net_of_vat(inv["base_cost"], vat_rate)
+        extra_cost = _net_of_vat(inv["over_fee"] + inv["cod_fixed"], vat_rate)
         cost_source = "invoice"
     else:
         carrier_key = _pr.CARRIER_ALIASES.get(record["carrier"], record["carrier"])
         carrier = (snap.carriers.get(carrier_key) if snap else None) or {}
+        platform_net = _pr.money(carrier.get("platform_net"))
         platform_gross = _pr.money(carrier.get("platform_gross"))
-        if platform_gross:
-            base_cost = platform_gross  # flat carrier rate (overweight is NOT in base)
+        if platform_net or platform_gross:
+            base_cost = platform_net or _net_of_vat(platform_gross, vat_rate)
             # current un-invoiced cycle: included weight is 10 kg and the over rate
-            # Lead pays نفوذ is 2/kg, COD is 3/order (all observed in the invoices).
-            extra_cost = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
+            # Lead pays نفوذ is 2/kg, COD is 3/order; both are stored net of VAT.
+            extra_gross = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
+            extra_cost = _net_of_vat(extra_gross, vat_rate)
             cost_source = "computed"
         else:
             base_cost = extra_cost = 0.0
@@ -606,8 +628,8 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None) -> dict
     record.update({
         "actual_base_cost": round(base_cost, 2),
         "actual_extra_cost": extra_cost if counted else 0.0,
-        "actual_revenue": round(charge, 2) if counted else 0.0,
-        "actual_profit": round(charge - total_cost, 2) if counted else 0.0,
+        "actual_revenue": round(customer_revenue, 2) if counted else 0.0,
+        "actual_profit": round(customer_revenue - total_cost, 2) if counted else 0.0,
         "cost_source": cost_source,
         "included_in_profit": realized,
     })
@@ -1215,7 +1237,12 @@ def main() -> int:
                         print(f"[sync] invoice cost collection skipped: {inv_exc}", file=sys.stderr)
                     invoiced_n = sum(1 for r in ship_rows[1:] if norm(r[0]) in invoice_costs)
                     print(f"[sync] invoice costs: {len(invoice_costs)} billed shipments, {invoiced_n} match this scrape", file=sys.stderr)
-                    shipments_payload = [shipment_record(row, snapshot, invoice_costs) for row in ship_rows[1:]]
+                    gross_revenue_customers = wallet_vat_customers(wallet_rows[1:])
+                    print(f"[sync] wallet VAT customers: {len(gross_revenue_customers)}", file=sys.stderr)
+                    shipments_payload = [
+                        shipment_record(row, snapshot, invoice_costs, gross_revenue_customers, carrier_vat_rate)
+                        for row in ship_rows[1:]
+                    ]
                     wallet_payload = [wallet_record(row, "wallet.php", "transaction") for row in wallet_rows[1:]]
                     payments_payload = [payment_record(row) for row in wallet_rows[1:]]
                     cod_payload = [cod_record(row) for row in cod_rows[1:]]
