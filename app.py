@@ -95,8 +95,8 @@ def get_lead_reports(date_from, date_to, preset=None):
 def get_actuals(date_from, date_to):
     """Per-shipment TRUE profit for the range, aggregated from the stored actuals.
     True profit keeps the original shipment formula (charge minus base/over/COD
-    cost), then applies the stored VAT agreement to customer revenue and stores
-    platform costs net of VAT."""
+    cost), then keeps customer revenue gross only for merchants with wallet VAT
+    deductions and stores platform costs net of VAT."""
     if db_store is None or not db_store.db_enabled():
         return None
     start = date_from.isoformat() if date_from else "2026-02-01"

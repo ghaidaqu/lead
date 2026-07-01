@@ -623,7 +623,7 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
     realized = record["status"] not in realized_excluded
     is_cod = "COD" in record["payment_type"]
     tax_agreement_customers = tax_agreement_customers or set()
-    customer_revenue = _net_of_vat(charge, vat_rate) if record["merchant_name"] in tax_agreement_customers else charge
+    customer_revenue = charge if record["merchant_name"] in tax_agreement_customers else _net_of_vat(charge, vat_rate)
     inv = (invoice_costs or {}).get(record["order_id"])
     if inv:
         base_cost_gross = inv["base_cost"]
