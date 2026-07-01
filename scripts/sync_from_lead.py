@@ -551,24 +551,60 @@ def _net_of_vat(amount: float, vat_rate: float) -> float:
     return round(amount / (1 + vat_rate), 2) if vat_rate > -1 else round(amount, 2)
 
 
-def wallet_tax_agreement_customers(wallet_rows: list[list[Any]]) -> set[str]:
+def _wallet_numeric_key(row: list[Any]) -> int | None:
+    match = re.search(r"\d+", norm(row[0]) if row else "")
+    return int(match.group()) if match else None
+
+
+def _wallet_vat_base(desc: str) -> float | None:
+    match = re.search(r"\(([^)]*)\)", desc)
+    if not match:
+        return None
+    value = money(match.group(1))
+    return value if value else None
+
+
+def _clear_wallet_vat_customers(wallet_rows: list[list[Any]]) -> set[str]:
+    deposits_by_customer: dict[str, list[tuple[int, float]]] = {}
+    for row in wallet_rows:
+        customer = norm(row[2]) if len(row) > 2 else ""
+        tx_type = norm(row[3]) if len(row) > 3 else ""
+        key = _wallet_numeric_key(row)
+        amount = money(row[4]) if len(row) > 4 else 0.0
+        if customer and key is not None and tx_type == "إيداع" and amount > 0:
+            deposits_by_customer.setdefault(customer, []).append((key, amount))
+
     customers: set[str] = set()
     for row in wallet_rows:
         customer = norm(row[2]) if len(row) > 2 else ""
         tx_type = norm(row[3]) if len(row) > 3 else ""
         desc = norm(row[5]) if len(row) > 5 else ""
-        if not customer:
+        key = _wallet_numeric_key(row)
+        amount = money(row[4]) if len(row) > 4 else 0.0
+        base = _wallet_vat_base(desc)
+        if not customer or key is None or base is None:
             continue
-        is_vat_recharge = (
-            "ضريبة القيمة المضافة" in desc
-            and "شحن رصيد" in desc
+        is_clear_vat_deduction = (
+            tx_type == "admin_deduction"
+            and "خصم ضريبة القيمة المضافة عن شحن رصيد" in desc
             and "مرفوض" not in desc
             and "اضافة رصيد" not in desc
-            and ("خصم" in desc or tx_type == "admin_deduction")
+            and "تكرار" not in desc
         )
-        if is_vat_recharge:
+        if not is_clear_vat_deduction:
+            continue
+        expected_deposit = round(base + amount, 2)
+        linked_deposit = any(
+            abs(deposit_amount - expected_deposit) <= 0.05 and (key - 2) <= deposit_key <= (key + 1)
+            for deposit_key, deposit_amount in deposits_by_customer.get(customer, [])
+        )
+        if linked_deposit:
             customers.add(customer)
     return customers
+
+
+def wallet_tax_agreement_customers(wallet_rows: list[list[Any]]) -> set[str]:
+    return _clear_wallet_vat_customers(wallet_rows)
 
 
 def stored_wallet_tax_agreement_customers(conn) -> set[str]:
@@ -576,16 +612,30 @@ def stored_wallet_tax_agreement_customers(conn) -> set[str]:
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """SELECT DISTINCT user_name
+                """SELECT transaction_key, transaction_date, user_name, transaction_type, amount, description
                    FROM wallet_transactions
                    WHERE user_name <> 'user_name'
-                     AND description ILIKE '%ضريبة القيمة المضافة%'
-                     AND description ILIKE '%شحن رصيد%'
-                     AND description NOT ILIKE '%مرفوض%'
-                     AND description NOT ILIKE '%اضافة رصيد%'"""
+                     AND (
+                        transaction_type = 'إيداع'
+                        OR (
+                            transaction_type = 'admin_deduction'
+                            AND position('ضريبة القيمة المضافة' in coalesce(description, '')) > 0
+                            AND position('شحن رصيد' in coalesce(description, '')) > 0
+                        )
+                     )
+                   ORDER BY transaction_date NULLS LAST, transaction_key"""
             )
+            rows = []
             for row in cur.fetchall():
-                customers.add(norm(row["user_name"]))
+                rows.append([
+                    row["transaction_key"],
+                    row["transaction_date"],
+                    row["user_name"],
+                    row["transaction_type"],
+                    row["amount"],
+                    row["description"],
+                ])
+            customers.update(_clear_wallet_vat_customers(rows))
     except Exception as exc:
         print(f"[sync] stored wallet VAT customers skipped: {exc}", file=sys.stderr)
     return {c for c in customers if c}
