@@ -549,7 +549,7 @@ def _net_of_vat(amount: float, vat_rate: float) -> float:
     return round(amount / (1 + vat_rate), 2) if vat_rate > -1 else round(amount, 2)
 
 
-def wallet_vat_customers(wallet_rows: list[list[Any]]) -> set[str]:
+def wallet_tax_agreement_customers(wallet_rows: list[list[Any]]) -> set[str]:
     customers: set[str] = set()
     for row in wallet_rows:
         customer = norm(row[2]) if len(row) > 2 else ""
@@ -569,7 +569,7 @@ def wallet_vat_customers(wallet_rows: list[list[Any]]) -> set[str]:
     return customers
 
 
-def stored_wallet_vat_customers(conn) -> set[str]:
+def stored_wallet_tax_agreement_customers(conn) -> set[str]:
     customers: set[str] = set()
     try:
         with conn.cursor() as cur:
@@ -590,7 +590,7 @@ def stored_wallet_vat_customers(conn) -> set[str]:
 
 
 def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
-                    gross_revenue_customers: set[str] | None = None,
+                    tax_agreement_customers: set[str] | None = None,
                     vat_rate: float = 0.15) -> dict[str, Any]:
     record = {
         "order_id": norm(row[0]) if len(row) > 0 else "",
@@ -611,18 +611,18 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         "source_hash": norm(row[0]) if row else "",
     }
     # Per-shipment ACTUALS — Lead's real economics.
-    # Revenue is net of VAT unless the merchant has wallet VAT deductions for
-    # balance recharge; those merchants' shipping charge is kept gross because
-    # Lead already deducted the VAT separately from their wallet. Platform cost
-    # is always stored net of VAT.
+    # Revenue follows the merchant's stored tax agreement:
+    #   has_tax_agreement=True  -> customer charge net of VAT
+    #   has_tax_agreement=False -> full customer charge
+    # Platform cost is always stored net of VAT.
     from scripts import pricing as _pr
     realized_excluded = _pr.EXCLUDED_STATUSES + ("مرتجع",)
     charge = record["shipping_charge"]
     weight = record["weight"]
     realized = record["status"] not in realized_excluded
     is_cod = "COD" in record["payment_type"]
-    gross_revenue_customers = gross_revenue_customers or set()
-    customer_revenue = charge if record["merchant_name"] in gross_revenue_customers else _net_of_vat(charge, vat_rate)
+    tax_agreement_customers = tax_agreement_customers or set()
+    customer_revenue = _net_of_vat(charge, vat_rate) if record["merchant_name"] in tax_agreement_customers else charge
     inv = (invoice_costs or {}).get(record["order_id"])
     if inv:
         base_cost = _net_of_vat(inv["base_cost"], vat_rate)
@@ -1257,11 +1257,14 @@ def main() -> int:
                         print(f"[sync] invoice cost collection skipped: {inv_exc}", file=sys.stderr)
                     invoiced_n = sum(1 for r in ship_rows[1:] if norm(r[0]) in invoice_costs)
                     print(f"[sync] invoice costs: {len(invoice_costs)} billed shipments, {invoiced_n} match this scrape", file=sys.stderr)
-                    gross_revenue_customers = wallet_vat_customers(wallet_rows[1:])
-                    gross_revenue_customers.update(stored_wallet_vat_customers(conn))
-                    print(f"[sync] wallet VAT customers: {len(gross_revenue_customers)}", file=sys.stderr)
+                    detected_tax_agreements = wallet_tax_agreement_customers(wallet_rows[1:])
+                    detected_tax_agreements.update(stored_wallet_tax_agreement_customers(conn))
+                    if detected_tax_agreements:
+                        db_module.upsert_customer_tax_agreements(conn, sorted(detected_tax_agreements))
+                    tax_agreement_customers = db_module.load_customer_tax_agreements(conn)
+                    print(f"[sync] customer tax agreements: {len(tax_agreement_customers)}", file=sys.stderr)
                     shipments_payload = [
-                        shipment_record(row, snapshot, invoice_costs, gross_revenue_customers, carrier_vat_rate)
+                        shipment_record(row, snapshot, invoice_costs, tax_agreement_customers, carrier_vat_rate)
                         for row in ship_rows[1:]
                     ]
                     wallet_payload = [wallet_record(row, "wallet.php", "transaction") for row in wallet_rows[1:]]

@@ -94,9 +94,8 @@ def get_lead_reports(date_from, date_to, preset=None):
 
 def get_actuals(date_from, date_to):
     """Per-shipment TRUE profit for the range, aggregated from the stored actuals.
-    True profit = customer revenue after the applicable VAT treatment minus Lead's
-    net platform cost, including overweight/COD fees paid to the platform. Merchants
-    with wallet VAT deductions keep gross revenue because VAT was deducted separately."""
+    True profit = customer revenue after the stored tax-agreement treatment minus
+    Lead's net platform cost, including overweight/COD fees paid to the platform."""
     if db_store is None or not db_store.db_enabled():
         return None
     start = date_from.isoformat() if date_from else "2026-02-01"

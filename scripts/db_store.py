@@ -183,6 +183,15 @@ CREATE TABLE IF NOT EXISTS price_rules (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS customer_tax_agreements (
+    merchant_name TEXT PRIMARY KEY,
+    has_tax_agreement BOOLEAN NOT NULL DEFAULT FALSE,
+    source TEXT,
+    raw_payload JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS carriers (
     id BIGSERIAL PRIMARY KEY,
     carrier_name TEXT NOT NULL UNIQUE,
@@ -219,6 +228,14 @@ def ensure_schema(conn) -> None:
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS actual_profit NUMERIC(12,2)",
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS cost_source TEXT",
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS actual_extra_cost NUMERIC(12,2)",
+            """CREATE TABLE IF NOT EXISTS customer_tax_agreements (
+                merchant_name TEXT PRIMARY KEY,
+                has_tax_agreement BOOLEAN NOT NULL DEFAULT FALSE,
+                source TEXT,
+                raw_payload JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
             # The manual price sheet is retired — profit comes from Lead's actuals.
             "DROP TABLE IF EXISTS merchant_overrides",
         ):
@@ -405,6 +422,34 @@ def set_setting(conn, key: str, value: str | None) -> None:
             """,
             (key, value),
         )
+
+
+def upsert_customer_tax_agreements(conn, merchant_names: list[str], source: str = "wallet_vat_deduction") -> tuple[int, int]:
+    payload = [
+        {"merchant_name": name.strip(), "has_tax_agreement": True, "source": source, "raw_payload": None}
+        for name in merchant_names
+        if name and name.strip()
+    ]
+    if not payload:
+        return 0, 0
+    return upsert_rows(
+        conn,
+        "customer_tax_agreements",
+        payload,
+        ["merchant_name"],
+        ["has_tax_agreement", "source", "raw_payload"],
+    )
+
+
+def load_customer_tax_agreements(conn) -> set[str]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT merchant_name
+               FROM customer_tax_agreements
+               WHERE has_tax_agreement IS TRUE"""
+        )
+        return {str(r["merchant_name"]).strip() for r in cur.fetchall() if r["merchant_name"]}
+
 
 _PRICE_COLUMNS = ("customer_gross", "customer_net", "platform_gross", "platform_net")
 
