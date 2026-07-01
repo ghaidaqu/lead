@@ -137,6 +137,7 @@ def load_data_from_db(date_from=None, date_to=None):
         "shipping_return": {"count": 0, "total": 0.0},
         "tax_deduction": {"count": 0, "total": 0.0},
         "shipping_refund": {"count": 0, "total": 0.0},
+        "compensation": {"count": 0, "total": 0.0},
         "other_net": 0.0,
         "other": {"count": 0, "total": 0.0},
         "bank_pending_skipped": {"count": 0, "total": 0.0},
@@ -246,7 +247,7 @@ def load_data_from_db(date_from=None, date_to=None):
         note = clean(_row_value(raw, 5))
         amount = money(_row_value(raw, 4))
         if typ == "إيداع":
-            key = "bank" if "تحويل بنكي" in note else "moyasar" if "Moyasar" in note else "other"
+            key = "bank" if "تحويل بنكي" in note else "moyasar" if "Moyasar" in note else "compensation" if "تعويض" in note else "other"
             if key == "bank":
                 tx_key = clean(row.get("transaction_key") or _row_value(raw, 0))
                 recharge_status = recharge_status_by_key.get(tx_key)
@@ -309,8 +310,8 @@ def load_data_from_db(date_from=None, date_to=None):
                 # net only, never in the deposit buckets.
                 finance["other_net"] += amount
 
-    # Total deposits = every إيداع (bank + Moyasar + other), matching the site's
-    # "إجمالي الإيداعات". Shipping charges are excluded.
+    # Total deposits = customer-funded deposits only. Administrative compensation
+    # is tracked separately because it is a settlement, not normal wallet funding.
     finance["total"] = finance["bank"]["total"] + finance["moyasar"]["total"] + finance["other"]["total"]
     top_merchants = sorted(by_merchant.items(), key=lambda kv: kv[1]["total"], reverse=True)[:5]
     top_cities = sorted(by_city.items(), key=lambda kv: kv[1]["total"], reverse=True)[:5]
