@@ -105,6 +105,7 @@ def load_data_from_db(date_from=None, date_to=None):
 
     shipment_rows = payload["shipments"]
     wallet_rows = payload["wallet"]
+    pending_recharge_rows = payload.get("pending_recharges", [])
     cod_rows_db = payload["cod"]
 
     # Real collection/transfer dates come from the cod_collections table
@@ -138,10 +139,16 @@ def load_data_from_db(date_from=None, date_to=None):
         "shipping_refund": {"count": 0, "total": 0.0},
         "other_net": 0.0,
         "other": {"count": 0, "total": 0.0},
+        "bank_pending_skipped": {"count": 0, "total": 0.0},
     }
     statement = summarize_bank_statement(date_from, date_to)
     return_items = []
     total_customer_shipping = 0.0
+    recharge_status_by_key = {
+        clean(row.get("recharge_key")): clean(row.get("status"))
+        for row in pending_recharge_rows
+        if clean(row.get("recharge_key"))
+    }
 
     for row in shipment_rows:
         raw = row.get("raw_payload") or []
@@ -240,6 +247,13 @@ def load_data_from_db(date_from=None, date_to=None):
         amount = money(_row_value(raw, 4))
         if typ == "إيداع":
             key = "bank" if "تحويل بنكي" in note else "moyasar" if "Moyasar" in note else "other"
+            if key == "bank":
+                tx_key = clean(row.get("transaction_key") or _row_value(raw, 0))
+                recharge_status = recharge_status_by_key.get(tx_key)
+                if recharge_status and recharge_status != "موافق عليه":
+                    finance["bank_pending_skipped"]["count"] += 1
+                    finance["bank_pending_skipped"]["total"] += amount
+                    continue
             finance[key]["count"] += 1
             finance[key]["total"] += amount
         else:

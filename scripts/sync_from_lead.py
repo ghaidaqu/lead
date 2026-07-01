@@ -393,6 +393,7 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
                 "sync-status.php": http_get(opener, f"{base}/admin/sync-status.php"),
                 "shipping-companies.php": safe_http_get(opener, f"{base}/admin/shipping-companies.php"),
                 "reports.php": safe_http_get(opener, f"{base}/admin/reports.php"),
+                "pending-recharges.php": safe_http_get(opener, f"{base}/admin/pending-recharges.php"),
             }
             logs.append({"kind": "session", "source": "saved_state", "used": True})
             return {
@@ -507,6 +508,7 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
         "sync-status.php": http_get(opener, f"{base}/admin/sync-status.php"),
         "shipping-companies.php": safe_http_get(opener, f"{base}/admin/shipping-companies.php"),
                 "reports.php": safe_http_get(opener, f"{base}/admin/reports.php"),
+        "pending-recharges.php": safe_http_get(opener, f"{base}/admin/pending-recharges.php"),
     }
     logs.append({"kind": "request", "url": f"{base}/admin/sync-status.php"})
     return {
@@ -698,6 +700,19 @@ def payment_record(row: list[list[Any]]) -> dict[str, Any]:
     }
 
 
+def pending_recharge_record(row: list[list[Any]]) -> dict[str, Any]:
+    return {
+        "recharge_key": data_key(row, (0,)),
+        "customer_name": norm(row[1]) if len(row) > 1 else "",
+        "amount": money(row[2]) if len(row) > 2 else 0.0,
+        "reference": norm(row[3]) if len(row) > 3 else "",
+        "status": norm(row[4]) if len(row) > 4 else "",
+        "processed_by": norm(row[5]) if len(row) > 5 else "",
+        "request_date": parse_date_text(row[6]) if len(row) > 6 else None,
+        "raw_payload": row,
+    }
+
+
 def cod_record(row: list[list[Any]]) -> dict[str, Any]:
     # collect-cod.php has 5 columns: الشحنة | العميل | المبلغ | تاريخ التحصيل | تاريخ التحويل
     # (the order id is prefixed with '#', which we strip so it joins to shipments.order_id).
@@ -749,6 +764,16 @@ WALLET_SPEC = [
     ("amount", ["المبلغ"]),
     ("description", ["الوصف"]),
     ("tracking", ["رقم التتبع"]),
+]
+
+PENDING_RECHARGE_SPEC = [
+    ("id", ["الرقم"]),
+    ("customer", ["العميل"]),
+    ("amount", ["المبلغ"]),
+    ("reference", ["رقم المرجع", "المرجع"]),
+    ("status", ["الحالة"]),
+    ("processed_by", ["معالج بواسطة", "المعالج"]),
+    ("date", ["التاريخ"]),
 ]
 
 COD_SPEC = [
@@ -808,6 +833,14 @@ def extract_wallet(html: str) -> tuple[list[list[Any]], int, int]:
             tx_rows = remap_table([normalize_headers(r) for r in table], WALLET_SPEC)
             break
     return tx_rows, max(0, len(tx_rows) - 1), 0
+
+
+def extract_pending_recharges(html: str) -> list[list[Any]]:
+    for table in parse_tables(html):
+        joined = " ".join(normalize_headers(table[0])) if table else ""
+        if "رقم المرجع" in joined and "معالج بواسطة" in joined:
+            return remap_table([normalize_headers(r) for r in table], PENDING_RECHARGE_SPEC)
+    return []
 
 
 def extract_cod(html: str) -> list[list[Any]]:
@@ -1144,17 +1177,23 @@ def main() -> int:
         wallet_rows = window_scrape(opener, base_url, "wallet.php",
                                     lambda h: extract_wallet(h)[0],
                                     lambda r: data_key(r, (0,)), (1,))
+        pending_recharge_rows = window_scrape(opener, base_url, "pending-recharges.php",
+                                              extract_pending_recharges,
+                                              lambda r: data_key(r, (0,)), (6,))
     else:  # fallback: single-page fetch (e.g. opener unavailable)
         ship_rows = extract_shipments(payload["html"].get("shipments.php", ""))[0]
         wallet_rows = extract_wallet(payload["html"].get("wallet.php", ""))[0]
+        pending_recharge_rows = extract_pending_recharges(payload["html"].get("pending-recharges.php", ""))
     wallet_total = max(0, len(wallet_rows) - 1)
     payments_total = wallet_total
+    pending_recharge_total = max(0, len(pending_recharge_rows) - 1)
     cod_rows = extract_cod(payload["html"].get("collect-cod.php", ""))
 
     shipments_added = shipments_updated = shipments_dups = 0
     shipments_pruned = 0
     wallet_added = wallet_updated = wallet_dups = 0
     payments_added = payments_updated = payments_dups = 0
+    pending_recharge_added = pending_recharge_updated = pending_recharge_dups = 0
     cod_added = cod_updated = cod_dups = 0
 
     if ship_rows:
@@ -1163,6 +1202,11 @@ def main() -> int:
     if wallet_rows:
         wallet_rows = [wallet_rows[0]] + [row for row in wallet_rows[1:] if row_date_at_or_after(row, (1,), min_sync_date)]
         wallet_added = payments_added = len(wallet_rows) - 1
+    if pending_recharge_rows:
+        pending_recharge_rows = [pending_recharge_rows[0]] + [
+            row for row in pending_recharge_rows[1:] if row_date_at_or_after(row, (6,), min_sync_date)
+        ]
+        pending_recharge_added = len(pending_recharge_rows) - 1
     if cod_rows:
         # collect-cod.php lists only a small, current set of COD orders, so capture
         # all of them (no date filter) — this is what carries the real collection /
@@ -1269,6 +1313,7 @@ def main() -> int:
                     ]
                     wallet_payload = [wallet_record(row, "wallet.php", "transaction") for row in wallet_rows[1:]]
                     payments_payload = [payment_record(row) for row in wallet_rows[1:]]
+                    pending_recharge_payload = [pending_recharge_record(row) for row in pending_recharge_rows[1:]]
                     cod_payload = [cod_record(row) for row in cod_rows[1:]]
                     shipment_ins, shipment_upd = db_module.upsert_rows(conn, "shipments", shipments_payload, ["order_id"], [
                         "tracking_number", "merchant_name", "store_name", "customer_name", "city", "carrier", "payment_type",
@@ -1293,6 +1338,10 @@ def main() -> int:
                     payment_ins, payment_upd = db_module.upsert_rows(conn, "payments", payments_payload, ["payment_key"], [
                         "payment_date", "customer_name", "amount", "method", "status", "source_page", "raw_payload",
                     ])
+                    pending_recharge_ins, pending_recharge_upd = db_module.upsert_rows(conn, "pending_recharges", pending_recharge_payload, ["recharge_key"], [
+                        "request_date", "customer_name", "amount", "reference", "status", "processed_by", "raw_payload",
+                    ])
+                    pending_recharge_updated = pending_recharge_upd
                     cod_ins, cod_upd = db_module.upsert_rows(conn, "cod_collections", cod_payload, ["order_id"], [
                         "tracking_number", "merchant_name", "customer_name", "cod_amount", "collection_date",
                         "transfer_date", "settlement_status", "shipment_status", "raw_payload",
@@ -1302,18 +1351,18 @@ def main() -> int:
                         conn,
                         sync_run_id,
                         "ok",
-                        inserted=shipment_ins + wallet_ins + payment_ins + cod_ins,
-                        updated=shipment_upd + wallet_upd + payment_upd + cod_upd,
-                        skipped=shipments_dups + wallet_dups + payments_dups + cod_dups,
+                        inserted=shipment_ins + wallet_ins + payment_ins + pending_recharge_ins + cod_ins,
+                        updated=shipment_upd + wallet_upd + payment_upd + pending_recharge_upd + cod_upd,
+                        skipped=shipments_dups + wallet_dups + payments_dups + pending_recharge_dups + cod_dups,
                     )
                     db_report = {
                         "enabled": True,
                         "connected": True,
                         "synced": True,
                         "comparison": comparison,
-                        "db_rows_inserted": shipment_ins + wallet_ins + payment_ins + cod_ins,
-                        "db_rows_updated": shipment_upd + wallet_upd + payment_upd + cod_upd,
-                        "db_rows_skipped": shipments_dups + wallet_dups + payments_dups + cod_dups,
+                        "db_rows_inserted": shipment_ins + wallet_ins + payment_ins + pending_recharge_ins + cod_ins,
+                        "db_rows_updated": shipment_upd + wallet_upd + payment_upd + pending_recharge_upd + cod_upd,
+                        "db_rows_skipped": shipments_dups + wallet_dups + payments_dups + pending_recharge_dups + cod_dups,
                         "sync_run_id": sync_run_id,
                     }
             except Exception as exc:
@@ -1347,6 +1396,10 @@ def main() -> int:
         "payments_new": payments_added,
         "payments_updated": payments_updated,
         "payments_duplicates": payments_dups,
+        "pending_recharge_rows": pending_recharge_total,
+        "pending_recharge_new": pending_recharge_added,
+        "pending_recharge_updated": pending_recharge_updated,
+        "pending_recharge_duplicates": pending_recharge_dups,
         "cod_rows": max(0, len(cod_rows) - 1),
         "cod_new": cod_added,
         "cod_updated": cod_updated,

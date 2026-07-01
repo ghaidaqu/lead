@@ -131,6 +131,20 @@ CREATE TABLE IF NOT EXISTS payments (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS pending_recharges (
+    id BIGSERIAL PRIMARY KEY,
+    recharge_key TEXT NOT NULL UNIQUE,
+    request_date TIMESTAMPTZ,
+    customer_name TEXT,
+    amount NUMERIC(12,2),
+    reference TEXT,
+    status TEXT,
+    processed_by TEXT,
+    raw_payload JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS cod_collections (
     id BIGSERIAL PRIMARY KEY,
     order_id TEXT NOT NULL UNIQUE,
@@ -214,6 +228,8 @@ CREATE TABLE IF NOT EXISTS pricing_settings (
 CREATE INDEX IF NOT EXISTS idx_shipments_status_date ON shipments(status, shipment_date);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_date ON wallet_transactions(transaction_date);
 CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date);
+CREATE INDEX IF NOT EXISTS idx_pending_recharges_date ON pending_recharges(request_date);
+CREATE INDEX IF NOT EXISTS idx_pending_recharges_status ON pending_recharges(status);
 CREATE INDEX IF NOT EXISTS idx_cod_collections_dates ON cod_collections(collection_date, transfer_date);
 """
 
@@ -228,6 +244,21 @@ def ensure_schema(conn) -> None:
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS actual_profit NUMERIC(12,2)",
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS cost_source TEXT",
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS actual_extra_cost NUMERIC(12,2)",
+            """CREATE TABLE IF NOT EXISTS pending_recharges (
+                id BIGSERIAL PRIMARY KEY,
+                recharge_key TEXT NOT NULL UNIQUE,
+                request_date TIMESTAMPTZ,
+                customer_name TEXT,
+                amount NUMERIC(12,2),
+                reference TEXT,
+                status TEXT,
+                processed_by TEXT,
+                raw_payload JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_pending_recharges_date ON pending_recharges(request_date)",
+            "CREATE INDEX IF NOT EXISTS idx_pending_recharges_status ON pending_recharges(status)",
             """CREATE TABLE IF NOT EXISTS customer_tax_agreements (
                 merchant_name TEXT PRIMARY KEY,
                 has_tax_agreement BOOLEAN NOT NULL DEFAULT FALSE,
@@ -272,7 +303,19 @@ def compare_counts(conn) -> dict[str, Any]:
         payments = int(cur.fetchone()["count"])
         cur.execute("SELECT COUNT(*) AS count FROM cod_collections")
         cod = int(cur.fetchone()["count"])
-    return {"shipments": shipments, "wallet_transactions": wallet, "payments": payments, "cod_collections": cod}
+        cur.execute("SELECT to_regclass('public.pending_recharges') AS table_name")
+        if cur.fetchone()["table_name"]:
+            cur.execute("SELECT COUNT(*) AS count FROM pending_recharges")
+            pending_recharges = int(cur.fetchone()["count"])
+        else:
+            pending_recharges = 0
+    return {
+        "shipments": shipments,
+        "wallet_transactions": wallet,
+        "payments": payments,
+        "cod_collections": cod,
+        "pending_recharges": pending_recharges,
+    }
 
 
 def fetch_dashboard_rows(conn) -> dict[str, Any]:
@@ -336,6 +379,19 @@ def fetch_dashboard_rows(conn) -> dict[str, Any]:
         )
         payments = [dict(row) for row in cur.fetchall()]
 
+        cur.execute("SELECT to_regclass('public.pending_recharges') AS table_name")
+        if cur.fetchone()["table_name"]:
+            cur.execute(
+                """
+                SELECT recharge_key, request_date, customer_name, amount, reference, status, processed_by, raw_payload
+                FROM pending_recharges
+                ORDER BY request_date NULLS LAST, recharge_key
+                """
+            )
+            pending_recharges = [dict(row) for row in cur.fetchall()]
+        else:
+            pending_recharges = []
+
         cur.execute(
             """
             SELECT order_id, tracking_number, merchant_name, customer_name, cod_amount,
@@ -350,6 +406,7 @@ def fetch_dashboard_rows(conn) -> dict[str, Any]:
         "shipments": shipments,
         "wallet": wallet,
         "payments": payments,
+        "pending_recharges": pending_recharges,
         "cod": cod,
     }
 
