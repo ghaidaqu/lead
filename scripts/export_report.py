@@ -65,14 +65,32 @@ PAYMENT_COLUMNS = [
 
 _HEADER_FILL = PatternFill("solid", fgColor="7A2438")
 _HEADER_FONT = Font(color="FFFFFF", bold=True)
+_TOTAL_FONT = Font(bold=True)
+_TOTAL_COLUMNS = {"actual_revenue", "actual_base_cost", "actual_profit"}
 
 
 def _style_header(ws) -> None:
+    ws.row_dimensions[1].height = 28
     for cell in ws[1]:
         cell.fill = _HEADER_FILL
         cell.font = _HEADER_FONT
-        cell.alignment = Alignment(horizontal="center")
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     ws.freeze_panes = "A2"
+
+
+def _append_totals_row(ws, columns: list[tuple[str, str]], totals: dict[str, float]) -> None:
+    row = [""] * len(columns)
+    row[0] = "الإجمالي"
+    for idx, (column, _) in enumerate(columns):
+        if column in totals:
+            row[idx] = round(totals[column], 2)
+    ws.append(row)
+
+    total_row_idx = ws.max_row
+    ws.row_dimensions[total_row_idx].height = 22
+    for cell in ws[total_row_idx]:
+        cell.font = _TOTAL_FONT
+        cell.alignment = Alignment(horizontal="center", vertical="center")
 
 
 def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
@@ -105,10 +123,12 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
     ws.title = "الشحنات"
     ws.sheet_view.rightToLeft = True
     ws.append([label for _, label in SHIPMENT_COLUMNS])
-    total = 0.0
+    totals = {column: 0.0 for column in _TOTAL_COLUMNS}
     for row in rows:
         ws.append([_fmt(row.get(col)) for col, _ in SHIPMENT_COLUMNS])
-        total += float(row.get("actual_profit") or 0)
+        for column in _TOTAL_COLUMNS:
+            totals[column] += float(row.get(column) or 0)
+    _append_totals_row(ws, SHIPMENT_COLUMNS, totals)
     _style_header(ws)
 
     summary = wb.create_sheet("الملخص")
@@ -117,7 +137,7 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
     summary.append(["الفترة من", date_from.isoformat() if date_from else ""])
     summary.append(["الفترة إلى", date_to.isoformat() if date_to else ""])
     summary.append(["عدد الشحنات", len(rows)])
-    summary.append(["صافي الربح الفعلي", round(total, 2)])
+    summary.append(["صافي الربح الفعلي", round(totals["actual_profit"], 2)])
     summary.append(["المحتسبة في الربح", sum(1 for r in rows if r.get("included_in_profit"))])
     bank_statement = summarize_bank_statement(date_from, date_to)
     summary.append(["رسوم الحوالات البنكية", bank_statement["summary"]["transfer_fees_total"]])
