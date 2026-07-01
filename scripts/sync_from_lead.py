@@ -607,6 +607,15 @@ def wallet_tax_agreement_customers(wallet_rows: list[list[Any]]) -> set[str]:
     return _clear_wallet_vat_customers(wallet_rows)
 
 
+BANK_VAT_AGREEMENT_CUSTOMERS = {
+    "احمد محمد بن عبدالله الرزق متجر مقام الصبا | للات الموسيقية",
+}
+
+
+def bank_vat_agreement_customers() -> set[str]:
+    return {customer for customer in BANK_VAT_AGREEMENT_CUSTOMERS if customer}
+
+
 def stored_wallet_tax_agreement_customers(conn) -> set[str]:
     customers: set[str] = set()
     try:
@@ -1353,8 +1362,9 @@ def main() -> int:
                     print(f"[sync] invoice costs: {len(invoice_costs)} billed shipments, {invoiced_n} match this scrape", file=sys.stderr)
                     detected_tax_agreements = wallet_tax_agreement_customers(wallet_rows[1:])
                     detected_tax_agreements.update(stored_wallet_tax_agreement_customers(conn))
+                    detected_tax_agreements.update(bank_vat_agreement_customers())
                     if detected_tax_agreements:
-                        db_module.upsert_customer_tax_agreements(conn, sorted(detected_tax_agreements))
+                        db_module.upsert_customer_tax_agreements(conn, sorted(detected_tax_agreements), "wallet_or_bank_vat_deduction")
                     tax_agreement_customers = db_module.load_customer_tax_agreements(conn)
                     print(f"[sync] customer tax agreements: {len(tax_agreement_customers)}", file=sys.stderr)
                     shipments_payload = [
