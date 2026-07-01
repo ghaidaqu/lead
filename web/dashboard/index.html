@@ -428,7 +428,7 @@
       const NA='غير متاح';
       const profitVal=ac?ac.true_profit:(lr?lr.net_profit:null);
       const profitNote=ac
-        ?('رسوم وزن/COD بدون ضريبة: '+money(ac.absorbed_fees)+' · قبل رسوم وزن/COD: '+money(ac.reports_profit))
+        ?('رسوم وزن/COD محمَّلة: '+money(ac.absorbed_fees)+' · حسب تقارير ليد: '+money(ac.reports_profit))
         :(lr?'التكلفة: '+money(lr.base_cost):'غير متاح');
       const revVal=ac?ac.revenue:(lr?lr.revenue:null);
       $('periodBadge').textContent=d.period_label||'';
@@ -438,7 +438,7 @@
         ['عدد الشحنات',intf(t.active),'غير داخلة في الربح: '+intf(t.excluded),'count'],
         ['مبلغ COD',money(t.cod_amount),'إجمالي مبالغ COD','cod'],
       ].map(([l,v,n,key])=>`<div class="kpi"><button class="info-btn" data-info="${key}" aria-label="شرح الطريقة">i</button><span class="label">${l}</span><span class="value num">${v}</span><span class="note num">${n}</span></div>`).join('');
-      $('profitChips').innerHTML=(ac?[['الإيرادات',money(ac.revenue)],['التكلفة الأساسية بدون ضريبة',money(ac.base_cost)],['رسوم وزن/COD بدون ضريبة',money(ac.absorbed_fees)],['الربح قبل رسوم وزن/COD',money(ac.reports_profit)],['صافي الربح الفعلي',money(ac.true_profit)]]:(lr?[['الإيرادات',money(lr.revenue)],['التكلفة الأساسية',money(lr.base_cost)],['صافي الربح',money(lr.net_profit)]]:[['الحالة',NA]]))
+      $('profitChips').innerHTML=(ac?[['الإيرادات',money(ac.revenue)],['التكلفة الأساسية',money(ac.base_cost)],['رسوم وزن/COD (محمَّلة)',money(ac.absorbed_fees)],['الربح حسب تقارير ليد',money(ac.reports_profit)],['صافي الربح الفعلي',money(ac.true_profit)]]:(lr?[['الإيرادات',money(lr.revenue)],['التكلفة الأساسية',money(lr.base_cost)],['صافي الربح',money(lr.net_profit)]]:[['الحالة',NA]]))
         .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
       renderDailyChart(d);
       renderCarrierChart(d);
