@@ -441,6 +441,12 @@ def upsert_customer_tax_agreements(conn, merchant_names: list[str], source: str 
     )
 
 
+def replace_customer_tax_agreements(conn, merchant_names: list[str], source: str = "wallet_vat_deduction") -> tuple[int, int]:
+    with conn.cursor() as cur:
+        cur.execute("UPDATE customer_tax_agreements SET has_tax_agreement = FALSE, updated_at = NOW()")
+    return upsert_customer_tax_agreements(conn, merchant_names, source)
+
+
 def load_customer_tax_agreements(conn) -> set[str]:
     with conn.cursor() as cur:
         cur.execute(

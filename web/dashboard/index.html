@@ -170,7 +170,7 @@
       </div>
       <div class="hero-left">
         <div class="hero-tools">
-          <a class="link" id="reportLink" href="/report.xlsx?preset=month">تحميل Excel</a>
+          <a class="link" id="reportLink" href="/report.xlsx?from=2026-05-01">تحميل Excel</a>
           <button class="icon-btn" id="themeToggle" aria-label="تبديل الوضع الليلي"></button>
           <button class="link" id="logoutBtn">خروج</button>
         </div>
@@ -182,9 +182,9 @@
     <div class="view" id="view-dashboard">
       <section class="panel filter-bar">
         <div class="presets">
-          <button class="tab active" data-range="month">هذا الشهر</button>
-          <select id="monthSelect" aria-label="فلتر الشهر">
-            <option value="">اختر شهر</option>
+          <button class="tab active" data-range="from_may">من بداية مايو</button>
+          <select id="monthSelect" aria-label="فلتر حتى شهر">
+            <option value="">حتى شهر</option>
           </select>
         </div>
         <div class="range-fields">
@@ -409,7 +409,7 @@
     function renderCod(items){codItems=items;codExpanded=false;drawCod();}
     $('codToggle').addEventListener('click',()=>{codExpanded=!codExpanded;drawCod();});
 
-    let range={from:'',to:'',preset:'month'};
+    let range={from:'2026-05-01',to:'',preset:'from_may'};
     function updateReportLink(){
       const q=[]; if(range.from)q.push('from='+encodeURIComponent(range.from)); if(range.to)q.push('to='+encodeURIComponent(range.to));
       if(range.preset)q.push('preset='+encodeURIComponent(range.preset));
@@ -482,6 +482,7 @@
     /* date-range controls */
     // local Y-M-D (NOT toISOString, which is UTC and shifts the day in +offset zones)
     const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const DATA_FLOOR='2026-05-01';
     const MONTH_NAMES=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
     function monthValue(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
     function lastDayOfMonth(year,monthIndex){return new Date(year,monthIndex+1,0);}
@@ -492,35 +493,40 @@
       for(let d=new Date(startYear,startMonth,1);d<=lastCompleted;d=new Date(d.getFullYear(),d.getMonth()+1,1)){
         months.push(new Date(d));
       }
-      sel.innerHTML='<option value="">اختر شهر</option>'+months.map(d=>{
-        const label=`${d.getMonth()+1} (${MONTH_NAMES[d.getMonth()]})`;
+      sel.innerHTML='<option value="">حتى شهر</option>'+months.map(d=>{
+        const label=`حتى ${d.getMonth()+1} (${MONTH_NAMES[d.getMonth()]})`;
         return `<option value="${monthValue(d)}">${label}</option>`;
       }).join('');
     }
     function applyRange(from,to,preset){
       range={from,to,preset};$('rangeFrom').value=from;$('rangeTo').value=to;
       document.querySelectorAll('[data-range]').forEach(b=>b.classList.toggle('active',b.dataset.range===preset));
-      if(!preset || preset==='month')$('monthSelect').value='';
+      if(!preset || preset==='from_may')$('monthSelect').value='';
       loadDashboard();
     }
     document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{
       const now=new Date(),p=b.dataset.range;
-      if(p==='month')applyRange(fmtD(new Date(now.getFullYear(),now.getMonth(),1)),fmtD(now),'month');
+      if(p==='from_may')applyRange(DATA_FLOOR,fmtD(now),'from_may');
     }));
     $('monthSelect').addEventListener('change',e=>{
       const val=e.target.value;
       if(!val)return;
       const [year,month]=val.split('-').map(Number);
-      applyRange(fmtD(new Date(year,month-1,1)),fmtD(lastDayOfMonth(year,month-1)),val);
+      applyRange(DATA_FLOOR,fmtD(lastDayOfMonth(year,month-1)),val);
       e.target.value=val;
     });
     $('applyRange').addEventListener('click',()=>{
-      range={from:$('rangeFrom').value,to:$('rangeTo').value,preset:''};
+      const from=$('rangeFrom').value && $('rangeFrom').value<DATA_FLOOR ? DATA_FLOOR : $('rangeFrom').value;
+      range={from,to:$('rangeTo').value,preset:''};
+      $('rangeFrom').value=from;
       document.querySelectorAll('[data-range]').forEach(b=>b.classList.remove('active'));
       $('monthSelect').value='';
       loadDashboard();
     });
     populateMonthSelect();
+    range.to=fmtD(new Date());
+    $('rangeFrom').value=range.from;
+    $('rangeTo').value=range.to;
 
     /* per-chart / per-number methodology (Arabic) */
     const INFO={

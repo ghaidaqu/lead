@@ -43,6 +43,8 @@ LAST_ERROR_TYPE = ""
 # read that and match the selected range — no Lead login in the request path.
 import datetime as _dt
 
+DATA_FLOOR_DATE = _dt.date(2026, 5, 1)
+
 
 def _range_label(date_from, date_to):
     """Map a selected (from,to) to the worker's semantic snapshot label.
@@ -99,7 +101,7 @@ def get_actuals(date_from, date_to):
     deductions and stores platform costs net of VAT."""
     if db_store is None or not db_store.db_enabled():
         return None
-    start = date_from.isoformat() if date_from else "2026-02-01"
+    start = (date_from or DATA_FLOOR_DATE).isoformat()
     end = date_to.isoformat() if date_to else _dt.date.today().isoformat()
     try:
         with db_store.get_conn() as conn, conn.cursor() as cur:
@@ -129,7 +131,7 @@ def get_actuals(date_from, date_to):
 def get_daily_actual_profit(date_from, date_to):
     if db_store is None or not db_store.db_enabled():
         return []
-    start = date_from.isoformat() if date_from else "2026-02-01"
+    start = (date_from or DATA_FLOOR_DATE).isoformat()
     end = date_to.isoformat() if date_to else _dt.date.today().isoformat()
     try:
         with db_store.get_conn() as conn, conn.cursor() as cur:
@@ -228,14 +230,18 @@ def _resolve_date_range(date_from, date_to, preset=None):
     Explicit custom from/to values win; presets only fill an otherwise empty
     range so existing custom filters keep behaving as selected by the user.
     """
-    if date_from or date_to:
-        return date_from, date_to
     today = _dt.date.today()
+    if date_from or date_to:
+        if date_from is None or date_from < DATA_FLOOR_DATE:
+            date_from = DATA_FLOOR_DATE
+        return date_from, date_to
     if preset == "month":
-        return today.replace(day=1), today
+        return DATA_FLOOR_DATE, today
     if preset == "30":
-        return today - _dt.timedelta(days=29), today
-    return date_from, date_to
+        return DATA_FLOOR_DATE, today
+    if preset == "from_may":
+        return DATA_FLOOR_DATE, today
+    return DATA_FLOOR_DATE, today
 
 
 def _dashboard_payload_from_db(date_from=None, date_to=None):
