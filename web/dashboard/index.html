@@ -52,7 +52,7 @@
       background:var(--card-2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:650;}
 
     .grid{display:grid;gap:16px;}
-    .kpis{grid-template-columns:repeat(4,1fr);} .two{grid-template-columns:minmax(0,70fr) minmax(280px,30fr);align-items:stretch;}
+    .kpis{grid-template-columns:repeat(3,1fr);} .two{grid-template-columns:minmax(0,70fr) minmax(280px,30fr);align-items:stretch;}
     .tables{grid-template-columns:1fr 1fr;} .finance{grid-template-columns:repeat(5,1fr);}
     .summary{grid-template-columns:repeat(5,1fr);} .chips5{grid-template-columns:repeat(5,1fr);}
     .panel,.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
@@ -431,10 +431,8 @@
       const profitNote=ac
         ?('رسوم وزن/COD محمَّلة: '+money(ac.absorbed_fees)+' · حسب تقارير ليد: '+money(leadProfitVal))
         :(lr?'التكلفة: '+money(lr.base_cost):'غير متاح');
-      const revVal=ac?ac.revenue:(lr?lr.revenue:null);
       $('periodBadge').textContent=d.period_label||'';
       $('kpis').innerHTML=[
-        ['إجمالي الإيرادات', revVal!=null?money(revVal):NA, 'الإيراد بعد معالجة الضريبة','revenue'],
         ['صافي الربح الفعلي', profitVal!=null?money(profitVal):NA, profitVal!=null?profitNote:'غير متاح لهذه الفترة','profit'],
         ['عدد الشحنات',intf(t.active),'غير داخلة في الربح: '+intf(t.excluded),'count'],
         ['مبلغ COD',money(t.cod_amount),'إجمالي مبالغ COD','cod'],
