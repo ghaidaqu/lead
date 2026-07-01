@@ -1265,12 +1265,9 @@ def main() -> int:
                         print(f"[sync] invoice cost collection skipped: {inv_exc}", file=sys.stderr)
                     invoiced_n = sum(1 for r in ship_rows[1:] if norm(r[0]) in invoice_costs)
                     print(f"[sync] invoice costs: {len(invoice_costs)} billed shipments, {invoiced_n} match this scrape", file=sys.stderr)
-                    if wallet_rows and len(wallet_rows) > 1:
-                        detected_tax_agreements = wallet_tax_agreement_customers(wallet_rows[1:])
-                        detected_tax_agreements.update(stored_wallet_tax_agreement_customers(conn, min_sync_date))
-                        db_module.replace_customer_tax_agreements(conn, sorted(detected_tax_agreements))
-                    else:
-                        print("[sync] customer tax agreements kept: wallet scrape empty", file=sys.stderr)
+                    detected_tax_agreements = wallet_tax_agreement_customers(wallet_rows[1:])
+                    detected_tax_agreements.update(stored_wallet_tax_agreement_customers(conn, min_sync_date))
+                    db_module.replace_customer_tax_agreements(conn, sorted(detected_tax_agreements))
                     tax_agreement_customers = db_module.load_customer_tax_agreements(conn)
                     print(f"[sync] customer tax agreements: {len(tax_agreement_customers)}", file=sys.stderr)
                     shipments_payload = [
