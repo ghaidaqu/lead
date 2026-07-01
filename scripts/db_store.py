@@ -482,10 +482,18 @@ def set_setting(conn, key: str, value: str | None) -> None:
 
 
 def upsert_customer_tax_agreements(conn, merchant_names: list[str], source: str = "wallet_vat_deduction") -> tuple[int, int]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT merchant_name
+               FROM customer_tax_agreements
+               WHERE has_tax_agreement IS FALSE
+                 AND source = 'manual_exclusion'"""
+        )
+        manually_excluded = {str(r["merchant_name"]).strip() for r in cur.fetchall() if r["merchant_name"]}
     payload = [
         {"merchant_name": name.strip(), "has_tax_agreement": True, "source": source, "raw_payload": None}
         for name in merchant_names
-        if name and name.strip()
+        if name and name.strip() and name.strip() not in manually_excluded
     ]
     if not payload:
         return 0, 0
