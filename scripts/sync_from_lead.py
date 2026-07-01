@@ -19,7 +19,6 @@ from typing import Any
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 STATE_PATH = PROJECT_DIR / "sync_state.json"
 ENV_PATH = PROJECT_DIR / ".env"
-DATA_FLOOR_DATE = dt.date(2026, 5, 1)
 AUTH_DIR = PROJECT_DIR / ".auth"
 AUTH_STATE_PATH = AUTH_DIR / "lead_state.json"
 # The sync-floor date is not hardcoded — it is read from the DB `min_sync_date`
@@ -570,25 +569,18 @@ def wallet_tax_agreement_customers(wallet_rows: list[list[Any]]) -> set[str]:
     return customers
 
 
-def stored_wallet_tax_agreement_customers(conn, floor: dt.date | None = None) -> set[str]:
+def stored_wallet_tax_agreement_customers(conn) -> set[str]:
     customers: set[str] = set()
     try:
         with conn.cursor() as cur:
-            params: list[Any] = []
-            date_clause = ""
-            if floor is not None:
-                date_clause = "AND transaction_date >= %s"
-                params.append(floor)
             cur.execute(
-                f"""SELECT DISTINCT user_name
+                """SELECT DISTINCT user_name
                    FROM wallet_transactions
                    WHERE user_name <> 'user_name'
                      AND description ILIKE '%ضريبة القيمة المضافة%'
                      AND description ILIKE '%شحن رصيد%'
                      AND description NOT ILIKE '%مرفوض%'
-                     AND description NOT ILIKE '%اضافة رصيد%'
-                     {date_clause}""",
-                params,
+                     AND description NOT ILIKE '%اضافة رصيد%'"""
             )
             for row in cur.fetchall():
                 customers.add(norm(row["user_name"]))
@@ -1114,14 +1106,14 @@ def main() -> int:
     from scripts import pricing
 
     # Sync-floor date + VAT rate come from the DB (admin-editable), not hardcoded.
-    min_sync_date = DATA_FLOOR_DATE
+    min_sync_date = None
     carrier_vat_rate = 0.15
     if db_module is not None:
         try:
             with db_module.get_conn() as conn:
                 raw_floor = db_module.get_setting(conn, "min_sync_date", "")
                 if raw_floor.strip():
-                    min_sync_date = max(DATA_FLOOR_DATE, dt.date.fromisoformat(raw_floor.strip()))
+                    min_sync_date = dt.date.fromisoformat(raw_floor.strip())
                 snap_settings = db_module.load_pricing_snapshot(conn).get("settings", {})
                 if snap_settings.get("vat_rate") is not None:
                     carrier_vat_rate = float(snap_settings["vat_rate"])
@@ -1266,8 +1258,9 @@ def main() -> int:
                     invoiced_n = sum(1 for r in ship_rows[1:] if norm(r[0]) in invoice_costs)
                     print(f"[sync] invoice costs: {len(invoice_costs)} billed shipments, {invoiced_n} match this scrape", file=sys.stderr)
                     detected_tax_agreements = wallet_tax_agreement_customers(wallet_rows[1:])
-                    detected_tax_agreements.update(stored_wallet_tax_agreement_customers(conn, min_sync_date))
-                    db_module.replace_customer_tax_agreements(conn, sorted(detected_tax_agreements))
+                    detected_tax_agreements.update(stored_wallet_tax_agreement_customers(conn))
+                    if detected_tax_agreements:
+                        db_module.upsert_customer_tax_agreements(conn, sorted(detected_tax_agreements))
                     tax_agreement_customers = db_module.load_customer_tax_agreements(conn)
                     print(f"[sync] customer tax agreements: {len(tax_agreement_customers)}", file=sys.stderr)
                     shipments_payload = [
