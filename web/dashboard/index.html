@@ -89,12 +89,13 @@
 
     .grid2{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
     label{display:grid;gap:6px;font-size:13px;color:var(--muted);font-weight:650;}
-    input[type=number],input[type=text],input[type=password],input[type=date]{font:inherit;height:var(--control);padding:0 12px;
+    input[type=number],input[type=text],input[type=password],input[type=date],select{font:inherit;height:var(--control);padding:0 12px;
       border-radius:11px;border:1px solid var(--border);background:var(--card-2);color:var(--text);width:100%;}
-    input:focus{outline:none;border-color:var(--accent);}
+    input:focus,select:focus{outline:none;border-color:var(--accent);}
     /* date-range filter bar */
     .filter-bar{margin-top:0;margin-bottom:18px;display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
     .filter-bar .presets{display:flex;gap:8px;flex-wrap:wrap;}
+    .filter-bar select{width:170px;}
     .filter-bar .range-fields{display:flex;align-items:flex-end;gap:10px;margin-inline-start:auto;}
     .filter-bar label{font-size:12px;gap:5px;}
     .filter-bar input[type=date]{width:150px;}
@@ -182,7 +183,9 @@
       <section class="panel filter-bar">
         <div class="presets">
           <button class="tab active" data-range="month">هذا الشهر</button>
-          <button class="tab" data-range="30">آخر 30 يوم</button>
+          <select id="monthSelect" aria-label="فلتر الشهر">
+            <option value="">اختر شهر</option>
+          </select>
         </div>
         <div class="range-fields">
           <label>من<input type="date" id="rangeFrom" /></label>
@@ -479,21 +482,45 @@
     /* date-range controls */
     // local Y-M-D (NOT toISOString, which is UTC and shifts the day in +offset zones)
     const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const MONTH_NAMES=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    function monthValue(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+    function lastDayOfMonth(year,monthIndex){return new Date(year,monthIndex+1,0);}
+    function populateMonthSelect(){
+      const sel=$('monthSelect'),now=new Date(),startYear=2026,startMonth=4;
+      const lastCompleted=new Date(now.getFullYear(),now.getMonth(),0);
+      const months=[];
+      for(let d=new Date(startYear,startMonth,1);d<=lastCompleted;d=new Date(d.getFullYear(),d.getMonth()+1,1)){
+        months.push(new Date(d));
+      }
+      sel.innerHTML='<option value="">اختر شهر</option>'+months.map(d=>{
+        const label=`${d.getMonth()+1} (${MONTH_NAMES[d.getMonth()]})`;
+        return `<option value="${monthValue(d)}">${label}</option>`;
+      }).join('');
+    }
     function applyRange(from,to,preset){
       range={from,to,preset};$('rangeFrom').value=from;$('rangeTo').value=to;
       document.querySelectorAll('[data-range]').forEach(b=>b.classList.toggle('active',b.dataset.range===preset));
+      if(!preset || preset==='month')$('monthSelect').value='';
       loadDashboard();
     }
     document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{
       const now=new Date(),p=b.dataset.range;
       if(p==='month')applyRange(fmtD(new Date(now.getFullYear(),now.getMonth(),1)),fmtD(now),'month');
-      else if(p==='30'){const f=new Date(now);f.setDate(f.getDate()-29);applyRange(fmtD(f),fmtD(now),'30');}
     }));
+    $('monthSelect').addEventListener('change',e=>{
+      const val=e.target.value;
+      if(!val)return;
+      const [year,month]=val.split('-').map(Number);
+      applyRange(fmtD(new Date(year,month-1,1)),fmtD(lastDayOfMonth(year,month-1)),val);
+      e.target.value=val;
+    });
     $('applyRange').addEventListener('click',()=>{
       range={from:$('rangeFrom').value,to:$('rangeTo').value,preset:''};
       document.querySelectorAll('[data-range]').forEach(b=>b.classList.remove('active'));
+      $('monthSelect').value='';
       loadDashboard();
     });
+    populateMonthSelect();
 
     /* per-chart / per-number methodology (Arabic) */
     const INFO={
