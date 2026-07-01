@@ -569,6 +569,26 @@ def wallet_vat_customers(wallet_rows: list[list[Any]]) -> set[str]:
     return customers
 
 
+def stored_wallet_vat_customers(conn) -> set[str]:
+    customers: set[str] = set()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT DISTINCT user_name
+                   FROM wallet_transactions
+                   WHERE user_name <> 'user_name'
+                     AND description ILIKE '%ضريبة القيمة المضافة%'
+                     AND description ILIKE '%شحن رصيد%'
+                     AND description NOT ILIKE '%مرفوض%'
+                     AND description NOT ILIKE '%اضافة رصيد%'"""
+            )
+            for row in cur.fetchall():
+                customers.add(norm(row["user_name"]))
+    except Exception as exc:
+        print(f"[sync] stored wallet VAT customers skipped: {exc}", file=sys.stderr)
+    return {c for c in customers if c}
+
+
 def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
                     gross_revenue_customers: set[str] | None = None,
                     vat_rate: float = 0.15) -> dict[str, Any]:
@@ -1238,6 +1258,7 @@ def main() -> int:
                     invoiced_n = sum(1 for r in ship_rows[1:] if norm(r[0]) in invoice_costs)
                     print(f"[sync] invoice costs: {len(invoice_costs)} billed shipments, {invoiced_n} match this scrape", file=sys.stderr)
                     gross_revenue_customers = wallet_vat_customers(wallet_rows[1:])
+                    gross_revenue_customers.update(stored_wallet_vat_customers(conn))
                     print(f"[sync] wallet VAT customers: {len(gross_revenue_customers)}", file=sys.stderr)
                     shipments_payload = [
                         shipment_record(row, snapshot, invoice_costs, gross_revenue_customers, carrier_vat_rate)
