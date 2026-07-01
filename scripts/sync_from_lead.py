@@ -610,11 +610,12 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         "source_row": None,
         "source_hash": norm(row[0]) if row else "",
     }
-    # Per-shipment ACTUALS — Lead's real economics.
-    # Revenue follows the merchant's stored tax agreement:
-    #   has_tax_agreement=True  -> customer charge net of VAT
-    #   has_tax_agreement=False -> full customer charge
-    # Platform cost is always stored net of VAT.
+    # Per-shipment ACTUALS — Lead's original real-economics formula, with VAT
+    # applied only after the same old inputs are calculated:
+    #   true profit = adjusted charge - adjusted(Base Cost + Over Fee + COD Fixed)
+    # Billed shipments take Base Cost / Over Fee / COD Fixed from the invoice.
+    # Current un-invoiced shipments use Lead's live platform price, overweight
+    # starts after 10 kg at 2/kg, and COD platform fee is 3/order.
     from scripts import pricing as _pr
     realized_excluded = _pr.EXCLUDED_STATUSES + ("مرتجع",)
     charge = record["shipping_charge"]
@@ -625,24 +626,23 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
     customer_revenue = _net_of_vat(charge, vat_rate) if record["merchant_name"] in tax_agreement_customers else charge
     inv = (invoice_costs or {}).get(record["order_id"])
     if inv:
-        base_cost = _net_of_vat(inv["base_cost"], vat_rate)
-        extra_cost = _net_of_vat(inv["over_fee"] + inv["cod_fixed"], vat_rate)
+        base_cost_gross = inv["base_cost"]
+        extra_cost_gross = round(inv["over_fee"] + inv["cod_fixed"], 2)
         cost_source = "invoice"
     else:
         carrier_key = _pr.CARRIER_ALIASES.get(record["carrier"], record["carrier"])
         carrier = (snap.carriers.get(carrier_key) if snap else None) or {}
-        platform_net = _pr.money(carrier.get("platform_net"))
         platform_gross = _pr.money(carrier.get("platform_gross"))
-        if platform_net or platform_gross:
-            base_cost = platform_net or _net_of_vat(platform_gross, vat_rate)
-            # current un-invoiced cycle: included weight is 10 kg and the over rate
-            # Lead pays نفوذ is 2/kg, COD is 3/order; both are stored net of VAT.
-            extra_gross = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
-            extra_cost = _net_of_vat(extra_gross, vat_rate)
+        platform_net = _pr.money(carrier.get("platform_net"))
+        if platform_gross or platform_net:
+            base_cost_gross = platform_gross or round(platform_net * (1 + vat_rate), 2)
+            extra_cost_gross = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
             cost_source = "computed"
         else:
-            base_cost = extra_cost = 0.0
+            base_cost_gross = extra_cost_gross = 0.0
             cost_source = "unknown"
+    base_cost = _net_of_vat(base_cost_gross, vat_rate)
+    extra_cost = _net_of_vat(extra_cost_gross, vat_rate)
     counted = realized and cost_source != "unknown"
     total_cost = round(base_cost + extra_cost, 2)
     record.update({
