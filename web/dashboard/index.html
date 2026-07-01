@@ -456,7 +456,7 @@
       $('stmtBody').innerHTML=((d.statement&&d.statement.rows)||[]).map(r=>`<tr><td class="num">${esc(r.date||'-')}</td><td>${esc(r.expense_type||'-')}</td><td class="num">${money(r.amount)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
       renderCod(d.cod_items||[]);
       const ms=d.missing_sequence_numbers||[];$('missingSeq').textContent=ms.length?ms.join('، '):'لا يوجد';
-      $('lastUpdated').textContent='آخر تحديث: '+new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(new Date());
+      $('lastUpdated').textContent='آخر سحب للبيانات: '+(d.last_sync_at?new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(d.last_sync_at)):'—');
       // re-measure once layout has fully settled (covers mobile first-render sizing)
       requestAnimationFrame(resizeCharts);setTimeout(resizeCharts,350);
     }

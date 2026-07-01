@@ -149,6 +149,24 @@ def get_daily_actual_profit(date_from, date_to):
     return [[r["shipment_day"].isoformat(), round(float(r["profit"] or 0), 2)] for r in rows]
 
 
+def get_last_successful_sync_at():
+    if db_store is None or not db_store.db_enabled():
+        return None
+    try:
+        with db_store.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """SELECT finished_at
+                   FROM sync_runs
+                   WHERE finished_at IS NOT NULL AND rows_inserted > 0
+                   ORDER BY finished_at DESC
+                   LIMIT 1"""
+            )
+            row = cur.fetchone()
+    except Exception:
+        return None
+    return row["finished_at"] if row else None
+
+
 def _auth_enabled() -> bool:
     return bool(AUTH_USER and AUTH_PASS)
 
@@ -298,6 +316,10 @@ def api_dashboard():
             payload["daily_profit"] = get_daily_actual_profit(date_from, date_to)
         except Exception:
             payload["daily_profit"] = []
+        try:
+            payload["last_sync_at"] = get_last_successful_sync_at()
+        except Exception:
+            payload["last_sync_at"] = None
         _update_data_source("postgres", True)
     except Exception as exc:
         logger.exception("dashboard payload failed")
