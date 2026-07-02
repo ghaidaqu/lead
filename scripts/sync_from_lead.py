@@ -314,7 +314,7 @@ def collect_invoice_costs(opener, base: str) -> dict[str, dict[str, Any]]:
 def http_post_meta(opener, url: str, data: dict[str, str]) -> tuple[str, int, str]:
     body = urllib.parse.urlencode(data).encode("utf-8")
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/x-www-form-urlencoded"})
-    with opener.open(req) as resp:
+    with opener.open(req, timeout=60) as resp:
         html = resp.read().decode("utf-8", errors="ignore")
         final_url = getattr(resp, "geturl", lambda: url)()
         status = int(getattr(resp, "status", resp.getcode()))
@@ -341,7 +341,13 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
     cj = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
     logs: list[dict[str, Any]] = []
-    auth_state = load_auth_state()
+    force_login = os.environ.get("LEAD_FORCE_LOGIN_EACH_RUN", "1").strip().lower() not in ("0", "false", "no")
+    auth_state = {} if force_login else load_auth_state()
+    if force_login:
+        try:
+            AUTH_STATE_PATH.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     def page_looks_logged_in(html: str) -> tuple[bool, dict[str, bool]]:
         parser = LinkParser()

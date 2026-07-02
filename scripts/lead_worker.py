@@ -9,19 +9,34 @@ from pathlib import Path
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 SYNC_SCRIPT = PROJECT_DIR / "scripts" / "sync_from_lead.py"
-DEFAULT_INTERVAL_SECONDS = max(300, int(os.environ.get("LEAD_WORKER_INTERVAL_SECONDS", "3600")))
+DEFAULT_INTERVAL_SECONDS = max(300, int(os.environ.get("LEAD_WORKER_INTERVAL_SECONDS", "10800")))
+SYNC_TIMEOUT_SECONDS = max(300, int(os.environ.get("LEAD_WORKER_SYNC_TIMEOUT_SECONDS", "900")))
+SYNC_ATTEMPTS = max(1, int(os.environ.get("LEAD_WORKER_SYNC_ATTEMPTS", "2")))
 
 
 def _run_once() -> int:
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
-    completed = subprocess.run(
-        [sys.executable, str(SYNC_SCRIPT)],
-        cwd=str(PROJECT_DIR),
-        env=env,
-        check=False,
-    )
-    return int(completed.returncode)
+    env.setdefault("LEAD_FORCE_LOGIN_EACH_RUN", "1")
+    for attempt in range(1, SYNC_ATTEMPTS + 1):
+        print(f"[lead-worker] sync_attempt={attempt}/{SYNC_ATTEMPTS}", flush=True)
+        try:
+            completed = subprocess.run(
+                [sys.executable, str(SYNC_SCRIPT)],
+                cwd=str(PROJECT_DIR),
+                env=env,
+                check=False,
+                timeout=SYNC_TIMEOUT_SECONDS,
+            )
+            code = int(completed.returncode)
+        except subprocess.TimeoutExpired:
+            code = 124
+            print(f"[lead-worker] sync_timeout seconds={SYNC_TIMEOUT_SECONDS}", flush=True)
+        if code == 0:
+            return 0
+        if attempt < SYNC_ATTEMPTS:
+            time.sleep(10)
+    return code
 
 
 def _sleep_for_interval(interval_seconds: int) -> None:
