@@ -167,6 +167,7 @@
         <nav class="nav" aria-label="روابط اللوحة">
           <button class="tab" data-view="dashboard">لوحة البيانات</button>
           <button class="tab" data-view="pricing">الأسعار</button>
+          <button class="tab" data-view="invoices">الفواتير</button>
           <span class="period-under num hidden" id="periodBadge">—</span>
         </nav>
       </div>
@@ -259,6 +260,16 @@
         </tr></thead><tbody></tbody></table></div>
       </section>
     </div>
+
+    <!-- INVOICES VIEW -->
+    <div class="view hidden" id="view-invoices">
+      <section class="panel" style="margin-top:0;">
+        <h2>الفواتير</h2>
+        <div class="table-wrap"><table><thead><tr>
+          <th>رقم الفاتورة</th><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>الحالة</th>
+        </tr></thead><tbody><tr><td colspan="5" style="color:var(--muted)">لا توجد فواتير معروضة حالياً</td></tr></tbody></table></div>
+      </section>
+    </div>
   </main>
 
   <div class="toast" id="toast"></div>
@@ -300,12 +311,13 @@
 
     /* ---- client-side routing (no reload, no login flash between views) ---- */
     const VIEWS={dashboard:{title:'لوحة التحكم المالية',sub:'نظرة عامة على أداء الأعمال',path:'/dashboard/'},
-                 pricing:{title:'الأسعار',sub:'مرجع للعرض فقط — تُسحب تلقائيًا من Lead',path:'/admin'}};
+                 pricing:{title:'الأسعار',sub:'مرجع للعرض فقط — تُسحب تلقائيًا من Lead',path:'/admin'},
+                 invoices:{title:'الفواتير',sub:'سجل الفواتير',path:'/invoices'}};
     let dashboardLoaded=false;
-    function viewFromPath(){return location.pathname.replace(/\/+$/,'').endsWith('/admin')?'pricing':'dashboard';}
+    function viewFromPath(){const p=location.pathname.replace(/\/+$/,'');return p.endsWith('/admin')?'pricing':p.endsWith('/invoices')?'invoices':'dashboard';}
     function setView(name,push){
       if(!VIEWS[name])name='dashboard';
-      for(const v of ['dashboard','pricing'])$('view-'+v).classList.toggle('hidden',v!==name);
+      for(const v of ['dashboard','pricing','invoices'])$('view-'+v).classList.toggle('hidden',v!==name);
       document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===name));
       $('viewTitle').textContent=VIEWS[name].title;$('viewSub').textContent=VIEWS[name].sub;
       $('periodBadge').classList.toggle('hidden',name!=='dashboard');
@@ -315,7 +327,7 @@
       if(name==='pricing')loadPricing();
       window.scrollTo(0,0);
     }
-    document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>setView(t.dataset.view,true)));
+    document.querySelectorAll('.tab[data-view]').forEach(t=>t.addEventListener('click',()=>setView(t.dataset.view,true)));
     window.addEventListener('popstate',()=>setView(viewFromPath(),false));
 
     /* auth — checked ONCE; switching views never re-auths or reloads */
