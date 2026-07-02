@@ -1503,6 +1503,21 @@ def main() -> int:
         and payload.get("checks", {}).get("cod_opened")
     )
     final_url = payload.get("checks", {}).get("dashboard_final_url") or payload.get("checks", {}).get("login_final_url") or ""
+    health_errors = []
+    shipments_count = max(0, len(ship_rows) - 1)
+    cod_count = max(0, len(cod_rows) - 1)
+    if not login_ok:
+        health_errors.append("login_or_admin_page_unavailable")
+    if postgres_enabled and not bool(db_report.get("synced")):
+        health_errors.append("postgres_sync_failed")
+    if shipments_count <= 0:
+        health_errors.append("shipments_scrape_empty")
+    if wallet_total <= 0:
+        health_errors.append("wallet_scrape_empty")
+    if cod_count <= 0:
+        health_errors.append("cod_scrape_empty")
+    exit_code = 1 if health_errors else 0
+
     sync_summary = {
         "source_type": source_type,
         "login_ok": login_ok,
@@ -1513,18 +1528,21 @@ def main() -> int:
         "rows_inserted": db_report.get("db_rows_inserted", 0),
         "rows_updated": db_report.get("db_rows_updated", 0),
         "rows_skipped": db_report.get("db_rows_skipped", 0),
-        "shipments_rows": max(0, len(ship_rows) - 1),
+        "shipments_rows": shipments_count,
         "shipments_pruned": shipments_pruned,
         "wallet_rows": wallet_total,
         "payments_rows": payments_total,
-        "cod_rows": max(0, len(cod_rows) - 1),
-        "exit_code": 0,
+        "cod_rows": cod_count,
+        "health_errors": health_errors,
+        "exit_code": exit_code,
     }
     print(f"DATABASE_URL_PRESENT={str(database_url_present).lower()} DATABASE_URL_LENGTH={database_url_length}", flush=True)
     print(f"SYNC_SUMMARY {json.dumps(sync_summary, ensure_ascii=False)}", flush=True)
     print(f"[lead-sync] source={source_type}", flush=True)
+    if health_errors:
+        print(f"[lead-sync] health_errors={','.join(health_errors)}", file=sys.stderr, flush=True)
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    return 0
+    return exit_code
 
 
 if __name__ == "__main__":

@@ -52,6 +52,8 @@ def main() -> int:
         code = _run_once()
         finished = time.strftime("%Y-%m-%d %H:%M:%S")
         print(f"[lead-worker] sync_end={finished} exit_code={code}", flush=True)
+        next_run = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() + interval_seconds))
+        print(f"[lead-worker] next_sync={next_run}", flush=True)
         _sleep_for_interval(interval_seconds)
     return 0
 
