@@ -613,9 +613,7 @@ def wallet_tax_agreement_customers(wallet_rows: list[list[Any]]) -> set[str]:
     return _clear_wallet_vat_customers(wallet_rows)
 
 
-BANK_VAT_AGREEMENT_CUSTOMERS = {
-    "احمد محمد بن عبدالله الرزق متجر مقام الصبا | للات الموسيقية",
-}
+BANK_VAT_AGREEMENT_CUSTOMERS = set()
 
 
 def bank_vat_agreement_customers() -> set[str]:
