@@ -219,6 +219,21 @@ CREATE TABLE IF NOT EXISTS carriers (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS bank_transactions (
+    id BIGSERIAL PRIMARY KEY,
+    fingerprint TEXT NOT NULL UNIQUE,
+    transaction_date DATE NOT NULL,
+    description TEXT NOT NULL,
+    amount NUMERIC(12,2) NOT NULL,
+    direction TEXT NOT NULL CHECK (direction IN ('credit', 'debit')),
+    category TEXT NOT NULL,
+    source_file TEXT,
+    approved BOOLEAN NOT NULL DEFAULT TRUE,
+    raw_payload JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS pricing_settings (
     key TEXT PRIMARY KEY,
     value NUMERIC(12,4),
@@ -231,6 +246,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date);
 CREATE INDEX IF NOT EXISTS idx_pending_recharges_date ON pending_recharges(request_date);
 CREATE INDEX IF NOT EXISTS idx_pending_recharges_status ON pending_recharges(status);
 CREATE INDEX IF NOT EXISTS idx_cod_collections_dates ON cod_collections(collection_date, transfer_date);
+CREATE INDEX IF NOT EXISTS idx_bank_transactions_date ON bank_transactions(transaction_date);
 """
 
 
@@ -267,6 +283,21 @@ def ensure_schema(conn) -> None:
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )""",
+            """CREATE TABLE IF NOT EXISTS bank_transactions (
+                id BIGSERIAL PRIMARY KEY,
+                fingerprint TEXT NOT NULL UNIQUE,
+                transaction_date DATE NOT NULL,
+                description TEXT NOT NULL,
+                amount NUMERIC(12,2) NOT NULL,
+                direction TEXT NOT NULL CHECK (direction IN ('credit', 'debit')),
+                category TEXT NOT NULL,
+                source_file TEXT,
+                approved BOOLEAN NOT NULL DEFAULT TRUE,
+                raw_payload JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_bank_transactions_date ON bank_transactions(transaction_date)",
             # The manual price sheet is retired — profit comes from Lead's actuals.
             "DROP TABLE IF EXISTS merchant_overrides",
         ):

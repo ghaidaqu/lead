@@ -378,6 +378,90 @@ def api_pricing_get():
                     "cod_fee": cod_fee, "data_floor": data_floor})
 
 
+@app.post("/api/bank-statement/preview")
+@require_auth
+def api_bank_statement_preview():
+    upload = request.files.get("file")
+    if not upload or not upload.filename:
+        return jsonify({"ok": False, "error": "file_required"}), 400
+    data = upload.read(10 * 1024 * 1024 + 1)
+    if len(data) > 10 * 1024 * 1024:
+        return jsonify({"ok": False, "error": "file_too_large"}), 413
+    try:
+        from scripts.bank_import import parse_bank_file
+        rows = parse_bank_file(upload.filename, data)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("bank statement preview failed")
+        return jsonify({"ok": False, "error": type(exc).__name__}), 500
+    if not rows:
+        return jsonify({"ok": False, "error": "no_transactions_found"}), 422
+    return jsonify({"ok": True, "filename": upload.filename, "rows": rows})
+
+
+@app.post("/api/bank-statement/approve")
+@require_auth
+def api_bank_statement_approve():
+    if db_store is None or not db_store.db_enabled():
+        return jsonify({"ok": False, "error": "database_unavailable"}), 503
+    payload = request.get_json(silent=True) or {}
+    raw_rows = payload.get("rows")
+    if not isinstance(raw_rows, list) or len(raw_rows) > 2000:
+        return jsonify({"ok": False, "error": "invalid_rows"}), 400
+    allowed_directions = {"credit", "debit"}
+    rows = []
+    for raw in raw_rows:
+        if not isinstance(raw, dict) or not raw.get("include", True):
+            continue
+        day = _parse_date_arg(raw.get("transaction_date"))
+        direction = str(raw.get("direction", ""))
+        try:
+            amount = round(abs(float(raw.get("amount"))), 2)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "invalid_amount"}), 400
+        if not day or direction not in allowed_directions or amount <= 0:
+            return jsonify({"ok": False, "error": "invalid_transaction"}), 400
+        description = str(raw.get("description", "")).strip()[:1000]
+        category = str(raw.get("category", "")).strip()[:160]
+        fingerprint = str(raw.get("fingerprint", "")).strip()
+        if not description or not category or len(fingerprint) != 64:
+            return jsonify({"ok": False, "error": "invalid_transaction"}), 400
+        rows.append({
+            "fingerprint": fingerprint,
+            "transaction_date": day,
+            "description": description,
+            "amount": amount,
+            "direction": direction,
+            "category": category,
+            "source_file": str(raw.get("source_file", ""))[:255],
+            "approved": True,
+            "raw_payload": raw,
+        })
+    try:
+        with db_store.get_conn() as conn:
+            db_store.ensure_schema(conn)
+            with conn.cursor() as cur:
+                before = 0
+                for row in rows:
+                    cur.execute(
+                        """INSERT INTO bank_transactions
+                           (fingerprint, transaction_date, description, amount, direction,
+                            category, source_file, approved, raw_payload)
+                           VALUES (%(fingerprint)s, %(transaction_date)s, %(description)s,
+                                   %(amount)s, %(direction)s, %(category)s, %(source_file)s,
+                                   %(approved)s, %(raw_payload)s)
+                           ON CONFLICT (fingerprint) DO UPDATE SET
+                             category=EXCLUDED.category, approved=TRUE, updated_at=NOW()""",
+                        {**row, "raw_payload": db_store._db_value(row["raw_payload"])},
+                    )
+                    before += cur.rowcount
+    except Exception as exc:
+        logger.exception("bank statement approval failed")
+        return jsonify({"ok": False, "error": type(exc).__name__}), 500
+    return jsonify({"ok": True, "approved": len(rows), "processed": before})
+
+
 @app.get("/admin")
 @app.get("/admin/")
 def admin_page() -> Response:
@@ -387,6 +471,11 @@ def admin_page() -> Response:
     if spa.exists():
         return send_file(spa)
     return Response("Not found", status=404, mimetype="text/plain")
+
+
+@app.get("/bank-statement")
+def bank_statement_page() -> Response:
+    return admin_page()
 
 
 def _dashboard_dir() -> Path | None:

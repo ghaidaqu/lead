@@ -56,16 +56,62 @@ def filtered_bank_transfer_fees(date_from=None, date_to=None):
     return sorted(rows, key=lambda r: r["date"], reverse=True)
 
 
+def _database_rows(date_from=None, date_to=None):
+    try:
+        from scripts import db_store
+        if not db_store.db_enabled():
+            return []
+        with db_store.get_conn() as conn, conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.bank_transactions') AS table_name")
+            if not cur.fetchone()["table_name"]:
+                return []
+            cur.execute(
+                """SELECT transaction_date, description, amount, direction, category, source_file
+                   FROM bank_transactions
+                   WHERE approved = TRUE
+                     AND (%s::date IS NULL OR transaction_date >= %s::date)
+                     AND (%s::date IS NULL OR transaction_date <= %s::date)
+                   ORDER BY transaction_date DESC, id DESC""",
+                (date_from, date_from, date_to, date_to),
+            )
+            return [
+                {
+                    "date": row["transaction_date"].isoformat(),
+                    "expense_type": row["category"],
+                    "description": row["description"],
+                    "amount": float(row["amount"]),
+                    "direction": row["direction"],
+                    "source": row["source_file"],
+                }
+                for row in cur.fetchall()
+            ]
+    except Exception:
+        return []
+
+
 def summarize_bank_statement(date_from=None, date_to=None):
+    imported = _database_rows(date_from, date_to)
     rows = filtered_bank_transfer_fees(date_from, date_to)
-    transfer_fees_total = round(sum(float(r["amount"] or 0) for r in rows), 2)
+    known = {(r["date"], r["expense_type"], round(float(r["amount"]), 2)) for r in rows}
+    known_transfer_fees = {(r["date"], round(float(r["amount"]), 2)) for r in rows}
+    rows.extend(
+        r for r in imported
+        if (r["date"], r["expense_type"], round(float(r["amount"]), 2)) not in known
+        and not (
+            r["expense_type"] == "رسوم حوالات"
+            and (r["date"], round(float(r["amount"]), 2)) in known_transfer_fees
+        )
+    )
+    rows.sort(key=lambda r: r["date"], reverse=True)
+    deposits_total = round(sum(float(r["amount"] or 0) for r in rows if r.get("direction") == "credit"), 2)
+    expenses_total = round(sum(float(r["amount"] or 0) for r in rows if r.get("direction", "debit") == "debit"), 2)
     return {
         "summary": {
-            "deposits_total": 0.0,
-            "expenses_total": transfer_fees_total,
-            "transfer_fees_total": transfer_fees_total,
-            "net_total": -transfer_fees_total,
-            "expenses_count": len(rows),
+            "deposits_total": deposits_total,
+            "expenses_total": expenses_total,
+            "transfer_fees_total": round(sum(float(r["amount"] or 0) for r in rows if r.get("category") == "رسوم حوالات" or "رسوم حوالة" in r.get("expense_type", "")), 2),
+            "net_total": round(deposits_total - expenses_total, 2),
+            "expenses_count": sum(1 for r in rows if r.get("direction", "debit") == "debit"),
         },
         "rows": rows,
     }
