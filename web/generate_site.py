@@ -140,10 +140,11 @@ def load_data_from_db(date_from=None, date_to=None):
         "compensation": {"count": 0, "total": 0.0},
         "other_net": 0.0,
         "other": {"count": 0, "total": 0.0},
-        "bank_pending_skipped": {"count": 0, "total": 0.0},
+        "bank_pending_skipped": {"count": 0, "total": 0.0, "items": []},
     }
     statement = summarize_bank_statement(date_from, date_to)
     return_items = []
+    excluded_items = []
     total_customer_shipping = 0.0
     recharge_status_by_key = {
         clean(row.get("recharge_key")): clean(row.get("status"))
@@ -223,6 +224,16 @@ def load_data_from_db(date_from=None, date_to=None):
         if item["date"]:
             all_shipment_dates.add(item["date"])
         if not item["included"]:
+            excluded_items.append(
+                {
+                    "order_id": item["order_id"],
+                    "merchant": item["merchant"],
+                    "status": item["status"],
+                    "date": item["date"],
+                    "carrier": item["carrier"],
+                    "weight": item["weight"],
+                }
+            )
             continue
         items.append(item)
         if item["cod_amount"] > 0:
@@ -254,6 +265,16 @@ def load_data_from_db(date_from=None, date_to=None):
                 if recharge_status and recharge_status != "موافق عليه":
                     finance["bank_pending_skipped"]["count"] += 1
                     finance["bank_pending_skipped"]["total"] += amount
+                    finance["bank_pending_skipped"]["items"].append(
+                        {
+                            "transaction_key": tx_key,
+                            "date": _row_date(_row_value(raw, 1)),
+                            "customer": clean(row.get("user_name") or _row_value(raw, 2)),
+                            "amount": amount,
+                            "status": recharge_status,
+                            "note": note,
+                        }
+                    )
                     continue
             finance[key]["count"] += 1
             finance[key]["total"] += amount
@@ -339,6 +360,7 @@ def load_data_from_db(date_from=None, date_to=None):
         "return_count": len(return_items),
         "total": sum(item["total_profit"] for item in items) + return_profit,
         "excluded": in_range_count - len(items),
+        "excluded_items": excluded_items,
     }
     cod_items.sort(key=lambda x: (x["date"], x["order_id"]), reverse=True)
     return_items.sort(key=lambda x: (x["matched"], x["order_id"]), reverse=True)

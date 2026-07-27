@@ -125,7 +125,9 @@
     .management-memo>h2{font-size:19px;}
     .memo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px;}
     .memo-item{display:grid;grid-template-columns:32px minmax(0,1fr);gap:10px;align-items:start;padding:13px;
-      border:1px solid var(--border);border-radius:8px;background:var(--card);}
+      border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font:inherit;text-align:start;
+      width:100%;cursor:pointer;transition:border-color .2s,transform .2s,background .2s;}
+    .memo-item:hover{border-color:var(--accent-light);background:var(--card-2);transform:translateY(-1px);}
     .memo-index{width:32px;height:32px;border-radius:7px;display:grid;place-items:center;background:var(--accent);color:#fff;font-weight:800;}
     .memo-item strong{display:block;font-size:13px;margin-bottom:4px;}
     .memo-item p{margin:0;color:var(--muted);font-size:12px;line-height:1.7;}
@@ -165,7 +167,11 @@
     .filter-bar input[type=date]{width:150px;}
     body.dark .filter-bar input[type=date]{color-scheme:dark;}
     .btn.sm{height:36px;padding:0 18px;font-size:13px;}
-    @media(max-width:560px){ .filter-bar .range-fields{margin-inline-start:0;width:100%;} .filter-bar input[type=date]{width:100%;} }
+    @media(max-width:560px){
+      .filter-bar .range-fields{margin-inline-start:0;width:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
+      .filter-bar .range-fields .btn{grid-column:1/-1;justify-self:start;}
+      .filter-bar input[type=date]{width:100%;}
+    }
     .pill{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--card-2);color:var(--muted);}
     .row-actions{display:flex;gap:6px;}
 
@@ -191,8 +197,10 @@
     .info-btn:hover{border-color:var(--accent);color:var(--accent);}
     .info-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:60;padding:20px;}
     .info-modal.hidden{display:none;}
-    .info-card{width:min(440px,100%);background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px;box-shadow:var(--shadow);}
-    .info-card h3{font-size:17px;margin:0 0 10px;} .info-card p{color:var(--muted);font-size:14px;line-height:1.9;margin:0 0 18px;}
+    .info-card{width:min(620px,100%);max-height:min(76vh,680px);display:flex;flex-direction:column;background:var(--card);
+      border:1px solid var(--border);border-radius:8px;padding:24px;box-shadow:var(--shadow);}
+    .info-card h3{font-size:17px;margin:0 0 10px;}
+    .info-card p{color:var(--muted);font-size:13px;line-height:1.9;margin:0 0 18px;white-space:pre-line;overflow:auto;padding-inline-end:5px;}
     .upload-zone{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px;
       border:1px dashed color-mix(in srgb,var(--accent) 55%,var(--border));border-radius:8px;background:var(--card-2);margin-bottom:14px;}
     .upload-zone strong{display:block;font-size:14px;margin-bottom:4px;}
@@ -441,7 +449,7 @@
     const VIEWS={dashboard:{title:'لوحة التحكم المالية',sub:'نظرة عامة على أداء الأعمال',path:'/dashboard/'},
                  pricing:{title:'الأسعار',sub:'مرجع للعرض فقط — تُسحب تلقائيًا من Lead',path:'/admin'},
                  invoices:{title:'كشف البنك',sub:'قراءة وتصنيف الحركات البنكية',path:'/bank-statement'}};
-    let dashboardLoaded=false,bankRows=[];
+    let dashboardLoaded=false,bankRows=[],memoDetailItems=[];
     function viewFromPath(){const p=location.pathname.replace(/\/+$/,'');return p.endsWith('/admin')?'pricing':(p.endsWith('/invoices')||p.endsWith('/bank-statement'))?'invoices':'dashboard';}
     function setView(name,push){
       if(!VIEWS[name])name='dashboard';
@@ -605,35 +613,46 @@
       const codAwaitCollection=codReview.filter(c=>c.status==='تم التوصيل'&&!c.collection_date).length;
       const codAwaitTransfer=codReview.filter(c=>c.collection_date&&!c.transfer_date).length;
       const bankPending=Number(f.bank_pending_skipped?.count||0);
+      const excludedItems=t.excluded_items||[];
+      const pendingBankItems=f.bank_pending_skipped?.items||[];
       const memoItems=[];
-      if(ms.length) memoItems.push([
-        'مراجعة فجوات أرقام الشحنات',
-        'الأرقام الظاهرة: '+ms.slice(0,8).join('، ')+(ms.length>8?'، وغيرها':''),
-        intf(ms.length)+' رقمًا ناقصًا'
-      ]);
-      if(Number(t.excluded||0)>0) memoItems.push([
-        'الشحنات غير الداخلة في الربح',
-        'للتأكد من أن الاستبعاد صحيح حسب حالة كل شحنة قبل إقفال الفترة.',
-        intf(t.excluded)+' شحنة'
-      ]);
-      if(codAwaitCollection||codAwaitTransfer) memoItems.push([
-        'متابعة تحصيل وتحويل COD',
-        'بانتظار التحصيل بعد التسليم: '+intf(codAwaitCollection)+' · محصّلة ولم تُحوّل: '+intf(codAwaitTransfer),
-        intf(codAwaitCollection+codAwaitTransfer)+' حالة'
-      ]);
-      if(bankPending) memoItems.push([
-        'طلبات الإيداع البنكي المعلقة',
-        'لم تدخل المؤشرات لأنها غير معتمدة في Lead وتحتاج مراجعة حالة الطلب.',
-        intf(bankPending)+' طلب'
-      ]);
+      if(ms.length) memoItems.push({
+        title:'مراجعة فجوات أرقام الشحنات',
+        detail:'الأرقام الظاهرة: '+ms.slice(0,8).join('، ')+(ms.length>8?'، وغيرها':''),
+        value:intf(ms.length)+' رقمًا ناقصًا',
+        full:Array.from({length:Math.ceil(ms.length/12)},(_,i)=>ms.slice(i*12,i*12+12).join('، ')).join('\n')
+      });
+      if(Number(t.excluded||0)>0) memoItems.push({
+        title:'الشحنات المستبعدة حسب الحالة',
+        detail:'الشحنات الملغاة أو المسودة أو المرتجعة لا تدخل في الربح الفعلي.',
+        value:intf(t.excluded)+' شحنة',
+        full:excludedItems.length?excludedItems.map(x=>`#${x.order_id} — ${x.merchant||'غير محدد'}\n${x.status||'غير محدد'} · ${x.date||'بدون تاريخ'} · ${x.carrier||'ناقل غير محدد'} · ${Number(x.weight||0).toFixed(2)} كجم`).join('\n\n'):'التفاصيل الفردية غير متاحة في هذه النسخة.'
+      });
+      if(codAwaitCollection||codAwaitTransfer){
+        const codIssues=codReview.filter(c=>(c.status==='تم التوصيل'&&!c.collection_date)||(c.collection_date&&!c.transfer_date));
+        memoItems.push({
+          title:'متابعة تحصيل وتحويل COD',
+          detail:'بانتظار التحصيل بعد التسليم: '+intf(codAwaitCollection)+' · محصّلة ولم تُحوّل: '+intf(codAwaitTransfer),
+          value:intf(codAwaitCollection+codAwaitTransfer)+' حالة',
+          full:codIssues.map(c=>`#${c.order_id} — ${c.merchant||'غير محدد'} — ${money(c.cod_amount)}\n${!c.collection_date?'بانتظار التحصيل':'تاريخ التحصيل: '+c.collection_date+' · بانتظار التحويل'}`).join('\n\n')
+        });
+      }
+      if(bankPending) memoItems.push({
+        title:'طلبات الإيداع البنكي المعلقة',
+        detail:'لم تدخل المؤشرات لأنها غير معتمدة في Lead وتحتاج مراجعة حالة الطلب.',
+        value:intf(bankPending)+' طلب',
+        full:pendingBankItems.length?pendingBankItems.map(x=>`${x.transaction_key||'بدون رقم'} — ${x.customer||'غير محدد'} — ${money(x.amount)}\n${x.status||'غير محدد'} · ${x.date||'بدون تاريخ'}\n${x.note||''}`).join('\n\n'):'التفاصيل الفردية غير متاحة في هذه النسخة.'
+      });
       const memoDate=range.from?new Date(range.from+'T12:00:00'):new Date();
       const memoMonth=new Intl.DateTimeFormat('ar-SA',{month:'long'}).format(memoDate);
       $('memoTitle').textContent='بنود المتابعة قبل إقفال '+memoMonth;
-      $('managementMemo').innerHTML=(memoItems.length?memoItems:[[
-        'لا توجد بنود متابعة معلقة',
-        'لم تظهر في بيانات الفترة الحالية فجوات أو حالات تتطلب مراجعة.',
-        'مكتمل'
-      ]]).map(([title,detail,value],i)=>`<article class="memo-item"><span class="memo-index num">${i+1}</span><div><strong>${esc(title)}</strong><p>${esc(detail)}</p><span class="memo-value num">${esc(value)}</span></div></article>`).join('');
+      memoDetailItems=memoItems.length?memoItems:[{
+        title:'لا توجد بنود متابعة معلقة',
+        detail:'لم تظهر في بيانات الفترة الحالية فجوات أو حالات تتطلب مراجعة.',
+        value:'مكتمل',
+        full:'لا توجد تفاصيل إضافية لهذه الفترة.'
+      }];
+      $('managementMemo').innerHTML=memoDetailItems.map((item,i)=>`<button class="memo-item" type="button" data-memo-detail="${i}"><span class="memo-index num">${i+1}</span><span><strong>${esc(item.title)}</strong><p>${esc(item.detail)}</p><span class="memo-value num">${esc(item.value)}</span></span></button>`).join('');
       $('lastUpdated').textContent='آخر سحب للبيانات: '+(d.last_sync_at?new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(d.last_sync_at)):'—');
       // re-measure once layout has fully settled (covers mobile first-render sizing)
       requestAnimationFrame(resizeCharts);setTimeout(resizeCharts,350);
@@ -765,6 +784,11 @@
     };
     const PANEL_KEYS={'ملخص الأرباح':'profitDetails','الأداء اليومي':'daily','شركات الشحن':'carriers','أفضل العملاء':'merchants','أفضل المدن':'cities','العمليات المالية':'finance','كشف الحساب الجاري':'statement','طلبات COD':'codList','الأرقام المتسلسلة الناقصة':'missing'};
     function showInfo(key){const it=INFO[key];if(!it)return;$('infoTitle').textContent=it[0];$('infoText').textContent=it[1];$('infoModal').classList.remove('hidden');}
+    $('managementMemo').addEventListener('click',e=>{
+      const item=e.target.closest('[data-memo-detail]');if(!item)return;
+      const detail=memoDetailItems[Number(item.dataset.memoDetail)];if(!detail)return;
+      $('infoTitle').textContent=detail.title;$('infoText').textContent=detail.full;$('infoModal').classList.remove('hidden');
+    });
     document.addEventListener('click',e=>{const b=e.target.closest('[data-info]');if(b)showInfo(b.dataset.info);});
     $('infoClose').addEventListener('click',()=>$('infoModal').classList.add('hidden'));
     $('infoModal').addEventListener('click',e=>{if(e.target===$('infoModal'))$('infoModal').classList.add('hidden');});
