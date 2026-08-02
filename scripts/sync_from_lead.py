@@ -1480,6 +1480,7 @@ def main() -> int:
     if db_module is not None:
         try:
             with db_module.get_conn() as conn:
+                db_module.ensure_schema(conn)
                 raw_floor = db_module.get_setting(conn, "min_sync_date", "")
                 if raw_floor.strip():
                     min_sync_date = dt.date.fromisoformat(raw_floor.strip())
