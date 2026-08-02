@@ -173,6 +173,8 @@
       .filter-bar input[type=date]{width:100%;}
     }
     .pill{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--card-2);color:var(--muted);}
+    .manual-price{display:flex;align-items:center;gap:6px;white-space:nowrap;}
+    .manual-mark{font-size:9px;font-weight:800;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--card));padding:2px 5px;border-radius:4px;}
     .row-actions{display:flex;gap:6px;}
 
     .login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:40;padding:20px;}
@@ -732,14 +734,14 @@
     <div class="view hidden" id="view-pricing">
       <section class="panel" style="margin-top:0;">
         <h2>الأسعار <span class="pill">متابعة التكاليف</span></h2>
-        <p class="sub">أسعار شركات الشحن ورسوم COD تُسحب من Lead في كل مزامنة. أما الفواتير غير المربوطة بالموقع فتُرفع هنا للمعاينة والمقارنة، ولا تدخل في الحساب إلا بعد اعتمادها.</p>
+        <p class="sub">الأسعار الموجودة في Lead تُزامن تلقائيًا، وتُستكمل تفاصيل الوزن وCOD الناقصة يدويًا من عقد LEAD المعتمد. أما الفواتير غير المربوطة بالموقع فتُرفع هنا للمعاينة والمقارنة.</p>
         <div class="grid finance" id="priceMeta"></div>
       </section>
       <section class="panel">
         <h2>أسعار شركات الشحن <span class="pill">تُزامن تلقائيًا</span></h2>
-        <p class="sub">تُسحب من صفحة شركات الشحن في Lead — «سعر العميل» هو ما تتقاضاه من التاجر، و«تكلفة المنصة» هي ما تدفعه للناقل.</p>
+        <p class="sub">«سعر العميل» هو ما تتقاضاه من التاجر، و«تكلفة المنصة» هي ما تدفعه للناقل. القيم المعلّمة «يدوي» غير ظاهرة كاملة في قائمة Lead وتم استكمالها من العقد للمراجعة.</p>
         <div class="table-wrap"><table id="carrierTable"><thead><tr>
-          <th>الشركة</th><th>سعر العميل</th><th>تكلفة المنصة</th><th>المصدر</th>
+          <th>الشركة</th><th>سعر العميل</th><th>تكلفة المنصة</th><th>الوزن المجاني</th><th>الكيلو الزائد</th><th>تكلفة COD</th><th>المصدر</th>
         </tr></thead><tbody></tbody></table></div>
       </section>
       <section class="panel">
@@ -1043,14 +1045,15 @@
       const r=await fetch('/api/pricing').then(r=>r.json()).catch(()=>({}));
       if(!r.ok){toast('تعذّر تحميل الأسعار');return;}
       $('priceMeta').innerHTML=[
-        ['رسوم COD لكل طلب', r.cod_fee!=null?money(r.cod_fee):'—', 'تُسحب من إعدادات COD في Lead'],
+        ['تفاصيل العقد اليدوية', 'الوزن وCOD', 'معلّمة بوضوح للمراجعة'],
         ['بداية البيانات', r.data_floor||'الكل', 'أقدم تاريخ معروض في اللوحة'],
         ['عدد شركات الشحن', intf(Object.keys(r.carriers||{}).length), 'مُزامَنة تلقائيًا'],
         ['فواتير مرفوعة', intf(r.uploaded_invoices||0), 'معتمدة يدويًا'],
       ].map(([l,v,n])=>`<div class="chip"><span class="label">${l}</span><span class="value num" style="font-size:15px;">${v}</span><span class="label">${n}</span></div>`).join('');
       const tb=$('carrierTable').querySelector('tbody');
-      tb.innerHTML=Object.entries(r.carriers||{}).map(([name,c])=>{const manual=String(c.source||'').includes('manual');return `<tr><td>${esc(name)}</td><td class="num">${cell(c.customer_gross)}</td><td class="num">${cell(c.platform_gross)}</td><td><span class="pill">${manual?'يدوي - للمراجعة':'Lead + العقد'}</span></td></tr>`;}).join('')
-        ||'<tr><td colspan="4" style="color:var(--muted)">لا يوجد</td></tr>';
+      const manualCell=(value,suffix='',empty='لا يوجد')=>`<span class="manual-price"><span class="num">${value==null?empty:cell(value)+suffix}</span><small class="manual-mark">يدوي</small></span>`;
+      tb.innerHTML=Object.entries(r.carriers||{}).map(([name,c])=>{const manual=String(c.source||'').includes('manual');const maxWeight=c.weight_included_kg>=1000;return `<tr><td>${esc(name)}</td><td class="num">${cell(c.customer_gross)}</td><td class="num">${cell(c.platform_gross)}</td><td>${manualCell(c.weight_included_kg,' كجم')}</td><td>${manualCell(c.extra_kg_cost,'',maxWeight?'حد أقصى':'لا يوجد')}</td><td>${manualCell(c.cod_cost)}</td><td><span class="pill">${manual?'يدوي - للمراجعة':'Lead + العقد'}</span></td></tr>`;}).join('')
+        ||'<tr><td colspan="7" style="color:var(--muted)">لا يوجد</td></tr>';
     }
 
     function renderInvoiceRows(){
