@@ -1025,7 +1025,8 @@ def extract_lamha_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
             "customer_gross": customer_gross,
             "customer_net": net(customer_gross),
             "platform_gross": platform_gross,
-            "platform_net": net(platform_gross),
+            # Lamha's cost matches the ex-VAT contract amount; it is already net.
+            "platform_net": platform_gross,
             "source": "lamha",
             "active": True,
         })
