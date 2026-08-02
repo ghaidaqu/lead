@@ -954,6 +954,9 @@
       const NA='غير متاح';
       const profitVal=ac?ac.true_profit:(lr?lr.net_profit:null);
       const leadProfitVal=lr?lr.net_profit:(ac?ac.reports_profit:null);
+      const leadProfitGap=ac&&leadProfitVal!=null?Number(leadProfitVal)-Number(ac.true_profit):null;
+      const leadSourceGap=ac&&leadProfitVal!=null?Number(leadProfitVal)-Number(ac.reports_profit):null;
+      const leadProfitNote=leadProfitGap==null?'':`${leadProfitGap>=0?'أعلى من الفعلي':'أقل من الفعلي'} بـ ${money(Math.abs(leadProfitGap))} · رسوم وزن/COD: ${money(ac.absorbed_fees)} · فرق المصدرين: ${money(leadSourceGap)}`;
       const profitNote='';
       const revVal=ac?ac.revenue:(lr?lr.revenue:null);
       $('periodBadge').textContent=d.period_label||'';
@@ -963,8 +966,8 @@
         ['عدد الشحنات',intf(t.active),'غير داخلة في الربح: '+intf(t.excluded),'count'],
         ['إجمالي مبلغ COD',money(t.cod_amount),'','cod'],
       ].map(([l,v,n,key])=>`<div class="kpi"><button class="info-btn" data-info="${key}" aria-label="شرح الطريقة">i</button><span class="label">${l}</span><span class="value num">${v}</span>${n?`<span class="note num">${n}</span>`:''}</div>`).join('');
-      $('profitChips').innerHTML=(ac?[['التكلفة الأساسية',money(ac.base_cost)],['رسوم وزن/COD (محمَّلة)',money(ac.absorbed_fees)],['الربح حسب تقارير ليد',money(leadProfitVal)],['صافي الربح الفعلي',money(ac.true_profit)]]:(lr?[['التكلفة الأساسية',money(lr.base_cost)],['صافي الربح',money(lr.net_profit)]]:[['الحالة',NA]]))
-        .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span></div>`).join('');
+      $('profitChips').innerHTML=(ac?[['التكلفة الأساسية',money(ac.base_cost),''],['رسوم وزن/COD (محمَّلة)',money(ac.absorbed_fees),''],['الربح حسب تقارير ليد',money(leadProfitVal),leadProfitNote],['صافي الربح الفعلي',money(ac.true_profit),'']]:(lr?[['التكلفة الأساسية',money(lr.base_cost),''],['صافي الربح',money(lr.net_profit),'']]:[['الحالة',NA,'']]))
+        .map(([l,v,n])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span>${n?`<span class="label num">${n}</span>`:''}</div>`).join('');
       renderDailyChart(d);
       renderCarrierChart(d);
       $('merchantsBody').innerHTML=lm.slice(0,5).map((m,i)=>`<tr><td class="rank num">${i+1}</td><td>${esc(m.merchant)}</td><td class="num">${intf(m.count)}</td><td class="num">${money(m.profit)}</td></tr>`).join('')||`<tr><td colspan="4" style="color:var(--muted)">${NA}</td></tr>`;
