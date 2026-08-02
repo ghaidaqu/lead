@@ -956,7 +956,7 @@
       const leadProfitVal=lr?lr.net_profit:(ac?ac.reports_profit:null);
       const leadProfitGap=ac&&leadProfitVal!=null?Number(leadProfitVal)-Number(ac.true_profit):null;
       const leadSourceGap=ac&&leadProfitVal!=null?Number(leadProfitVal)-Number(ac.reports_profit):null;
-      const leadProfitNote=leadProfitGap==null?'':`${leadProfitGap>=0?'أعلى من الفعلي':'أقل من الفعلي'} بـ ${money(Math.abs(leadProfitGap))} · رسوم فاتورة/COD: ${money(ac.absorbed_fees)} · فرق المصدرين: ${money(leadSourceGap)}`;
+      const leadProfitNote=leadProfitGap==null?'':`${leadProfitGap>=0?'أعلى من الفعلي':'أقل من الفعلي'} بـ ${money(Math.abs(leadProfitGap))} · رسوم وزن/COD: ${money(ac.absorbed_fees)} · فرق المصدرين: ${money(leadSourceGap)}`;
       const profitNote='';
       const revVal=ac?ac.revenue:(lr?lr.revenue:null);
       $('periodBadge').textContent=d.period_label||'';
@@ -966,7 +966,7 @@
         ['عدد الشحنات',intf(t.active),'غير داخلة في الربح: '+intf(t.excluded),'count'],
         ['إجمالي مبلغ COD',money(t.cod_amount),'','cod'],
       ].map(([l,v,n,key])=>`<div class="kpi"><button class="info-btn" data-info="${key}" aria-label="شرح الطريقة">i</button><span class="label">${l}</span><span class="value num">${v}</span>${n?`<span class="note num">${n}</span>`:''}</div>`).join('');
-      $('profitChips').innerHTML=(ac?[['التكلفة الأساسية',money(ac.base_cost),''],['رسوم فاتورة/COD',money(ac.absorbed_fees),''],['الربح حسب تقارير ليد',money(leadProfitVal),leadProfitNote],['صافي الربح الفعلي',money(ac.true_profit),'']]:(lr?[['التكلفة الأساسية',money(lr.base_cost),''],['صافي الربح',money(lr.net_profit),'']]:[['الحالة',NA,'']]))
+      $('profitChips').innerHTML=(ac?[['التكلفة الأساسية',money(ac.base_cost),''],['رسوم وزن/COD',money(ac.absorbed_fees),''],['الربح حسب تقارير ليد',money(leadProfitVal),leadProfitNote],['صافي الربح الفعلي',money(ac.true_profit),'']]:(lr?[['التكلفة الأساسية',money(lr.base_cost),''],['صافي الربح',money(lr.net_profit),'']]:[['الحالة',NA,'']]))
         .map(([l,v,n])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span>${n?`<span class="label num">${n}</span>`:''}</div>`).join('');
       renderDailyChart(d);
       renderCarrierChart(d);
@@ -1191,10 +1191,10 @@
     /* per-chart / per-number methodology (Arabic) */
     const INFO={
       revenue:['إجمالي الإيرادات','مجموع إيراد الشحنات المحسوبة ضمن الفترة. من تاريخ اعتماد الأسعار الحالية في 21 يوليو تؤخذ أسعار الموقع كما هي لأنها معروضة بدون ضريبة، وما قبل ذلك يحتفظ بقاعدة اتفاق الضريبة التاريخية.'],
-      profit:['صافي الربح الفعلي','الربح الحقيقي = سعر الشحنة − (تكلفة المنصة + الرسوم الإضافية). من 21 يوليو تؤخذ تكلفة المنصة من أسعار Lead كما هي ولا تُنشأ رسوم وزن تقديرية؛ وما قبل ذلك يبقى على قاعدة الوزن التاريخية. والفاتورة المعتمدة تؤخذ رسومها الفعلية كما وردت.'],
+      profit:['صافي الربح الفعلي','الربح الحقيقي = سعر الشحنة − (تكلفة المنصة + رسوم الوزن وCOD). من 21 يوليو تُطبق أسعار وأوزان ورسوم COD حسب عقد LEAD الجديد؛ وما قبل ذلك يبقى على القواعد التاريخية. والفاتورة المعتمدة تؤخذ رسومها الفعلية كما وردت.'],
       count:['عدد الشحنات','عدد الشحنات الداخلة في احتساب الربح ضمن الفترة. تُستثنى الشحنات الملغية والمسودة.'],
       cod:['مبلغ COD','مجموع مبالغ الدفع عند الاستلام لكل الشحنات المحسوبة ضمن الفترة.'],
-      profitDetails:['ملخص الأرباح','تفصيل الربح الفعلي: الفاتورة المعتمدة هي المصدر الأول إن وجدت. من 21 يوليو تؤخذ تكلفة المنصة من أسعار Lead كما هي دون وزن تقديري؛ وما قبل تاريخ تغيير الأسعار يحتفظ بقاعدة الوزن السابقة. وتبقى رسوم COD حسب القاعدة المعتمدة.'],
+      profitDetails:['ملخص الأرباح','تفصيل الربح الفعلي: الفاتورة المعتمدة هي المصدر الأول إن وجدت. من 21 يوليو تُطبق التكلفة والوزن المجاني وسعر الكيلو الزائد وCOD من عقد LEAD الجديد؛ وما قبل تاريخ تغيير الأسعار يحتفظ بالقواعد السابقة كاملة.'],
       daily:['الأداء اليومي','آخر 7 أيام تحتوي على بيانات ضمن الفترة. العمودان لكل يوم: صافي الربح والإيراد؛ والخط: عدد الطلبات في ذلك اليوم.'],
       carriers:['شركات الشحن','صافي الربح الفعلي لكل شركة شحن من تقارير ليد للفترة. القيمة المعروضة بجانب كل شركة هي ربحها بالعملة المحلية (قد يكون سالبًا في بعض الفترات).'],
       merchants:['أفضل العملاء','أعلى 5 عملاء حسب الربح الفعلي من تقارير ليد، مع عدد شحناتهم. التسعير الخاص لكل عميل محتسب تلقائيًا في أرقام ليد.'],

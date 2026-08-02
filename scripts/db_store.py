@@ -215,6 +215,7 @@ CREATE TABLE IF NOT EXISTS carriers (
     platform_net NUMERIC(12,4),
     weight_included_kg NUMERIC(10,3),
     extra_kg_cost NUMERIC(10,3),
+    cod_cost NUMERIC(10,3),
     source TEXT NOT NULL DEFAULT 'scrape',
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -278,6 +279,7 @@ def ensure_schema(conn) -> None:
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS actual_extra_cost NUMERIC(12,2)",
             "ALTER TABLE carriers ADD COLUMN IF NOT EXISTS weight_included_kg NUMERIC(10,3)",
             "ALTER TABLE carriers ADD COLUMN IF NOT EXISTS extra_kg_cost NUMERIC(10,3)",
+            "ALTER TABLE carriers ADD COLUMN IF NOT EXISTS cod_cost NUMERIC(10,3)",
             """CREATE TABLE IF NOT EXISTS uploaded_invoice_costs (
                 order_id TEXT PRIMARY KEY,
                 policy NUMERIC(12,2),
@@ -581,7 +583,7 @@ def load_customer_tax_agreements(conn) -> set[str]:
 
 _PRICE_COLUMNS = (
     "customer_gross", "customer_net", "platform_gross", "platform_net",
-    "weight_included_kg", "extra_kg_cost",
+    "weight_included_kg", "extra_kg_cost", "cod_cost",
 )
 
 
@@ -601,6 +603,7 @@ def upsert_carriers(conn, rows: list[dict[str, Any]]) -> tuple[int, int]:
             "platform_net": row.get("platform_net"),
             "weight_included_kg": row.get("weight_included_kg"),
             "extra_kg_cost": row.get("extra_kg_cost"),
+            "cod_cost": row.get("cod_cost"),
             "source": row.get("source", "scrape"),
             "active": row.get("active", True),
         })
@@ -609,7 +612,7 @@ def upsert_carriers(conn, rows: list[dict[str, Any]]) -> tuple[int, int]:
     return upsert_rows(
         conn, "carriers", payload, ["carrier_name"],
         ["customer_gross", "customer_net", "platform_gross", "platform_net",
-         "weight_included_kg", "extra_kg_cost", "source", "active"],
+         "weight_included_kg", "extra_kg_cost", "cod_cost", "source", "active"],
     )
 
 
@@ -664,7 +667,7 @@ def load_pricing_snapshot(conn) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
             "SELECT carrier_name, customer_gross, customer_net, platform_gross, platform_net, "
-            "weight_included_kg, extra_kg_cost, source FROM carriers WHERE active"
+            "weight_included_kg, extra_kg_cost, cod_cost, source FROM carriers WHERE active"
         )
         carriers = {
             r["carrier_name"]: {**_floats(r, _PRICE_COLUMNS), "source": r["source"]}
