@@ -98,6 +98,71 @@ def historical_platform_net(carrier_name: str, shipment_date: dt.date | None) ->
     return value or None
 
 
+def contract_virtual_carriers(vat_rate: float = 0.15) -> list[dict[str, Any]]:
+    """Load contract-backed carriers that are used but absent from settings pages."""
+    try:
+        costs = json.loads(os.environ.get("LEAD_VIRTUAL_CARRIER_COSTS_JSON", "{}"))
+    except (ValueError, TypeError):
+        return []
+    rows = []
+    for name, raw_cost in costs.items():
+        cost = money(raw_cost)
+        if not norm(name) or not cost:
+            continue
+        rows.append({
+            "carrier_name": norm(name),
+            "customer_gross": None,
+            "customer_net": None,
+            "platform_gross": cost,
+            "platform_net": cost,
+            "source": "treek+contract",
+            "active": True,
+        })
+    return rows
+
+
+def apply_wallet_carrier_hints(ship_rows: list[list[Any]], wallet_rows: list[list[Any]]) -> int:
+    """Fill missing shipment carriers from matching policy-issuance wallet rows."""
+    try:
+        aliases = json.loads(os.environ.get("LEAD_WALLET_CARRIER_ALIASES_JSON", "{}"))
+    except (ValueError, TypeError):
+        return 0
+    hints: dict[tuple[dt.date, str, float], list[str]] = {}
+    for row in wallet_rows[1:]:
+        if len(row) < 6:
+            continue
+        desc = norm(row[5])
+        match = re.search(r"إصدار بوليصات لعدد\s+(\d+)\s+طلب\s+-\s+(.+?)(?:\s+\(عبر|$)", desc)
+        date = parse_date_text(row[1])
+        if not match or not date:
+            continue
+        count = int(match.group(1))
+        raw_carrier = norm(match.group(2))
+        carrier = norm(aliases.get(raw_carrier))
+        if count < 1 or not carrier:
+            continue
+        unit_price = round(money(row[4]) / count, 2)
+        hints.setdefault((date, norm(row[2]), unit_price), []).extend([carrier] * count)
+
+    missing: dict[tuple[dt.date, str, float], list[list[Any]]] = {}
+    for row in ship_rows[1:]:
+        if len(row) <= 13 or norm(row[10]) not in {"", "غير محدد"}:
+            continue
+        date = parse_date_text(row[13])
+        if date:
+            missing.setdefault((date, norm(row[2]), round(money(row[6]), 2)), []).append(row)
+
+    updated = 0
+    for key, rows in missing.items():
+        candidates = hints.get(key, [])
+        if len(candidates) != len(rows) or len(set(candidates)) != 1:
+            continue
+        for row in rows:
+            row[10] = candidates[0]
+            updated += 1
+    return updated
+
+
 def parse_date_text(value: Any) -> dt.date | None:
     text = norm(value)
     if not text:
@@ -1452,7 +1517,7 @@ def main() -> int:
                         treek_html = payload["html"].get("treek-couriers.php", "")
                         lamha_rows = extract_lamha_carriers(lamha_html, carrier_vat_rate)
                         treek_rows = extract_treek_carriers(treek_html, carrier_vat_rate)
-                        carrier_rows = lamha_rows + treek_rows
+                        carrier_rows = lamha_rows + treek_rows + contract_virtual_carriers(carrier_vat_rate)
                         pages_valid = "save_lamha_settings" in lamha_html and "treek-couriers" in treek_html
                         if pages_valid and lamha_rows and treek_rows:
                             db_module.replace_active_carriers(conn, carrier_rows)
@@ -1524,6 +1589,8 @@ def main() -> int:
                         db_module.upsert_customer_tax_agreements(conn, sorted(detected_tax_agreements), "wallet_or_bank_vat_deduction")
                     tax_agreement_customers = db_module.load_customer_tax_agreements(conn)
                     print(f"[sync] customer tax agreements: {len(tax_agreement_customers)}", file=sys.stderr)
+                    hinted_carriers = apply_wallet_carrier_hints(ship_rows, wallet_rows)
+                    print(f"[sync] wallet carrier hints applied: {hinted_carriers}", file=sys.stderr)
                     shipments_payload = [
                         shipment_record(row, snapshot, invoice_costs, tax_agreement_customers, carrier_vat_rate)
                         for row in ship_rows[1:]
