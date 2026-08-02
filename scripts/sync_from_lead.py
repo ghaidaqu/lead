@@ -812,12 +812,11 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
     # rows retain the VAT agreement rule; current site prices are already net:
     #   true profit = adjusted charge - adjusted(Base Cost + Over Fee + COD Fixed)
     # Billed shipments take Base Cost / Over Fee / COD Fixed from the invoice.
-    # Current un-invoiced shipments use Lead's live platform price and the
-    # carrier-specific contract weight rule; COD remains 3/order.
+    # Current un-invoiced shipments use Lead's live platform price as-is;
+    # no estimated weight fee is generated locally. COD remains 3/order.
     from scripts import pricing as _pr
     realized_excluded = _pr.EXCLUDED_STATUSES + ("مرتجع",)
     charge = record["shipping_charge"]
-    weight = record["weight"]
     realized = record["status"] not in realized_excluded
     is_cod = "COD" in record["payment_type"]
     tax_agreement_customers = tax_agreement_customers or set()
@@ -827,7 +826,6 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         else _net_of_vat(charge, vat_rate)
     )
     platform_cost_is_net = False
-    weight_cost = 0.0
     inv = (invoice_costs or {}).get(record["order_id"])
     invoice_amounts_are_net = False
     if inv and money(inv.get("base_cost")) > 0:
@@ -848,14 +846,9 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
             platform_cost_is_net = platform_cost_is_net or norm(carrier.get("source")) in {"lamha", "treek", "treek+contract"}
             base_cost_gross = platform_gross or round(platform_net * (1 + vat_rate), 2)
             if current_prices_are_net(record["shipment_date"]):
-                included_kg = money(carrier.get("weight_included_kg")) or 10.0
-                extra_kg_cost = money(carrier.get("extra_kg_cost")) or 2.0
-                weight_cost = round(max(weight - included_kg, 0.0) * extra_kg_cost, 2)
-                # The new contract weight cost is already net. Keep the existing
-                # COD rule untouched and apply its historical VAT treatment.
                 extra_cost_gross = round((3.0 if is_cod else 0.0), 2)
             else:
-                extra_cost_gross = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
+                extra_cost_gross = round((3.0 if is_cod else 0.0), 2)
             cost_source = "computed"
         else:
             base_cost_gross = extra_cost_gross = 0.0
@@ -866,7 +859,7 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         else _net_of_vat(base_cost_gross, vat_rate)
     )
     invoice_extra = extra_cost_gross if cost_source == "invoice" and invoice_amounts_are_net else _net_of_vat(extra_cost_gross, vat_rate)
-    extra_cost = round(weight_cost + invoice_extra, 2)
+    extra_cost = round(invoice_extra, 2)
     counted = realized and cost_source != "unknown"
     total_cost = round(base_cost + extra_cost, 2)
     record.update({
