@@ -213,6 +213,8 @@ CREATE TABLE IF NOT EXISTS carriers (
     customer_net NUMERIC(12,4),
     platform_gross NUMERIC(12,4),
     platform_net NUMERIC(12,4),
+    weight_included_kg NUMERIC(10,3),
+    extra_kg_cost NUMERIC(10,3),
     source TEXT NOT NULL DEFAULT 'scrape',
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -260,6 +262,8 @@ def ensure_schema(conn) -> None:
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS actual_profit NUMERIC(12,2)",
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS cost_source TEXT",
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS actual_extra_cost NUMERIC(12,2)",
+            "ALTER TABLE carriers ADD COLUMN IF NOT EXISTS weight_included_kg NUMERIC(10,3)",
+            "ALTER TABLE carriers ADD COLUMN IF NOT EXISTS extra_kg_cost NUMERIC(10,3)",
             """CREATE TABLE IF NOT EXISTS pending_recharges (
                 id BIGSERIAL PRIMARY KEY,
                 recharge_key TEXT NOT NULL UNIQUE,
@@ -548,7 +552,10 @@ def load_customer_tax_agreements(conn) -> set[str]:
         return {str(r["merchant_name"]).strip() for r in cur.fetchall() if r["merchant_name"]}
 
 
-_PRICE_COLUMNS = ("customer_gross", "customer_net", "platform_gross", "platform_net")
+_PRICE_COLUMNS = (
+    "customer_gross", "customer_net", "platform_gross", "platform_net",
+    "weight_included_kg", "extra_kg_cost",
+)
 
 
 def upsert_carriers(conn, rows: list[dict[str, Any]]) -> tuple[int, int]:
@@ -565,6 +572,8 @@ def upsert_carriers(conn, rows: list[dict[str, Any]]) -> tuple[int, int]:
             "customer_net": row.get("customer_net"),
             "platform_gross": row.get("platform_gross"),
             "platform_net": row.get("platform_net"),
+            "weight_included_kg": row.get("weight_included_kg"),
+            "extra_kg_cost": row.get("extra_kg_cost"),
             "source": row.get("source", "scrape"),
             "active": row.get("active", True),
         })
@@ -572,7 +581,8 @@ def upsert_carriers(conn, rows: list[dict[str, Any]]) -> tuple[int, int]:
         return 0, 0
     return upsert_rows(
         conn, "carriers", payload, ["carrier_name"],
-        ["customer_gross", "customer_net", "platform_gross", "platform_net", "source", "active"],
+        ["customer_gross", "customer_net", "platform_gross", "platform_net",
+         "weight_included_kg", "extra_kg_cost", "source", "active"],
     )
 
 
@@ -602,7 +612,10 @@ def load_pricing_snapshot(conn) -> dict[str, Any]:
     module stays IO-only; `scripts.pricing.PricingSnapshot.from_db` turns it
     into the typed snapshot the pure engine consumes."""
     with conn.cursor() as cur:
-        cur.execute("SELECT carrier_name, customer_gross, customer_net, platform_gross, platform_net, source FROM carriers WHERE active")
+        cur.execute(
+            "SELECT carrier_name, customer_gross, customer_net, platform_gross, platform_net, "
+            "weight_included_kg, extra_kg_cost, source FROM carriers WHERE active"
+        )
         carriers = {
             r["carrier_name"]: {**_floats(r, _PRICE_COLUMNS), "source": r["source"]}
             for r in cur.fetchall()

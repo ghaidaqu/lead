@@ -115,17 +115,22 @@ def contract_virtual_carriers(vat_rate: float = 0.15) -> list[dict[str, Any]]:
         costs = json.loads(os.environ.get("LEAD_VIRTUAL_CARRIER_COSTS_JSON", "{}"))
     except (ValueError, TypeError):
         return []
+    contract_costs = load_contract_carrier_costs()
     rows = []
     for name, raw_cost in costs.items():
         cost = money(raw_cost)
         if not norm(name) or not cost:
             continue
+        contract_name = norm(name).replace(" (Treek)", "")
+        contract_row = contract_costs.get(contract_name, {})
         rows.append({
             "carrier_name": norm(name),
             "customer_gross": None,
             "customer_net": None,
             "platform_gross": cost,
             "platform_net": cost,
+            "weight_included_kg": contract_row.get("included_weight_kg"),
+            "extra_kg_cost": contract_row.get("extra_kg_cost"),
             "source": "treek+contract",
             "active": True,
         })
@@ -799,8 +804,8 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
     # rows retain the VAT agreement rule; current site prices are already net:
     #   true profit = adjusted charge - adjusted(Base Cost + Over Fee + COD Fixed)
     # Billed shipments take Base Cost / Over Fee / COD Fixed from the invoice.
-    # Current un-invoiced shipments use Lead's live platform price, overweight
-    # starts after 10 kg at 2/kg, and COD platform fee is 3/order.
+    # Current un-invoiced shipments use Lead's live platform price and the
+    # carrier-specific contract weight rule; COD remains 3/order.
     from scripts import pricing as _pr
     realized_excluded = _pr.EXCLUDED_STATUSES + ("مرتجع",)
     charge = record["shipping_charge"]
@@ -814,6 +819,7 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         else _net_of_vat(charge, vat_rate)
     )
     platform_cost_is_net = False
+    weight_cost = 0.0
     inv = (invoice_costs or {}).get(record["order_id"])
     if inv:
         base_cost_gross = inv["base_cost"]
@@ -831,13 +837,21 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         if platform_gross or platform_net:
             platform_cost_is_net = platform_cost_is_net or norm(carrier.get("source")) in {"lamha", "treek", "treek+contract"}
             base_cost_gross = platform_gross or round(platform_net * (1 + vat_rate), 2)
-            extra_cost_gross = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
+            if current_prices_are_net(record["shipment_date"]):
+                included_kg = money(carrier.get("weight_included_kg")) or 10.0
+                extra_kg_cost = money(carrier.get("extra_kg_cost")) or 2.0
+                weight_cost = round(max(weight - included_kg, 0.0) * extra_kg_cost, 2)
+                # The new contract weight cost is already net. Keep the existing
+                # COD rule untouched and apply its historical VAT treatment.
+                extra_cost_gross = round((3.0 if is_cod else 0.0), 2)
+            else:
+                extra_cost_gross = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
             cost_source = "computed"
         else:
             base_cost_gross = extra_cost_gross = 0.0
             cost_source = "unknown"
     base_cost = platform_net if cost_source == "computed" and platform_cost_is_net else _net_of_vat(base_cost_gross, vat_rate)
-    extra_cost = _net_of_vat(extra_cost_gross, vat_rate)
+    extra_cost = round(weight_cost + _net_of_vat(extra_cost_gross, vat_rate), 2)
     counted = realized and cost_source != "unknown"
     total_cost = round(base_cost + extra_cost, 2)
     record.update({
@@ -1109,6 +1123,7 @@ def extract_lamha_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
     def net(gross: float) -> float:
         return round(gross / (1 + vat_rate), 2)
 
+    contract_costs = load_contract_carrier_costs()
     rows: list[dict[str, Any]] = []
     ids = re.findall(r'\bname=["\']carrier_name\[([^\]]+)\]["\']', html, re.I)
     for carrier_id in dict.fromkeys(ids):
@@ -1121,6 +1136,7 @@ def extract_lamha_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
         if not raw_name or not customer_gross or not platform_gross:
             continue
         carrier_name = CARRIER_ALIASES.get(raw_name, raw_name)
+        contract_row = contract_costs.get(carrier_name, {})
         rows.append({
             "carrier_name": carrier_name,
             "customer_gross": customer_gross,
@@ -1128,6 +1144,8 @@ def extract_lamha_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
             "platform_gross": platform_gross,
             # Lamha's cost matches the ex-VAT contract amount; it is already net.
             "platform_net": platform_gross,
+            "weight_included_kg": contract_row.get("included_weight_kg"),
+            "extra_kg_cost": contract_row.get("extra_kg_cost"),
             "source": "lamha",
             "active": True,
         })
@@ -1176,6 +1194,8 @@ def extract_treek_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
             "customer_net": customer_gross,
             "platform_gross": platform_gross or None,
             "platform_net": platform_gross or None,
+            "weight_included_kg": contract_row.get("included_weight_kg"),
+            "extra_kg_cost": contract_row.get("extra_kg_cost"),
             "source": "treek+contract" if used_contract else "treek",
             "active": True,
         })
