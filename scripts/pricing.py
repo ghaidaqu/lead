@@ -3,7 +3,7 @@
 The old price-sheet profit engine (compute_profit / resolve_customer /
 resolve_platform / merchant overrides) has been **removed** — profit is now
 computed per shipment from Lead's own actuals (invoice Base Cost where billed,
-live carrier prices from shipping-companies.php for the current cycle), in
+live carrier prices from Lamha/Treek settings for the current cycle), in
 ``sync_from_lead.shipment_record``.
 
 What remains here is the small shared infrastructure that path still needs:
@@ -22,11 +22,15 @@ from typing import Any
 # table keys.
 CARRIER_ALIASES = {
     "ارامكس - ARAMEX": "ارامكس",
+    "Aramex ( توصيل )": "ارامكس",
     "aramex ( استلام من الفرع )": "ارامكس استلام",
     "SMSA - سمسا": "سمسا",
+    "SMSA ( توصيل )": "سمسا",
     "SMSA ( استلام من الفرع )": "سمسا استلام",
     "RedBox - ريدبوكس": "ريد بوكس",
+    "Redboxsa ( خزائن )": "ريد بوكس",
     "JT Express": "JT Express",
+    "JT Express V2": "JT Express",
 }
 
 # Statuses excluded from profit (cancelled / draft). The realized basis also
@@ -45,7 +49,7 @@ def money(value: Any) -> float:
 
 @dataclass(frozen=True)
 class PricingSnapshot:
-    """Live carrier prices (from shipping-companies.php) + the few operational
+    """Live carrier prices (from Lamha/Treek settings) + the few operational
     constants the current-cycle cost computation needs (included weight, extra-kg
     rate). Loaded from the DB via :meth:`from_db`."""
     carriers: dict[str, dict[str, Any]] = field(default_factory=dict)

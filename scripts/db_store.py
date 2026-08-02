@@ -566,13 +566,27 @@ def upsert_carriers(conn, rows: list[dict[str, Any]]) -> tuple[int, int]:
             "platform_gross": row.get("platform_gross"),
             "platform_net": row.get("platform_net"),
             "source": row.get("source", "scrape"),
+            "active": row.get("active", True),
         })
     if not payload:
         return 0, 0
     return upsert_rows(
         conn, "carriers", payload, ["carrier_name"],
-        ["customer_gross", "customer_net", "platform_gross", "platform_net", "source"],
+        ["customer_gross", "customer_net", "platform_gross", "platform_net", "source", "active"],
     )
+
+
+def replace_active_carriers(conn, rows: list[dict[str, Any]]) -> tuple[int, int]:
+    """Make the successfully scraped Lamha/Treek selection the current set."""
+    names = sorted({str(row.get("carrier_name") or "").strip() for row in rows} - {""})
+    if not names:
+        return 0, 0
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE carriers SET active = FALSE, updated_at = NOW() WHERE active AND NOT (carrier_name = ANY(%s))",
+            (names,),
+        )
+    return upsert_carriers(conn, [{**row, "active": True} for row in rows])
 
 
 def _floats(row: dict[str, Any], keys: tuple[str, ...]) -> dict[str, float | None]:

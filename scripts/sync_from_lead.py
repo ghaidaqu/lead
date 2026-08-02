@@ -398,6 +398,8 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
                 "collect-cod.php": cod_probe,
                 "sync-status.php": http_get(opener, f"{base}/admin/sync-status.php"),
                 "shipping-companies.php": safe_http_get(opener, f"{base}/admin/shipping-companies.php"),
+                "lamha-settings.php": safe_http_get(opener, f"{base}/admin/lamha-settings.php"),
+                "treek-couriers.php": safe_http_get(opener, f"{base}/admin/treek-couriers.php"),
                 "reports.php": safe_http_get(opener, f"{base}/admin/reports.php"),
                 "pending-recharges.php": safe_http_get(opener, f"{base}/admin/pending-recharges.php"),
             }
@@ -513,6 +515,8 @@ def scrape_site(env: dict[str, str]) -> dict[str, Any]:
         "collect-cod.php": cod_probe,
         "sync-status.php": http_get(opener, f"{base}/admin/sync-status.php"),
         "shipping-companies.php": safe_http_get(opener, f"{base}/admin/shipping-companies.php"),
+        "lamha-settings.php": safe_http_get(opener, f"{base}/admin/lamha-settings.php"),
+        "treek-couriers.php": safe_http_get(opener, f"{base}/admin/treek-couriers.php"),
                 "reports.php": safe_http_get(opener, f"{base}/admin/reports.php"),
         "pending-recharges.php": safe_http_get(opener, f"{base}/admin/pending-recharges.php"),
     }
@@ -957,6 +961,95 @@ def extract_shipping_companies(html: str, vat_rate: float = 0.15) -> list[dict[s
     return rows
 
 
+def extract_lamha_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, Any]]:
+    """Parse the enabled carriers and current prices from Lamha settings."""
+    if not html:
+        return []
+    from scripts.pricing import CARRIER_ALIASES
+
+    def input_tag(name: str) -> str:
+        match = re.search(
+            r'<input\b(?=[^>]*\bname=["\']' + re.escape(name) + r'["\'])[^>]*>',
+            html,
+            re.I,
+        )
+        return match.group(0) if match else ""
+
+    def value(name: str) -> str:
+        tag = input_tag(name)
+        match = re.search(r'\bvalue=["\']([^"\']*)["\']', tag, re.I)
+        return match.group(1).strip() if match else ""
+
+    def net(gross: float) -> float:
+        return round(gross / (1 + vat_rate), 2)
+
+    rows: list[dict[str, Any]] = []
+    ids = re.findall(r'\bname=["\']carrier_name\[([^\]]+)\]["\']', html, re.I)
+    for carrier_id in dict.fromkeys(ids):
+        enabled_tag = input_tag(f"carriers[{carrier_id}]")
+        if not enabled_tag or not re.search(r'\bchecked(?:\s|=|>)', enabled_tag, re.I):
+            continue
+        raw_name = norm(value(f"carrier_name[{carrier_id}]"))
+        customer_gross = money(value(f"carrier_price[{carrier_id}]"))
+        platform_gross = money(value(f"carrier_cost[{carrier_id}]"))
+        if not raw_name or not customer_gross or not platform_gross:
+            continue
+        carrier_name = CARRIER_ALIASES.get(raw_name, raw_name)
+        rows.append({
+            "carrier_name": carrier_name,
+            "customer_gross": customer_gross,
+            "customer_net": net(customer_gross),
+            "platform_gross": platform_gross,
+            "platform_net": net(platform_gross),
+            "source": "lamha",
+            "active": True,
+        })
+    return rows
+
+
+def extract_treek_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, Any]]:
+    """Parse enabled Treek couriers; a zero optional platform cost stays unknown."""
+    if not html:
+        return []
+
+    def field(form: str, name: str) -> str:
+        tag_match = re.search(
+            r'<input\b(?=[^>]*\bname=["\']' + re.escape(name) + r'["\'])[^>]*>',
+            form,
+            re.I,
+        )
+        if not tag_match:
+            return ""
+        value_match = re.search(r'\bvalue=["\']([^"\']*)["\']', tag_match.group(0), re.I)
+        return value_match.group(1).strip() if value_match else ""
+
+    def net(gross: float) -> float:
+        return round(gross / (1 + vat_rate), 2)
+
+    rows: list[dict[str, Any]] = []
+    for form in re.findall(r'<form\b[^>]*>(.*?)</form>', html, re.I | re.S):
+        if field(form, "action") != "update":
+            continue
+        active_match = re.search(r'<input\b(?=[^>]*\bname=["\']is_active["\'])[^>]*>', form, re.I)
+        if not active_match or not re.search(r'\bchecked(?:\s|=|>)', active_match.group(0), re.I):
+            continue
+        carrier_name = norm(field(form, "shipping_company"))
+        customer_gross = money(field(form, "customer_price"))
+        platform_gross = money(field(form, "cost_from_platform"))
+        if not carrier_name or not customer_gross:
+            continue
+        rows.append({
+            "carrier_name": carrier_name,
+            "customer_gross": customer_gross,
+            "customer_net": net(customer_gross),
+            "platform_gross": platform_gross or None,
+            "platform_net": net(platform_gross) if platform_gross else None,
+            "source": "treek",
+            "active": True,
+        })
+    return rows
+
+
 class _PlainText(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -1299,12 +1392,20 @@ def main() -> int:
                     postgres_connected = True
                     db_module.ensure_schema(conn)
                     sync_run_id = db_module.make_sync_run(conn, "sync_from_lead.py")
-                    # Refresh carrier prices from the Lead site (non-fatal: a scrape
-                    # hiccup must not zero out profits — fall back to seeded carriers).
+                    # Refresh carrier prices from both current integrations. Require
+                    # both pages before replacing the active set so a partial scrape
+                    # cannot deactivate valid carriers.
                     try:
-                        carrier_rows = extract_shipping_companies(payload["html"].get("shipping-companies.php", ""), carrier_vat_rate)
-                        if carrier_rows:
-                            db_module.upsert_carriers(conn, carrier_rows)
+                        lamha_html = payload["html"].get("lamha-settings.php", "")
+                        treek_html = payload["html"].get("treek-couriers.php", "")
+                        lamha_rows = extract_lamha_carriers(lamha_html, carrier_vat_rate)
+                        treek_rows = extract_treek_carriers(treek_html, carrier_vat_rate)
+                        carrier_rows = lamha_rows + treek_rows
+                        pages_valid = "save_lamha_settings" in lamha_html and "treek-couriers" in treek_html
+                        if pages_valid and lamha_rows and treek_rows:
+                            db_module.replace_active_carriers(conn, carrier_rows)
+                        else:
+                            raise ValueError("Lamha/Treek pricing pages were incomplete")
                     except Exception as carrier_exc:
                         print(f"[sync] carrier price refresh skipped: {carrier_exc}", file=sys.stderr)
                     snapshot = pricing.PricingSnapshot.from_db(db_module.load_pricing_snapshot(conn))
