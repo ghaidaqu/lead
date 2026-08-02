@@ -81,6 +81,23 @@ def load_contract_carrier_costs() -> dict[str, dict[str, Any]]:
     return costs
 
 
+def historical_platform_net(carrier_name: str, shipment_date: dt.date | None) -> float | None:
+    """Return the prior ex-VAT carrier cost before the configured price change."""
+    effective_raw = os.environ.get("LEAD_CARRIER_PRICING_EFFECTIVE_DATE", "").strip()
+    costs_raw = os.environ.get("LEAD_PREVIOUS_CARRIER_COSTS_JSON", "").strip()
+    if not effective_raw or not costs_raw or shipment_date is None:
+        return None
+    try:
+        effective_date = dt.date.fromisoformat(effective_raw)
+        costs = json.loads(costs_raw)
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return None
+    if shipment_date >= effective_date:
+        return None
+    value = money(costs.get(carrier_name))
+    return value or None
+
+
 def parse_date_text(value: Any) -> dt.date | None:
     text = norm(value)
     if not text:
@@ -727,8 +744,12 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         carrier = (snap.carriers.get(carrier_key) if snap else None) or {}
         platform_gross = _pr.money(carrier.get("platform_gross"))
         platform_net = _pr.money(carrier.get("platform_net"))
+        prior_platform_net = historical_platform_net(carrier_key, record["shipment_date"])
+        if prior_platform_net:
+            platform_gross = platform_net = prior_platform_net
+            platform_cost_is_net = True
         if platform_gross or platform_net:
-            platform_cost_is_net = norm(carrier.get("source")) in {"lamha", "treek", "treek+contract"}
+            platform_cost_is_net = platform_cost_is_net or norm(carrier.get("source")) in {"lamha", "treek", "treek+contract"}
             base_cost_gross = platform_gross or round(platform_net * (1 + vat_rate), 2)
             extra_cost_gross = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
             cost_source = "computed"
