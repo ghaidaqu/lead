@@ -132,7 +132,7 @@ def contract_virtual_carriers(vat_rate: float = 0.15) -> list[dict[str, Any]]:
             "weight_included_kg": contract_row.get("included_weight_kg"),
             "extra_kg_cost": contract_row.get("extra_kg_cost"),
             "cod_cost": contract_row.get("cod_cost"),
-            "source": "treek+contract",
+            "source": "manual-contract",
             "active": True,
         })
     return rows
@@ -846,7 +846,8 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
             platform_gross = platform_net = prior_platform_net
             platform_cost_is_net = True
         if platform_gross or platform_net:
-            platform_cost_is_net = platform_cost_is_net or norm(carrier.get("source")) in {"lamha", "lamha+contract", "treek", "treek+contract"}
+            carrier_source = norm(carrier.get("source"))
+            platform_cost_is_net = platform_cost_is_net or carrier_source in {"lamha", "treek"} or "contract" in carrier_source
             base_cost_gross = platform_gross or round(platform_net * (1 + vat_rate), 2)
             if current_prices_are_net(record["shipment_date"]):
                 included_kg = carrier.get("weight_included_kg")
@@ -1209,6 +1210,7 @@ def extract_treek_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
         carrier_name = norm(field(form, "shipping_company"))
         customer_gross = money(field(form, "customer_price"))
         platform_gross = money(field(form, "cost_from_platform"))
+        site_platform_gross = platform_gross
         if not carrier_name or not customer_gross:
             continue
         contract_row = contract_costs.get(carrier_name, {})
@@ -1224,7 +1226,7 @@ def extract_treek_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
             "weight_included_kg": contract_row.get("included_weight_kg"),
             "extra_kg_cost": contract_row.get("extra_kg_cost"),
             "cod_cost": contract_row.get("cod_cost"),
-            "source": "treek+contract" if used_contract else "treek",
+            "source": "treek+manual-contract" if used_contract and not site_platform_gross else "treek+contract" if used_contract else "treek",
             "active": True,
         })
     return rows

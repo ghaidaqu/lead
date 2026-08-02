@@ -739,7 +739,7 @@
         <h2>أسعار شركات الشحن <span class="pill">تُزامن تلقائيًا</span></h2>
         <p class="sub">تُسحب من صفحة شركات الشحن في Lead — «سعر العميل» هو ما تتقاضاه من التاجر، و«تكلفة المنصة» هي ما تدفعه للناقل.</p>
         <div class="table-wrap"><table id="carrierTable"><thead><tr>
-          <th>الشركة</th><th>سعر العميل</th><th>تكلفة المنصة</th>
+          <th>الشركة</th><th>سعر العميل</th><th>تكلفة المنصة</th><th>المصدر</th>
         </tr></thead><tbody></tbody></table></div>
       </section>
       <section class="panel">
@@ -1049,8 +1049,8 @@
         ['فواتير مرفوعة', intf(r.uploaded_invoices||0), 'معتمدة يدويًا'],
       ].map(([l,v,n])=>`<div class="chip"><span class="label">${l}</span><span class="value num" style="font-size:15px;">${v}</span><span class="label">${n}</span></div>`).join('');
       const tb=$('carrierTable').querySelector('tbody');
-      tb.innerHTML=Object.entries(r.carriers||{}).map(([name,c])=>`<tr><td>${esc(name)}</td><td class="num">${cell(c.customer_gross)}</td><td class="num">${cell(c.platform_gross)}</td></tr>`).join('')
-        ||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
+      tb.innerHTML=Object.entries(r.carriers||{}).map(([name,c])=>{const manual=String(c.source||'').includes('manual');return `<tr><td>${esc(name)}</td><td class="num">${cell(c.customer_gross)}</td><td class="num">${cell(c.platform_gross)}</td><td><span class="pill">${manual?'يدوي - للمراجعة':'Lead + العقد'}</span></td></tr>`;}).join('')
+        ||'<tr><td colspan="4" style="color:var(--muted)">لا يوجد</td></tr>';
     }
 
     function renderInvoiceRows(){
