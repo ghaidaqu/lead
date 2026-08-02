@@ -602,8 +602,11 @@ def load_pricing_snapshot(conn) -> dict[str, Any]:
     module stays IO-only; `scripts.pricing.PricingSnapshot.from_db` turns it
     into the typed snapshot the pure engine consumes."""
     with conn.cursor() as cur:
-        cur.execute("SELECT carrier_name, customer_gross, customer_net, platform_gross, platform_net FROM carriers WHERE active")
-        carriers = {r["carrier_name"]: _floats(r, _PRICE_COLUMNS) for r in cur.fetchall()}
+        cur.execute("SELECT carrier_name, customer_gross, customer_net, platform_gross, platform_net, source FROM carriers WHERE active")
+        carriers = {
+            r["carrier_name"]: {**_floats(r, _PRICE_COLUMNS), "source": r["source"]}
+            for r in cur.fetchall()
+        }
         cur.execute("SELECT key, value FROM pricing_settings")
         settings = {r["key"]: (float(r["value"]) if r["value"] is not None else None) for r in cur.fetchall()}
     return {"carriers": carriers, "settings": settings}

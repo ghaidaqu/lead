@@ -716,6 +716,7 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
     is_cod = "COD" in record["payment_type"]
     tax_agreement_customers = tax_agreement_customers or set()
     customer_revenue = charge if record["merchant_name"] in tax_agreement_customers else _net_of_vat(charge, vat_rate)
+    platform_cost_is_net = False
     inv = (invoice_costs or {}).get(record["order_id"])
     if inv:
         base_cost_gross = inv["base_cost"]
@@ -727,13 +728,14 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         platform_gross = _pr.money(carrier.get("platform_gross"))
         platform_net = _pr.money(carrier.get("platform_net"))
         if platform_gross or platform_net:
+            platform_cost_is_net = norm(carrier.get("source")) in {"lamha", "treek", "treek+contract"}
             base_cost_gross = platform_gross or round(platform_net * (1 + vat_rate), 2)
             extra_cost_gross = round(max(weight - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
             cost_source = "computed"
         else:
             base_cost_gross = extra_cost_gross = 0.0
             cost_source = "unknown"
-    base_cost = _net_of_vat(base_cost_gross, vat_rate)
+    base_cost = platform_net if cost_source == "computed" and platform_cost_is_net else _net_of_vat(base_cost_gross, vat_rate)
     extra_cost = _net_of_vat(extra_cost_gross, vat_rate)
     counted = realized and cost_source != "unknown"
     total_cost = round(base_cost + extra_cost, 2)
@@ -978,7 +980,7 @@ def extract_shipping_companies(html: str, vat_rate: float = 0.15) -> list[dict[s
             "customer_gross": customer_gross,
             "customer_net": net(customer_gross),
             "platform_gross": platform_gross,
-            "platform_net": net(platform_gross),
+            "platform_net": platform_gross,
             "source": "scrape",
         })
     return rows
@@ -1071,7 +1073,7 @@ def extract_treek_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
             "customer_gross": customer_gross,
             "customer_net": net(customer_gross),
             "platform_gross": platform_gross or None,
-            "platform_net": net(platform_gross) if platform_gross else None,
+            "platform_net": platform_gross or None,
             "source": "treek+contract" if used_contract else "treek",
             "active": True,
         })
