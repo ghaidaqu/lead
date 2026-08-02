@@ -21,6 +21,7 @@ STATE_PATH = PROJECT_DIR / "sync_state.json"
 ENV_PATH = PROJECT_DIR / ".env"
 AUTH_DIR = PROJECT_DIR / ".auth"
 AUTH_STATE_PATH = AUTH_DIR / "lead_state.json"
+CONTRACT_COSTS_PATH = PROJECT_DIR / "config" / "carrier_contract_costs.json"
 # The sync-floor date is not hardcoded — it is read from the DB `min_sync_date`
 # setting (editable in the admin page). Empty/unset means "no floor".
 
@@ -56,6 +57,28 @@ def norm(v: Any) -> str:
 def money(v: Any) -> float:
     m = re.search(r"-?\d+(?:\.\d+)?", norm(v).replace(",", ""))
     return float(m.group()) if m else 0.0
+
+
+def load_contract_carrier_costs() -> dict[str, dict[str, Any]]:
+    """Load contract costs as a fallback for integrations that publish zero."""
+    try:
+        raw = os.environ.get("LEAD_CONTRACT_CARRIER_COSTS_JSON", "").strip()
+        if raw:
+            payload = json.loads(raw)
+        elif CONTRACT_COSTS_PATH.exists():
+            payload = json.loads(CONTRACT_COSTS_PATH.read_text(encoding="utf-8"))
+        else:
+            return {}
+    except (OSError, ValueError, TypeError):
+        return {}
+    costs: dict[str, dict[str, Any]] = {}
+    for row in payload.get("prices", []):
+        names = [row.get("carrier"), *(row.get("aliases") or [])]
+        for name in names:
+            normalized = norm(name)
+            if normalized:
+                costs[normalized] = row
+    return costs
 
 
 def parse_date_text(value: Any) -> dt.date | None:
@@ -1026,6 +1049,7 @@ def extract_treek_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
     def net(gross: float) -> float:
         return round(gross / (1 + vat_rate), 2)
 
+    contract_costs = load_contract_carrier_costs()
     rows: list[dict[str, Any]] = []
     for form in re.findall(r'<form\b[^>]*>(.*?)</form>', html, re.I | re.S):
         if field(form, "action") != "update":
@@ -1038,13 +1062,17 @@ def extract_treek_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
         platform_gross = money(field(form, "cost_from_platform"))
         if not carrier_name or not customer_gross:
             continue
+        contract_row = contract_costs.get(carrier_name, {})
+        used_contract = not platform_gross and money(contract_row.get("platform_cost")) > 0
+        if used_contract:
+            platform_gross = money(contract_row["platform_cost"])
         rows.append({
             "carrier_name": carrier_name,
             "customer_gross": customer_gross,
             "customer_net": net(customer_gross),
             "platform_gross": platform_gross or None,
             "platform_net": net(platform_gross) if platform_gross else None,
-            "source": "treek",
+            "source": "treek+contract" if used_contract else "treek",
             "active": True,
         })
     return rows
