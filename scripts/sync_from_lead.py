@@ -98,6 +98,17 @@ def historical_platform_net(carrier_name: str, shipment_date: dt.date | None) ->
     return value or None
 
 
+def current_prices_are_net(shipment_date: dt.date | None) -> bool:
+    """Whether the current Lead prices (already ex-VAT) apply to this shipment."""
+    effective_raw = os.environ.get("LEAD_CARRIER_PRICING_EFFECTIVE_DATE", "").strip()
+    if not effective_raw or shipment_date is None:
+        return False
+    try:
+        return shipment_date >= dt.date.fromisoformat(effective_raw)
+    except ValueError:
+        return False
+
+
 def contract_virtual_carriers(vat_rate: float = 0.15) -> list[dict[str, Any]]:
     """Load contract-backed carriers that are used but absent from settings pages."""
     try:
@@ -784,8 +795,8 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         "source_row": None,
         "source_hash": norm(row[0]) if row else "",
     }
-    # Per-shipment ACTUALS — Lead's original real-economics formula, with VAT
-    # applied only after the same old inputs are calculated:
+    # Per-shipment ACTUALS — Lead's original real-economics formula. Historical
+    # rows retain the VAT agreement rule; current site prices are already net:
     #   true profit = adjusted charge - adjusted(Base Cost + Over Fee + COD Fixed)
     # Billed shipments take Base Cost / Over Fee / COD Fixed from the invoice.
     # Current un-invoiced shipments use Lead's live platform price, overweight
@@ -797,7 +808,11 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
     realized = record["status"] not in realized_excluded
     is_cod = "COD" in record["payment_type"]
     tax_agreement_customers = tax_agreement_customers or set()
-    customer_revenue = charge if record["merchant_name"] in tax_agreement_customers else _net_of_vat(charge, vat_rate)
+    customer_revenue = (
+        charge
+        if current_prices_are_net(record["shipment_date"]) or record["merchant_name"] in tax_agreement_customers
+        else _net_of_vat(charge, vat_rate)
+    )
     platform_cost_is_net = False
     inv = (invoice_costs or {}).get(record["order_id"])
     if inv:
@@ -1109,7 +1124,7 @@ def extract_lamha_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
         rows.append({
             "carrier_name": carrier_name,
             "customer_gross": customer_gross,
-            "customer_net": net(customer_gross),
+            "customer_net": customer_gross,
             "platform_gross": platform_gross,
             # Lamha's cost matches the ex-VAT contract amount; it is already net.
             "platform_net": platform_gross,
@@ -1158,7 +1173,7 @@ def extract_treek_carriers(html: str, vat_rate: float = 0.15) -> list[dict[str, 
         rows.append({
             "carrier_name": carrier_name,
             "customer_gross": customer_gross,
-            "customer_net": net(customer_gross),
+            "customer_net": customer_gross,
             "platform_gross": platform_gross or None,
             "platform_net": platform_gross or None,
             "source": "treek+contract" if used_contract else "treek",
