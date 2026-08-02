@@ -140,7 +140,14 @@ def contract_virtual_carriers(vat_rate: float = 0.15) -> list[dict[str, Any]]:
 def apply_wallet_carrier_hints(ship_rows: list[list[Any]], wallet_rows: list[list[Any]]) -> int:
     """Fill missing shipment carriers from matching policy-issuance wallet rows."""
     try:
-        aliases = json.loads(os.environ.get("LEAD_WALLET_CARRIER_ALIASES_JSON", "{}"))
+        aliases = {
+            "SMSA - سمسا": "سمسا",
+            "سمسا EXPRESS": "سمسا",
+            "ارامكس - ARAMEX": "ارامكس",
+            "ARAMEX": "ارامكس",
+            "JT Express V2": "JT Express",
+            **json.loads(os.environ.get("LEAD_WALLET_CARRIER_ALIASES_JSON", "{}")),
+        }
     except (ValueError, TypeError):
         return 0
     hints: dict[tuple[dt.date, str, float], list[str]] = {}
@@ -160,22 +167,23 @@ def apply_wallet_carrier_hints(ship_rows: list[list[Any]], wallet_rows: list[lis
         unit_price = round(money(row[4]) / count, 2)
         hints.setdefault((date, norm(row[2]), unit_price), []).extend([carrier] * count)
 
-    missing: dict[tuple[dt.date, str, float], list[list[Any]]] = {}
+    grouped: dict[tuple[dt.date, str, float], list[list[Any]]] = {}
     for row in ship_rows[1:]:
-        if len(row) <= 13 or norm(row[10]) not in {"", "غير محدد"}:
+        if len(row) <= 13:
             continue
         date = parse_date_text(row[13])
         if date:
-            missing.setdefault((date, norm(row[2]), round(money(row[6]), 2)), []).append(row)
+            grouped.setdefault((date, norm(row[2]), round(money(row[6]), 2)), []).append(row)
 
     updated = 0
-    for key, rows in missing.items():
+    for key, rows in grouped.items():
         candidates = hints.get(key, [])
         if len(candidates) != len(rows) or len(set(candidates)) != 1:
             continue
         for row in rows:
-            row[10] = candidates[0]
-            updated += 1
+            if norm(row[10]) in {"", "غير محدد"}:
+                row[10] = candidates[0]
+                updated += 1
     return updated
 
 
@@ -821,9 +829,11 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
     platform_cost_is_net = False
     weight_cost = 0.0
     inv = (invoice_costs or {}).get(record["order_id"])
-    if inv:
+    invoice_amounts_are_net = False
+    if inv and money(inv.get("base_cost")) > 0:
         base_cost_gross = inv["base_cost"]
         extra_cost_gross = round(inv["over_fee"] + inv["cod_fixed"], 2)
+        invoice_amounts_are_net = not bool(inv.get("amounts_include_vat", True))
         cost_source = "invoice"
     else:
         carrier_key = _pr.CARRIER_ALIASES.get(record["carrier"], record["carrier"])
@@ -850,8 +860,13 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         else:
             base_cost_gross = extra_cost_gross = 0.0
             cost_source = "unknown"
-    base_cost = platform_net if cost_source == "computed" and platform_cost_is_net else _net_of_vat(base_cost_gross, vat_rate)
-    extra_cost = round(weight_cost + _net_of_vat(extra_cost_gross, vat_rate), 2)
+    base_cost = (
+        platform_net if cost_source == "computed" and platform_cost_is_net
+        else base_cost_gross if cost_source == "invoice" and invoice_amounts_are_net
+        else _net_of_vat(base_cost_gross, vat_rate)
+    )
+    invoice_extra = extra_cost_gross if cost_source == "invoice" and invoice_amounts_are_net else _net_of_vat(extra_cost_gross, vat_rate)
+    extra_cost = round(weight_cost + invoice_extra, 2)
     counted = realized and cost_source != "unknown"
     total_cost = round(base_cost + extra_cost, 2)
     record.update({
@@ -1615,6 +1630,12 @@ def main() -> int:
                             invoice_costs = collect_invoice_costs(opener, base_url)
                     except Exception as inv_exc:
                         print(f"[sync] invoice cost collection skipped: {inv_exc}", file=sys.stderr)
+                    # Approved uploads are independent of Lead's invoice link. They
+                    # must remain usable even when that remote download is absent.
+                    try:
+                        invoice_costs.update(db_module.load_uploaded_invoice_costs(conn))
+                    except Exception as uploaded_inv_exc:
+                        print(f"[sync] uploaded invoice load skipped: {uploaded_inv_exc}", file=sys.stderr)
                     invoiced_n = sum(1 for r in ship_rows[1:] if norm(r[0]) in invoice_costs)
                     print(f"[sync] invoice costs: {len(invoice_costs)} billed shipments, {invoiced_n} match this scrape", file=sys.stderr)
                     detected_tax_agreements = wallet_tax_agreement_customers(wallet_rows[1:])

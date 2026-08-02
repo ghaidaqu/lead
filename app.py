@@ -365,17 +365,142 @@ def api_pricing_get():
     if db_store is None or not db_store.db_enabled():
         return jsonify({"ok": False, "error": "database_unavailable"}), 503
     cod_fee = None
+    uploaded_invoices = 0
     with db_store.get_conn() as conn:
+        db_store.ensure_schema(conn)
         snap = db_store.load_pricing_snapshot(conn)
         data_floor = db_store.get_setting(conn, "min_sync_date", "")
         raw = db_store.get_setting(conn, "lead_reports", "")
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) AS count FROM uploaded_invoice_costs")
+            uploaded_invoices = int(cur.fetchone()["count"])
     if raw:
         try:
             cod_fee = json.loads(raw).get("cod_fee")
         except Exception:
             cod_fee = None
     return jsonify({"ok": True, "carriers": snap.get("carriers", {}),
-                    "cod_fee": cod_fee, "data_floor": data_floor})
+                    "cod_fee": cod_fee, "data_floor": data_floor,
+                    "uploaded_invoices": uploaded_invoices})
+
+
+@app.post("/api/invoices/preview")
+@require_auth
+def api_invoice_preview():
+    if db_store is None or not db_store.db_enabled():
+        return jsonify({"ok": False, "error": "database_unavailable"}), 503
+    upload = request.files.get("file")
+    if not upload or not upload.filename:
+        return jsonify({"ok": False, "error": "file_required"}), 400
+    if not upload.filename.lower().endswith(".xlsx"):
+        return jsonify({"ok": False, "error": "unsupported_file_type"}), 400
+    data = upload.read(10 * 1024 * 1024 + 1)
+    if len(data) > 10 * 1024 * 1024:
+        return jsonify({"ok": False, "error": "file_too_large"}), 413
+    amounts_include_vat = request.form.get("vat_mode") == "gross"
+    try:
+        from scripts.sync_from_lead import parse_invoice_workbook
+        from scripts.pricing import CARRIER_ALIASES
+        invoice_rows = parse_invoice_workbook(data)
+        if not invoice_rows:
+            return jsonify({"ok": False, "error": "invoice_rows_not_found"}), 422
+        order_ids = [str(row["order_id"]) for row in invoice_rows]
+        with db_store.get_conn() as conn:
+            db_store.ensure_schema(conn)
+            snap = db_store.load_pricing_snapshot(conn).get("carriers", {})
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT order_id, carrier, merchant_name, shipment_date
+                       FROM shipments WHERE order_id = ANY(%s)""",
+                    (order_ids,),
+                )
+                shipments = {str(row["order_id"]): dict(row) for row in cur.fetchall()}
+        rows = []
+        for raw_row in invoice_rows:
+            order_id = str(raw_row["order_id"])
+            shipment = shipments.get(order_id, {})
+            raw_carrier = str(shipment.get("carrier") or "").strip()
+            carrier = CARRIER_ALIASES.get(raw_carrier, raw_carrier)
+            current_cost = float((snap.get(carrier) or {}).get("platform_net") or 0)
+            raw_base = round(float(raw_row.get("base_cost") or 0), 2)
+            invoice_cost = round(raw_base / 1.15, 2) if amounts_include_vat else raw_base
+            delta = round(invoice_cost - current_cost, 2) if current_cost else None
+            if not shipment:
+                note, level = "رقم الطلب غير موجود في الشحنات", "warn"
+            elif raw_base <= 0:
+                note, level = "تكلفة الفاتورة صفر وتحتاج مراجعة", "warn"
+            elif not current_cost:
+                note, level = "لا توجد تكلفة حالية للمقارنة", "warn"
+            elif abs(delta or 0) <= 0.05:
+                note, level = "مطابق للسعر الحالي", "ok"
+            elif delta and delta > 0:
+                note, level = f"ارتفعت التكلفة بمقدار {delta:.2f}", "up"
+            else:
+                note, level = f"انخفضت التكلفة بمقدار {abs(delta or 0):.2f}", "down"
+            rows.append({
+                **raw_row,
+                "order_id": order_id,
+                "carrier": carrier or raw_carrier or "غير محدد",
+                "merchant": shipment.get("merchant_name") or "",
+                "shipment_date": shipment.get("shipment_date"),
+                "invoice_cost_net": invoice_cost,
+                "current_cost": current_cost or None,
+                "delta": delta,
+                "note": note,
+                "level": level,
+                "include": bool(shipment and raw_base > 0),
+                "amounts_include_vat": amounts_include_vat,
+                "source_file": upload.filename[:255],
+            })
+    except Exception as exc:
+        logger.exception("invoice preview failed")
+        return jsonify({"ok": False, "error": type(exc).__name__}), 500
+    return jsonify({"ok": True, "filename": upload.filename, "rows": rows})
+
+
+@app.post("/api/invoices/approve")
+@require_auth
+def api_invoice_approve():
+    if db_store is None or not db_store.db_enabled():
+        return jsonify({"ok": False, "error": "database_unavailable"}), 503
+    payload = request.get_json(silent=True) or {}
+    raw_rows = payload.get("rows")
+    if not isinstance(raw_rows, list) or len(raw_rows) > 5000:
+        return jsonify({"ok": False, "error": "invalid_rows"}), 400
+    rows = []
+    for raw in raw_rows:
+        if not isinstance(raw, dict) or not raw.get("include", True):
+            continue
+        order_id = str(raw.get("order_id", "")).strip().lstrip("#")
+        try:
+            base_cost = round(float(raw.get("base_cost") or 0), 2)
+            policy = round(float(raw.get("policy") or 0), 2)
+            over_fee = round(float(raw.get("over_fee") or 0), 2)
+            cod_fixed = round(float(raw.get("cod_fixed") or 0), 2)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "invalid_invoice_row"}), 400
+        if not order_id or base_cost <= 0 or min(policy, over_fee, cod_fixed) < 0:
+            return jsonify({"ok": False, "error": "invalid_invoice_row"}), 400
+        rows.append({
+            "order_id": order_id, "policy": policy, "base_cost": base_cost,
+            "over_fee": over_fee, "cod_fixed": cod_fixed,
+            "status": str(raw.get("status", ""))[:80],
+            "amounts_include_vat": bool(raw.get("amounts_include_vat")),
+            "source_file": str(raw.get("source_file", ""))[:255],
+            "raw_payload": raw,
+        })
+    try:
+        with db_store.get_conn() as conn:
+            db_store.ensure_schema(conn)
+            db_store.upsert_rows(
+                conn, "uploaded_invoice_costs", rows, ["order_id"],
+                ["policy", "base_cost", "over_fee", "cod_fixed", "status",
+                 "amounts_include_vat", "source_file", "raw_payload"],
+            )
+    except Exception as exc:
+        logger.exception("invoice approval failed")
+        return jsonify({"ok": False, "error": type(exc).__name__}), 500
+    return jsonify({"ok": True, "approved": len(rows)})
 
 
 @app.post("/api/bank-statement/preview")

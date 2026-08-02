@@ -221,6 +221,20 @@ CREATE TABLE IF NOT EXISTS carriers (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS uploaded_invoice_costs (
+    order_id TEXT PRIMARY KEY,
+    policy NUMERIC(12,2),
+    base_cost NUMERIC(12,2),
+    over_fee NUMERIC(12,2),
+    cod_fixed NUMERIC(12,2),
+    status TEXT,
+    amounts_include_vat BOOLEAN NOT NULL DEFAULT FALSE,
+    source_file TEXT,
+    raw_payload JSONB,
+    uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS bank_transactions (
     id BIGSERIAL PRIMARY KEY,
     fingerprint TEXT NOT NULL UNIQUE,
@@ -264,6 +278,19 @@ def ensure_schema(conn) -> None:
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS actual_extra_cost NUMERIC(12,2)",
             "ALTER TABLE carriers ADD COLUMN IF NOT EXISTS weight_included_kg NUMERIC(10,3)",
             "ALTER TABLE carriers ADD COLUMN IF NOT EXISTS extra_kg_cost NUMERIC(10,3)",
+            """CREATE TABLE IF NOT EXISTS uploaded_invoice_costs (
+                order_id TEXT PRIMARY KEY,
+                policy NUMERIC(12,2),
+                base_cost NUMERIC(12,2),
+                over_fee NUMERIC(12,2),
+                cod_fixed NUMERIC(12,2),
+                status TEXT,
+                amounts_include_vat BOOLEAN NOT NULL DEFAULT FALSE,
+                source_file TEXT,
+                raw_payload JSONB,
+                uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )""",
             """CREATE TABLE IF NOT EXISTS pending_recharges (
                 id BIGSERIAL PRIMARY KEY,
                 recharge_key TEXT NOT NULL UNIQUE,
@@ -597,6 +624,29 @@ def replace_active_carriers(conn, rows: list[dict[str, Any]]) -> tuple[int, int]
             (names,),
         )
     return upsert_carriers(conn, [{**row, "active": True} for row in rows])
+
+
+def load_uploaded_invoice_costs(conn) -> dict[str, dict[str, Any]]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT order_id, policy, base_cost, over_fee, cod_fixed, status,
+                      amounts_include_vat, source_file
+               FROM uploaded_invoice_costs"""
+        )
+        return {
+            str(row["order_id"]): {
+                "order_id": str(row["order_id"]),
+                "policy": float(row["policy"] or 0),
+                "base_cost": float(row["base_cost"] or 0),
+                "over_fee": float(row["over_fee"] or 0),
+                "cod_fixed": float(row["cod_fixed"] or 0),
+                "status": row["status"] or "",
+                "amounts_include_vat": bool(row["amounts_include_vat"]),
+                "source_file": row["source_file"] or "",
+                "source": "uploaded_invoice",
+            }
+            for row in cur.fetchall()
+        }
 
 
 def _floats(row: dict[str, Any], keys: tuple[str, ...]) -> dict[str, float | None]:

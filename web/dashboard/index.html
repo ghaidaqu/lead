@@ -211,6 +211,11 @@
     .direction.credit{color:var(--positive);background:color-mix(in srgb,var(--positive) 12%,transparent);}
     .direction.debit{color:var(--negative);background:color-mix(in srgb,var(--negative) 12%,transparent);}
     .category-input{min-width:170px;width:100%;}
+    .invoice-controls{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:12px 0;}
+    .invoice-controls label{min-width:210px;}
+    .invoice-note{font-size:11px;font-weight:750;white-space:nowrap;}
+    .invoice-note.ok,.invoice-note.down{color:var(--positive);}
+    .invoice-note.up,.invoice-note.warn{color:var(--negative);}
 
     @media(max-width:1000px){ .kpis{grid-template-columns:1fr 1fr;}
       .two,.tables,.summary,.chips5{grid-template-columns:1fr;}
@@ -726,8 +731,8 @@
     <!-- PRICING VIEW -->
     <div class="view hidden" id="view-pricing">
       <section class="panel" style="margin-top:0;">
-        <h2>الأسعار <span class="pill">للعرض فقط</span></h2>
-        <p class="sub">كل الأسعار والتكاليف تُسحب تلقائيًا من موقع Lead في كل مزامنة (أسعار شركات الشحن، رسوم COD، تكلفة كل شحنة من الفواتير). تُحسب الأرباح من الأرقام الفعلية مباشرةً — لا يوجد إدخال يدوي.</p>
+        <h2>الأسعار <span class="pill">متابعة التكاليف</span></h2>
+        <p class="sub">أسعار شركات الشحن ورسوم COD تُسحب من Lead في كل مزامنة. أما الفواتير غير المربوطة بالموقع فتُرفع هنا للمعاينة والمقارنة، ولا تدخل في الحساب إلا بعد اعتمادها.</p>
         <div class="grid finance" id="priceMeta"></div>
       </section>
       <section class="panel">
@@ -736,6 +741,25 @@
         <div class="table-wrap"><table id="carrierTable"><thead><tr>
           <th>الشركة</th><th>سعر العميل</th><th>تكلفة المنصة</th>
         </tr></thead><tbody></tbody></table></div>
+      </section>
+      <section class="panel">
+        <h2>فواتير شركات الشحن <span class="pill">معاينة ثم اعتماد</span></h2>
+        <p class="sub">ارفع ملف الفاتورة لمقارنة تكلفة كل شحنة بالسعر الحالي. لا تتغير الأرباح إلا بعد اعتماد الصفوف الصحيحة وتشغيل المزامنة.</p>
+        <div class="upload-zone">
+          <div><strong>ملف الفاتورة</strong><span>Excel بصيغة XLSX، بحد أقصى 10 MB</span></div>
+          <label class="btn primary sm">اختيار ملف<input class="hidden" id="invoiceFile" type="file" accept=".xlsx" /></label>
+        </div>
+        <div class="invoice-controls">
+          <label>طريقة عرض التكلفة في الملف
+            <select id="invoiceVatMode"><option value="net">بدون ضريبة</option><option value="gross">شاملة الضريبة</option></select>
+          </label>
+          <button class="btn primary sm hidden" id="approveInvoiceRows">اعتماد المحدد</button>
+          <span class="bank-status" id="invoiceStatus">لم يتم اختيار ملف</span>
+        </div>
+        <div class="table-wrap"><table><thead><tr>
+          <th><input type="checkbox" id="invoiceSelectAll" checked aria-label="تحديد الكل" /></th>
+          <th>رقم الطلب</th><th>الشركة</th><th>تكلفة الموقع</th><th>تكلفة الفاتورة</th><th>الفرق</th><th>الملاحظة</th>
+        </tr></thead><tbody id="invoicePreviewBody"><tr><td colspan="7" style="color:var(--muted)">ارفع فاتورة لعرض المقارنة</td></tr></tbody></table></div>
       </section>
     </div>
 
@@ -799,9 +823,9 @@
 
     /* ---- client-side routing (no reload, no login flash between views) ---- */
     const VIEWS={dashboard:{title:'لوحة التحكم المالية',sub:'نظرة عامة على أداء الأعمال',path:'/dashboard/'},
-                 pricing:{title:'الأسعار',sub:'مرجع للعرض فقط — تُسحب تلقائيًا من Lead',path:'/admin'},
+                 pricing:{title:'الأسعار',sub:'أسعار Lead ومقارنة فواتير شركات الشحن',path:'/admin'},
                  invoices:{title:'كشف البنك',sub:'قراءة وتصنيف الحركات البنكية',path:'/bank-statement'}};
-    let dashboardLoaded=false,bankRows=[],memoDetailItems=[];
+    let dashboardLoaded=false,bankRows=[],invoiceRows=[],invoiceUploadFile=null,memoDetailItems=[];
     function viewFromPath(){const p=location.pathname.replace(/\/+$/,'');return p.endsWith('/admin')?'pricing':(p.endsWith('/invoices')||p.endsWith('/bank-statement'))?'invoices':'dashboard';}
     function setView(name,push){
       if(!VIEWS[name])name='dashboard';
@@ -1019,11 +1043,54 @@
         ['رسوم COD لكل طلب', r.cod_fee!=null?money(r.cod_fee):'—', 'تُسحب من إعدادات COD في Lead'],
         ['بداية البيانات', r.data_floor||'الكل', 'أقدم تاريخ معروض في اللوحة'],
         ['عدد شركات الشحن', intf(Object.keys(r.carriers||{}).length), 'مُزامَنة تلقائيًا'],
+        ['فواتير مرفوعة', intf(r.uploaded_invoices||0), 'معتمدة يدويًا'],
       ].map(([l,v,n])=>`<div class="chip"><span class="label">${l}</span><span class="value num" style="font-size:15px;">${v}</span><span class="label">${n}</span></div>`).join('');
       const tb=$('carrierTable').querySelector('tbody');
       tb.innerHTML=Object.entries(r.carriers||{}).map(([name,c])=>`<tr><td>${esc(name)}</td><td class="num">${cell(c.customer_gross)}</td><td class="num">${cell(c.platform_gross)}</td></tr>`).join('')
         ||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
     }
+
+    function renderInvoiceRows(){
+      $('invoicePreviewBody').innerHTML=invoiceRows.map((r,i)=>`<tr>
+        <td><input type="checkbox" class="invoice-include" data-index="${i}" ${r.include?'checked':''} ${r.base_cost>0?'':'disabled'} aria-label="تضمين الصف" /></td>
+        <td class="num">#${esc(r.order_id)}</td><td>${esc(r.carrier)}</td>
+        <td class="num">${r.current_cost==null?'—':money(r.current_cost)}</td>
+        <td class="num">${money(r.invoice_cost_net)}</td>
+        <td class="num">${r.delta==null?'—':money(r.delta)}</td>
+        <td><span class="invoice-note ${esc(r.level)}">${esc(r.note)}</span></td>
+      </tr>`).join('')||'<tr><td colspan="7" style="color:var(--muted)">لم تُقرأ أي شحنة من الملف</td></tr>';
+      $('approveInvoiceRows').classList.toggle('hidden',!invoiceRows.some(r=>r.include));
+      $('invoiceSelectAll').checked=invoiceRows.length>0&&invoiceRows.filter(r=>r.base_cost>0).every(r=>r.include);
+    }
+    async function previewInvoice(){
+      if(!invoiceUploadFile)return;
+      $('invoiceStatus').textContent='جارٍ قراءة الفاتورة ومقارنة الأسعار...';
+      $('approveInvoiceRows').classList.add('hidden');
+      const form=new FormData();form.append('file',invoiceUploadFile);form.append('vat_mode',$('invoiceVatMode').value);
+      const response=await fetch('/api/invoices/preview',{method:'POST',body:form});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok){invoiceRows=[];renderInvoiceRows();$('invoiceStatus').textContent='تعذّرت قراءة ملف الفاتورة';return;}
+      invoiceRows=result.rows||[];renderInvoiceRows();
+      const changed=invoiceRows.filter(r=>r.level==='up'||r.level==='down').length;
+      $('invoiceStatus').textContent=`تمت قراءة ${intf(invoiceRows.length)} شحنة — ${intf(changed)} اختلاف في السعر`;
+    }
+    $('invoiceFile').addEventListener('change',e=>{invoiceUploadFile=e.target.files&&e.target.files[0];previewInvoice();});
+    $('invoiceVatMode').addEventListener('change',previewInvoice);
+    $('invoicePreviewBody').addEventListener('change',e=>{
+      if(!e.target.classList.contains('invoice-include'))return;
+      const i=Number(e.target.dataset.index);if(invoiceRows[i])invoiceRows[i].include=e.target.checked;
+      $('invoiceSelectAll').checked=invoiceRows.filter(r=>r.base_cost>0).every(r=>r.include);
+    });
+    $('invoiceSelectAll').addEventListener('change',e=>{invoiceRows.forEach(r=>{if(r.base_cost>0)r.include=e.target.checked;});renderInvoiceRows();});
+    $('approveInvoiceRows').addEventListener('click',async()=>{
+      const selected=invoiceRows.filter(r=>r.include);if(!selected.length){toast('حددي صفًا واحدًا على الأقل');return;}
+      $('approveInvoiceRows').disabled=true;$('invoiceStatus').textContent='جارٍ اعتماد الفاتورة...';
+      const response=await fetch('/api/invoices/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:invoiceRows})});
+      const result=await response.json().catch(()=>({}));$('approveInvoiceRows').disabled=false;
+      if(!response.ok){$('invoiceStatus').textContent='تعذّر اعتماد الفاتورة';return;}
+      $('invoiceStatus').textContent=`تم اعتماد ${intf(result.approved)} شحنة — تُطبّق في المزامنة التالية`;
+      toast('تم حفظ الفاتورة');loadPricing();
+    });
 
     /* bank statement import: preview first, persist only after explicit approval */
     function renderBankRows(){
