@@ -848,7 +848,9 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
             if current_prices_are_net(record["shipment_date"]):
                 extra_cost_gross = round((3.0 if is_cod else 0.0), 2)
             else:
-                extra_cost_gross = round((3.0 if is_cod else 0.0), 2)
+                # Preserve the original historical rule before the configured
+                # pricing cutover; only the new pricing cycle drops estimates.
+                extra_cost_gross = round(max(record["weight"] - 10.0, 0.0) * 2.0 + (3.0 if is_cod else 0.0), 2)
             cost_source = "computed"
         else:
             base_cost_gross = extra_cost_gross = 0.0
