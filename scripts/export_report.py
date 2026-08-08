@@ -7,12 +7,16 @@ client. `openpyxl` is used here and only here.
 from __future__ import annotations
 
 import io
+import json
+import os
+import datetime as dt
 from typing import Any
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
 from scripts.bank_statement import filtered_bank_transfer_fees, summarize_bank_statement
+from scripts.pricing import CARRIER_ALIASES
 
 SHIPMENT_COLUMNS = [
     ("order_id", "رقم الطلب"),
@@ -118,6 +122,11 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
         )
         payment_rows = [dict(r) for r in cur.fetchall()]
 
+    cod_context = _load_cod_context(conn)
+    for row in rows:
+        if "COD" in str(row.get("payment_type") or "").upper():
+            row["cod_profit"] = _actual_cod_profit(row, cod_context)
+
     wb = Workbook()
     ws = wb.active
     ws.title = "الشحنات"
@@ -150,6 +159,68 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
     buffer = io.BytesIO()
     wb.save(buffer)
     return buffer.getvalue()
+
+
+def _load_cod_context(conn) -> dict[str, Any]:
+    """Load the inputs needed to expose the COD component already in actual profit."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT value FROM settings WHERE key = 'lead_reports'")
+        setting = cur.fetchone()
+        try:
+            cod_fee = float(json.loads(setting["value"])["cod_fee"]) if setting else 0.0
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            cod_fee = 0.0
+
+        cur.execute("SELECT key, value FROM pricing_settings")
+        pricing_settings = {r["key"]: float(r["value"]) for r in cur.fetchall() if r["value"] is not None}
+        cur.execute("SELECT merchant_name FROM customer_tax_agreements WHERE has_tax_agreement IS TRUE")
+        tax_agreements = {str(r["merchant_name"]).strip() for r in cur.fetchall()}
+        cur.execute("SELECT carrier_name, cod_cost FROM carriers WHERE active")
+        carrier_cod_costs = {
+            str(r["carrier_name"]): float(r["cod_cost"])
+            for r in cur.fetchall() if r["cod_cost"] is not None
+        }
+        cur.execute(
+            "SELECT order_id, cod_fixed, amounts_include_vat FROM uploaded_invoice_costs"
+        )
+        invoice_cod_costs = {str(r["order_id"]): dict(r) for r in cur.fetchall()}
+
+    effective_raw = os.environ.get("LEAD_CARRIER_PRICING_EFFECTIVE_DATE", "").strip()
+    try:
+        effective_date = dt.date.fromisoformat(effective_raw)
+    except ValueError:
+        effective_date = None
+    return {
+        "cod_fee": cod_fee,
+        "vat_rate": pricing_settings.get("vat_rate", 0.15),
+        "tax_agreements": tax_agreements,
+        "carrier_cod_costs": carrier_cod_costs,
+        "invoice_cod_costs": invoice_cod_costs,
+        "effective_date": effective_date,
+    }
+
+
+def _actual_cod_profit(row: dict[str, Any], context: dict[str, Any]) -> float:
+    """Return the COD-only contribution without changing the stored total profit."""
+    vat_rate = float(context["vat_rate"])
+    shipment_date = row.get("shipment_date")
+    current_prices = bool(context["effective_date"] and shipment_date >= context["effective_date"])
+    customer_fee = float(context["cod_fee"])
+    if not current_prices and str(row.get("merchant_name") or "").strip() not in context["tax_agreements"]:
+        customer_fee /= 1 + vat_rate
+
+    invoice = context["invoice_cod_costs"].get(str(row.get("order_id") or ""))
+    if invoice is not None:
+        platform_fee = float(invoice.get("cod_fixed") or 0)
+        if invoice.get("amounts_include_vat"):
+            platform_fee /= 1 + vat_rate
+    elif current_prices:
+        carrier = CARRIER_ALIASES.get(str(row.get("carrier") or ""), str(row.get("carrier") or ""))
+        platform_fee = float(context["carrier_cod_costs"].get(carrier, 0))
+    else:
+        # This is the same historical COD platform cost used by shipment_record.
+        platform_fee = 3.0 / (1 + vat_rate)
+    return round(customer_fee - platform_fee, 2)
 
 
 def _date_where(column: str, date_from, date_to) -> tuple[str, list[Any]]:
