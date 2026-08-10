@@ -411,7 +411,8 @@ def api_invoice_preview():
             snap = db_store.load_pricing_snapshot(conn).get("carriers", {})
             with conn.cursor() as cur:
                 cur.execute(
-                    """SELECT order_id, tracking_number, carrier, merchant_name, shipment_date
+                    """SELECT order_id, tracking_number, carrier, merchant_name, shipment_date,
+                              weight, payment_type
                        FROM shipments
                        WHERE order_id = ANY(%s) OR tracking_number = ANY(%s)""",
                     (order_ids, tracking_numbers),
@@ -429,9 +430,23 @@ def api_invoice_preview():
             order_id = str(shipment.get("order_id") or source_order_id)
             raw_carrier = str(shipment.get("carrier") or "").strip()
             carrier = CARRIER_ALIASES.get(raw_carrier, raw_carrier)
-            current_cost = float((snap.get(carrier) or {}).get("platform_net") or 0)
+            carrier_price = snap.get(carrier) or {}
+            current_base = float(carrier_price.get("platform_net") or 0)
+            included_weight = carrier_price.get("weight_included_kg")
+            extra_kg_cost = carrier_price.get("extra_kg_cost")
+            weight = float(shipment.get("weight") or 0)
+            expected_over = (
+                round(max(weight - float(included_weight), 0) * float(extra_kg_cost), 2)
+                if included_weight is not None and extra_kg_cost is not None else 0.0
+            )
+            is_cod = "COD" in str(shipment.get("payment_type") or "").upper()
+            expected_cod = float(carrier_price.get("cod_cost") or 0) if is_cod else 0.0
+            current_cost = round(current_base + expected_over + expected_cod, 2)
             raw_base = round(float(raw_row.get("base_cost") or 0), 2)
-            invoice_cost = round(raw_base / 1.15, 2) if amounts_include_vat else raw_base
+            raw_over = round(float(raw_row.get("over_fee") or 0), 2)
+            raw_cod = round(float(raw_row.get("cod_fixed") or 0), 2)
+            invoice_components = raw_base + raw_over + raw_cod
+            invoice_cost = round(invoice_components / 1.15, 2) if amounts_include_vat else round(invoice_components, 2)
             delta = round(invoice_cost - current_cost, 2) if current_cost else None
             if not shipment:
                 note, level = "رقم الطلب غير موجود في الشحنات", "warn"
@@ -442,9 +457,9 @@ def api_invoice_preview():
             elif abs(delta or 0) <= 0.05:
                 note, level = "مطابق للسعر الحالي", "ok"
             elif delta and delta > 0:
-                note, level = f"ارتفعت التكلفة بمقدار {delta:.2f}", "up"
+                note, level = f"تنبيه عقد: تكلفة الفاتورة أعلى بمقدار {delta:.2f}", "up"
             else:
-                note, level = f"انخفضت التكلفة بمقدار {abs(delta or 0):.2f}", "down"
+                note, level = f"تنبيه عقد: تكلفة الفاتورة أقل بمقدار {abs(delta or 0):.2f}", "down"
             rows.append({
                 **raw_row,
                 "order_id": order_id,
@@ -453,6 +468,9 @@ def api_invoice_preview():
                 "shipment_date": shipment.get("shipment_date"),
                 "invoice_cost_net": invoice_cost,
                 "current_cost": current_cost or None,
+                "expected_base_cost": round(current_base, 2),
+                "expected_over_fee": expected_over,
+                "expected_cod_fixed": expected_cod,
                 "delta": delta,
                 "note": note,
                 "level": level,

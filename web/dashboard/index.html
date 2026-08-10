@@ -1080,7 +1080,12 @@
       if(!response.ok){invoiceRows=[];renderInvoiceRows();$('invoiceStatus').textContent='تعذّرت قراءة ملف الفاتورة';return;}
       invoiceRows=result.rows||[];renderInvoiceRows();
       const changed=invoiceRows.filter(r=>r.level==='up'||r.level==='down').length;
-      $('invoiceStatus').textContent=`تمت قراءة ${intf(invoiceRows.length)} شحنة — ${intf(changed)} اختلاف في السعر`;
+      if(changed){
+        $('invoiceStatus').textContent=`تنبيه: ${intf(changed)} شحنة لا تطابق العقد الحالي — راجعيها قبل الاعتماد`;
+        toast(`تنبيه عقد: توجد ${intf(changed)} شحنة مختلفة`);
+      }else{
+        $('invoiceStatus').textContent=`تمت قراءة ${intf(invoiceRows.length)} شحنة — جميع التكاليف مطابقة للعقد`;
+      }
     }
     function selectInvoiceFile(file){
       if(!file)return;
