@@ -404,21 +404,29 @@ def api_invoice_preview():
         invoice_rows = parse_invoice_workbook(data)
         if not invoice_rows:
             return jsonify({"ok": False, "error": "invoice_rows_not_found"}), 422
-        order_ids = [str(row["order_id"]) for row in invoice_rows]
+        order_ids = [str(row["order_id"]) for row in invoice_rows if row.get("order_id")]
+        tracking_numbers = [str(row["tracking_number"]) for row in invoice_rows if row.get("tracking_number")]
         with db_store.get_conn() as conn:
             db_store.ensure_schema(conn)
             snap = db_store.load_pricing_snapshot(conn).get("carriers", {})
             with conn.cursor() as cur:
                 cur.execute(
-                    """SELECT order_id, carrier, merchant_name, shipment_date
-                       FROM shipments WHERE order_id = ANY(%s)""",
-                    (order_ids,),
+                    """SELECT order_id, tracking_number, carrier, merchant_name, shipment_date
+                       FROM shipments
+                       WHERE order_id = ANY(%s) OR tracking_number = ANY(%s)""",
+                    (order_ids, tracking_numbers),
                 )
-                shipments = {str(row["order_id"]): dict(row) for row in cur.fetchall()}
+                shipment_rows = [dict(row) for row in cur.fetchall()]
+                shipments_by_order = {str(row["order_id"]): row for row in shipment_rows}
+                shipments_by_tracking = {
+                    str(row["tracking_number"]): row for row in shipment_rows if row.get("tracking_number")
+                }
         rows = []
         for raw_row in invoice_rows:
-            order_id = str(raw_row["order_id"])
-            shipment = shipments.get(order_id, {})
+            source_order_id = str(raw_row.get("order_id") or "")
+            tracking_number = str(raw_row.get("tracking_number") or "")
+            shipment = shipments_by_order.get(source_order_id) or shipments_by_tracking.get(tracking_number) or {}
+            order_id = str(shipment.get("order_id") or source_order_id)
             raw_carrier = str(shipment.get("carrier") or "").strip()
             carrier = CARRIER_ALIASES.get(raw_carrier, raw_carrier)
             current_cost = float((snap.get(carrier) or {}).get("platform_net") or 0)

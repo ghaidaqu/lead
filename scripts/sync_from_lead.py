@@ -386,6 +386,9 @@ def http_get_bytes(opener, url: str) -> bytes:
 _INVOICE_COLS = {
     "id": "order_id", "policy price": "policy", "base cost": "base_cost",
     "over fee": "over_fee", "cod fixed": "cod_fixed", "status": "status",
+    "رقم الشحنة": "tracking_number", "رقم الطلب": "external_order_id",
+    "رسوم الشحن": "base_cost", "الوزن الزائد": "over_fee",
+    "رسوم الدفع عند الاستلام": "cod_fixed", "الإجمالي": "invoice_total",
 }
 
 
@@ -402,21 +405,26 @@ def parse_invoice_workbook(data: bytes) -> list[dict[str, Any]]:
         except StopIteration:
             return []
         col = {_INVOICE_COLS[h]: i for i, h in enumerate(header) if h in _INVOICE_COLS}
-        if "order_id" not in col:
+        if "order_id" not in col and "tracking_number" not in col:
             return []
         out: list[dict[str, Any]] = []
         for r in it:
             if not r:
                 continue
-            oid = r[col["order_id"]]
-            if oid in (None, ""):
+            oid = r[col["order_id"]] if "order_id" in col else None
+            tracking = r[col["tracking_number"]] if "tracking_number" in col else None
+            external_order = r[col["external_order_id"]] if "external_order_id" in col else None
+            if oid in (None, "") and tracking in (None, ""):
                 continue
             out.append({
-                "order_id": norm(oid).lstrip("#"),
+                "order_id": norm(oid).lstrip("#") if oid not in (None, "") else "",
+                "tracking_number": norm(tracking),
+                "external_order_id": norm(external_order),
                 "base_cost": money(r[col["base_cost"]]) if "base_cost" in col else 0.0,
                 "policy": money(r[col["policy"]]) if "policy" in col else 0.0,
                 "over_fee": money(r[col["over_fee"]]) if "over_fee" in col else 0.0,
                 "cod_fixed": money(r[col["cod_fixed"]]) if "cod_fixed" in col else 0.0,
+                "invoice_total": money(r[col["invoice_total"]]) if "invoice_total" in col else 0.0,
                 "status": norm(r[col["status"]]) if "status" in col else "",
             })
         return out
