@@ -960,7 +960,19 @@
       const leadProfitVal=lr?lr.net_profit:(ac?ac.reports_profit:null);
       const leadProfitGap=ac&&leadProfitVal!=null?Number(leadProfitVal)-Number(ac.true_profit):null;
       const leadSourceGap=ac&&leadProfitVal!=null?Number(leadProfitVal)-Number(ac.reports_profit):null;
-      const leadProfitNote=leadProfitGap==null?'':`${leadProfitGap>=0?'أعلى من الفعلي':'أقل من الفعلي'} بـ ${money(Math.abs(leadProfitGap))} · رسوم وزن/COD: ${money(ac.absorbed_fees)} · فرق المصدرين: ${money(leadSourceGap)}`;
+      if(ac&&leadProfitVal!=null){
+        const sourceDirection=leadSourceGap>=0?'أعلى':'أقل';
+        const finalDirection=leadProfitGap>=0?'أعلى':'أقل';
+        INFO.profitDetails=['تفصيل فرق الربح',
+          `الربح حسب تقرير ليد: ${money(leadProfitVal)}\n\n`+
+          `ربحنا قبل خصم رسوم الوزن وCOD: ${money(ac.reports_profit)}\n`+
+          `ناقص تكلفة الوزن وCOD الفعلية: ${money(ac.absorbed_fees)}\n`+
+          `صافي الربح الفعلي لدينا: ${money(ac.true_profit)}\n\n`+
+          `فرق المصدرين قبل الرسوم: تقرير ليد ${sourceDirection} من تجميع شحناتنا بـ ${money(Math.abs(leadSourceGap))}. هذا الفرق مستقل عن رسوم الوزن وCOD، وقد ينتج من تقريب إجماليات ليد أو توقيت لقطة التقرير.\n\n`+
+          `النتيجة النهائية: ربح ليد ${finalDirection} من صافي الربح الفعلي بـ ${money(Math.abs(leadProfitGap))}.\n`+
+          `المعادلة: فرق المصدرين ${leadSourceGap>=0?'+':'−'} ${money(Math.abs(leadSourceGap))} + رسوم الوزن وCOD ${money(ac.absorbed_fees)} = فرق نهائي ${leadProfitGap>=0?'+':'−'} ${money(Math.abs(leadProfitGap))}.`
+        ];
+      }
       const profitNote='';
       const revVal=ac?ac.revenue:(lr?lr.revenue:null);
       $('periodBadge').textContent=d.period_label||'';
@@ -970,7 +982,7 @@
         ['عدد الشحنات',intf(t.active),'غير داخلة في الربح: '+intf(t.excluded),'count'],
         ['إجمالي مبلغ COD',money(t.cod_amount),'','cod'],
       ].map(([l,v,n,key])=>`<div class="kpi"><button class="info-btn" data-info="${key}" aria-label="شرح الطريقة">i</button><span class="label">${l}</span><span class="value num">${v}</span>${n?`<span class="note num">${n}</span>`:''}</div>`).join('');
-      $('profitChips').innerHTML=(ac?[['التكلفة الأساسية',money(ac.base_cost),''],['رسوم وزن/COD',money(ac.absorbed_fees),''],['الربح حسب تقارير ليد',money(leadProfitVal),leadProfitNote],['صافي الربح الفعلي',money(ac.true_profit),'']]:(lr?[['التكلفة الأساسية',money(lr.base_cost),''],['صافي الربح',money(lr.net_profit),'']]:[['الحالة',NA,'']]))
+      $('profitChips').innerHTML=(ac?[['التكلفة الأساسية',money(ac.base_cost),''],['رسوم وزن/COD',money(ac.absorbed_fees),''],['الربح حسب تقارير ليد',money(leadProfitVal),''],['صافي الربح الفعلي',money(ac.true_profit),'']]:(lr?[['التكلفة الأساسية',money(lr.base_cost),''],['صافي الربح',money(lr.net_profit),'']]:[['الحالة',NA,'']]))
         .map(([l,v,n])=>`<div class="chip"><span class="label">${l}</span><span class="value num">${v}</span>${n?`<span class="label num">${n}</span>`:''}</div>`).join('');
       renderDailyChart(d);
       renderCarrierChart(d);
@@ -1244,7 +1256,7 @@
       const h=panel.querySelector('h2');if(!h)return;
       const key=Object.keys(PANEL_KEYS).find(k=>h.textContent.includes(k));if(!key)return;
       panel.style.position='relative';
-      const b=document.createElement('button');b.className='info-btn';b.textContent='i';
+      const b=document.createElement('button');b.className='info-btn';b.textContent=PANEL_KEYS[key]==='profitDetails'?'!':'i';
       b.setAttribute('data-info',PANEL_KEYS[key]);b.setAttribute('aria-label','شرح الطريقة');
       panel.appendChild(b);
     });
