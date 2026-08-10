@@ -218,6 +218,8 @@
     .invoice-note{font-size:11px;font-weight:750;white-space:nowrap;}
     .invoice-note.ok,.invoice-note.down{color:var(--positive);}
     .invoice-note.up,.invoice-note.warn{color:var(--negative);}
+    .upload-zone{transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease;}
+    .upload-zone.is-dragging{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent);}
 
     @media(max-width:1000px){ .kpis{grid-template-columns:1fr 1fr;}
       .two,.tables,.summary,.chips5{grid-template-columns:1fr;}
@@ -747,8 +749,8 @@
       <section class="panel">
         <h2>فواتير شركات الشحن <span class="pill">معاينة ثم اعتماد</span></h2>
         <p class="sub">ارفع ملف الفاتورة لمقارنة تكلفة كل شحنة بالسعر الحالي. لا تتغير الأرباح إلا بعد اعتماد الصفوف الصحيحة وتشغيل المزامنة.</p>
-        <div class="upload-zone">
-          <div><strong>ملف الفاتورة</strong><span>Excel بصيغة XLSX، بحد أقصى 10 MB</span></div>
+        <div class="upload-zone" id="invoiceDropZone">
+          <div><strong>ملف الفاتورة</strong><span>اسحب ملف XLSX هنا أو اختره، بحد أقصى 10 MB</span></div>
           <label class="btn primary sm">اختيار ملف<input class="hidden" id="invoiceFile" type="file" accept=".xlsx" /></label>
         </div>
         <div class="invoice-controls">
@@ -1080,7 +1082,22 @@
       const changed=invoiceRows.filter(r=>r.level==='up'||r.level==='down').length;
       $('invoiceStatus').textContent=`تمت قراءة ${intf(invoiceRows.length)} شحنة — ${intf(changed)} اختلاف في السعر`;
     }
-    $('invoiceFile').addEventListener('change',e=>{invoiceUploadFile=e.target.files&&e.target.files[0];previewInvoice();});
+    function selectInvoiceFile(file){
+      if(!file)return;
+      if(!file.name.toLowerCase().endsWith('.xlsx')){$('invoiceStatus').textContent='الملف يجب أن يكون بصيغة XLSX';return;}
+      invoiceUploadFile=file;
+      $('invoiceStatus').textContent=`تم اختيار ${file.name}`;
+      previewInvoice();
+    }
+    $('invoiceFile').addEventListener('change',e=>selectInvoiceFile(e.target.files&&e.target.files[0]));
+    const invoiceDropZone=$('invoiceDropZone');
+    ['dragenter','dragover'].forEach(type=>invoiceDropZone.addEventListener(type,e=>{
+      e.preventDefault();e.stopPropagation();invoiceDropZone.classList.add('is-dragging');
+    }));
+    ['dragleave','drop'].forEach(type=>invoiceDropZone.addEventListener(type,e=>{
+      e.preventDefault();e.stopPropagation();invoiceDropZone.classList.remove('is-dragging');
+    }));
+    invoiceDropZone.addEventListener('drop',e=>selectInvoiceFile(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]));
     $('invoiceVatMode').addEventListener('change',previewInvoice);
     $('invoicePreviewBody').addEventListener('change',e=>{
       if(!e.target.classList.contains('invoice-include'))return;
