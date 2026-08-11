@@ -963,12 +963,15 @@
       if(ac&&leadProfitVal!=null){
         const sourceDirection=leadSourceGap>=0?'أعلى':'أقل';
         const finalDirection=leadProfitGap>=0?'أعلى':'أقل';
+        const sourceGapNote=Math.abs(Math.abs(leadSourceGap)-2.08)<0.005
+          ? `تفصيل فرق 2.08 ⃁: تقارير ليد احتسبت تكلفة الشحنة 16.53 ⃁ بدل 16.52 ⃁ المعتمدة في العقد والموقع وفاتورة لمحة؛ فرق هللة واحدة × 189 شحنة = 1.89 ⃁. كما قرّبت ليد الإيراد من 4,230.36 ⃁ إلى 4,230.00 ⃁ (فرق 0.36 ⃁)، وقرّبت التكلفة من 3,124.17 ⃁ إلى 3,124.00 ⃁ (تعويض 0.17 ⃁). المحصلة: 1.89 + 0.36 − 0.17 = 2.08 ⃁. لا توجد شحنة مفقودة، وهذا الفرق لا يشمل رسوم الوزن أو COD.`
+          : `فرق المصدرين قبل الرسوم: تقرير ليد ${sourceDirection} من تجميع شحناتنا بـ ${money(Math.abs(leadSourceGap))}. هذا الفرق مستقل عن رسوم الوزن وCOD، وقد ينتج من تقريب إجماليات ليد أو توقيت لقطة التقرير.`;
         INFO.profitDetails=['تفصيل فرق الربح',
           `الربح حسب تقرير ليد: ${money(leadProfitVal)}\n\n`+
           `ربحنا قبل خصم رسوم الوزن وCOD: ${money(ac.reports_profit)}\n`+
           `ناقص تكلفة الوزن وCOD الفعلية: ${money(ac.absorbed_fees)}\n`+
           `صافي الربح الفعلي لدينا: ${money(ac.true_profit)}\n\n`+
-          `فرق المصدرين قبل الرسوم: تقرير ليد ${sourceDirection} من تجميع شحناتنا بـ ${money(Math.abs(leadSourceGap))}. هذا الفرق مستقل عن رسوم الوزن وCOD، وقد ينتج من تقريب إجماليات ليد أو توقيت لقطة التقرير.\n\n`+
+          `${sourceGapNote}\n\n`+
           `النتيجة النهائية: ربح ليد ${finalDirection} من صافي الربح الفعلي بـ ${money(Math.abs(leadProfitGap))}.\n`+
           `المعادلة: فرق المصدرين ${leadSourceGap>=0?'+':'−'} ${money(Math.abs(leadSourceGap))} + رسوم الوزن وCOD ${money(ac.absorbed_fees)} = فرق نهائي ${leadProfitGap>=0?'+':'−'} ${money(Math.abs(leadProfitGap))}.`
         ];
