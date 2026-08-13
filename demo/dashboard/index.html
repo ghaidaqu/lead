@@ -161,20 +161,20 @@
     }
     .metric-grid {
       display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns:repeat(4, minmax(0, 1fr));
       gap:12px;
       margin-bottom:12px;
       align-items:stretch;
     }
     .mini-band {
       display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
-      gap:14px;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:12px;
       margin:0 0 16px;
       align-items:stretch;
     }
-    .profit-band { grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); }
-    .finance-band { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
+    .profit-band { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+    .finance-band { grid-template-columns:repeat(4, minmax(0, 1fr)); }
     .metric-card, .panel, .mini-card {
       position:relative;
       overflow:hidden;
@@ -247,7 +247,108 @@
     }
     .detail-chip span { color:var(--muted); font-size:12px; font-weight:560; }
     .detail-chip strong { color:#fff; font-size:18px; line-height:1.1; font-weight:850; font-variant-numeric:tabular-nums; text-shadow:0 2px 12px rgba(122,36,56,.09); }
-    .content-grid { display:grid; grid-template-columns:1.3fr .92fr; gap:14px; margin-bottom:14px; }
+    .workflow-grid { display:grid; grid-template-columns:1.15fr .95fr; gap:14px; margin-bottom:14px; align-items:start; }
+    .workflow-panel { display:flex; flex-direction:column; gap:14px; }
+    .workflow-layout { display:grid; grid-template-columns:1.02fr .98fr; gap:12px; align-items:start; }
+    .workflow-stack { display:grid; gap:12px; }
+    .workflow-card {
+      padding:14px;
+      border-radius:12px;
+      background:rgba(24,38,58,.72);
+      border:1px solid rgba(150,169,196,.15);
+      display:grid;
+      gap:10px;
+    }
+    .workflow-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .workflow-pill {
+      display:inline-flex;
+      align-items:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      background:rgba(122,36,56,.16);
+      border:1px solid rgba(122,36,56,.18);
+      color:#F7F3EE;
+      font-size:11px;
+      font-weight:750;
+      white-space:nowrap;
+    }
+    .workflow-fields { display:grid; gap:10px; }
+    .field-row {
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+    .field {
+      display:grid;
+      gap:6px;
+    }
+    .field span {
+      color:var(--muted);
+      font-size:11px;
+      font-weight:650;
+    }
+    .field strong {
+      display:block;
+      padding:11px 12px;
+      border-radius:10px;
+      background:rgba(17,29,46,.78);
+      border:1px solid rgba(150,169,196,.12);
+      color:#fff;
+      font-size:13px;
+      font-weight:750;
+      line-height:1.35;
+      min-height:42px;
+    }
+    .chip-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .soft-chip {
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:0 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(150,169,196,.15);
+      color:rgba(238,245,252,.84);
+      font-size:11px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .classification-card {
+      padding:14px;
+      border-radius:12px;
+      background:rgba(24,38,58,.72);
+      border:1px solid rgba(150,169,196,.15);
+      display:grid;
+      gap:10px;
+    }
+    .classification-grid {
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:8px;
+    }
+    .classification-item {
+      padding:10px 11px;
+      border-radius:10px;
+      background:rgba(17,29,46,.78);
+      border:1px solid rgba(150,169,196,.12);
+      display:grid;
+      gap:4px;
+    }
+    .classification-item span { color:var(--muted); font-size:11px; font-weight:650; }
+    .classification-item strong { color:#fff; font-size:13px; font-weight:750; }
+    .statement-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
+    .statement-summary.compact-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .statement-summary .mini-card strong { font-size:18px; }
+    .finance-card strong { font-size:18px; }
+    .finance-total-card strong { font-size:16px; }
+    .statement-table { margin-top:2px; }
+    .statement-table table tbody tr:nth-child(odd) td { background:rgba(255,255,255,.015); }
+    .content-grid { display:grid; grid-template-columns:1.28fr .92fr; gap:14px; margin-bottom:14px; }
     .panel { padding:18px; }
     .panel-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }
     .eyebrow { margin:0; color:rgba(238,245,252,.88); font-size:13px; font-weight:750; letter-spacing:.02em; }
@@ -329,7 +430,7 @@
     .carrier-dot { width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 4px rgba(122,36,56,.045); }
     .carrier-name { font-size:13px; font-weight:700; color:var(--text); }
     .carrier-meta { font-size:12px; color:rgba(220,231,242,.70); white-space:nowrap; }
-    .table-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .table-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .table-wrap { overflow:auto; }
     table { width:100%; border-collapse:collapse; }
     th, td {
@@ -360,10 +461,6 @@
       margin-bottom:14px;
     }
     .table-card-title p { margin:6px 0 0; color:var(--muted); font-size:12px; }
-    .statement-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
-    .statement-summary .mini-card strong { font-size:18px; }
-    .finance-card strong { font-size:18px; }
-    .finance-total-card strong { font-size:16px; }
     .breakdown-line { color:rgba(255,255,255,.70); font-size:12px; line-height:1.5; margin-top:2px; }
     .footer-note { margin-top:16px; color:rgba(255,255,255,.48); font-size:12px; }
 
@@ -450,7 +547,7 @@
     .login-error.is-visible { display:block; }
     .dashboard-shell { opacity:0; transform:scale(.98); pointer-events:none; }
     .dashboard-shell.is-visible { opacity:1; transform:scale(1); pointer-events:auto; transition:opacity .35s ease-out, transform .35s ease-out; }
-    .hero, .metric-card, .panel, .mini-card, .detail-chip, .carrier-row, .carrier-donut {
+    .hero, .metric-card, .panel, .mini-card, .detail-chip, .carrier-row, .carrier-donut, .workflow-card, .classification-card {
       background:var(--card);
       border-color:var(--border);
       box-shadow:var(--shadow);
@@ -495,6 +592,19 @@
     th, td { border-bottom-color:var(--grid); }
     .carrier-center { color:var(--text); }
     .carrier-center span { color:var(--muted); }
+    .workflow-card, .classification-card, .workflow-card strong, .classification-card strong, .field strong {
+      color:var(--text);
+    }
+    .field strong, .classification-card, .workflow-card {
+      background:var(--card);
+      border-color:var(--border);
+      box-shadow:var(--shadow);
+    }
+    .soft-chip, .workflow-pill {
+      background:var(--sidebar);
+      border-color:var(--border);
+      color:var(--muted);
+    }
     .dashboard-footer {
       margin-top:18px;
       padding:16px 0 2px;
@@ -518,7 +628,7 @@
     body:not(.dark) .login-screen { background:#0F1113; }
 
     @media (max-width: 1100px) {
-      .metric-grid, .content-grid, .table-grid, .mini-band, .profit-band, .finance-band, .statement-summary, .details-grid { grid-template-columns:1fr; }
+      .metric-grid, .content-grid, .table-grid, .mini-band, .profit-band, .finance-band, .statement-summary, .statement-summary.compact-summary, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid { grid-template-columns:1fr; }
       .carrier-layout, .revenue-layout { grid-template-columns:1fr; }
       .page, .panel, .metric-card, .mini-card, .detail-chip, .content-grid, .chart-shell, .table-wrap { min-width:0; max-width:100%; }
       canvas { max-width:100%; }
@@ -539,7 +649,7 @@
       .theme-toggle, .logout-button { flex:1 1 auto; }
     }
     @media (min-width: 1101px) and (max-width: 1450px) {
-      .metric-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
+      .metric-grid { grid-template-columns:repeat(4, minmax(0,1fr)); }
       .mini-band { grid-template-columns:repeat(3, minmax(0,1fr)); }
     }
     @media (max-width: 600px) {
@@ -552,7 +662,7 @@
       .hero-tools { display:grid; grid-template-columns:1fr 1.35fr; gap:8px; }
       .hero-tools > * { width:100%; justify-content:center; text-align:center; padding-inline:8px; }
       .subhero-tools { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-      .metric-grid, .mini-band, .details-grid { grid-template-columns:1fr; }
+      .metric-grid, .mini-band, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid, .statement-summary.compact-summary { grid-template-columns:1fr; }
       .chart-key { display:grid; grid-template-columns:1fr; }
       .chart-key-item { justify-content:flex-start; }
       .chart-axis-note { flex-direction:column; gap:3px; }
@@ -778,7 +888,182 @@
         </div>
       </article>
     </section>
-    
+
+    <section class="workflow-grid">
+      <article class="panel workflow-panel">
+        <div class="panel-header compact-header">
+          <div>
+            <p class="eyebrow">إضافة فاتورة أو مصروف</p>
+            <p class="subtle">عرض تجريبي لرفع المصاريف وتصنيفها تلقائيًا مع مراجعة يدوية عند الحاجة</p>
+          </div>
+          <span class="workflow-pill">يظهر للمطاعم + شركات التوصيل</span>
+        </div>
+        <div class="workflow-layout">
+          <div class="workflow-stack">
+            <div class="workflow-card">
+              <div class="workflow-head">
+                <strong>إدخال حركة مالية</strong>
+                <span class="workflow-pill">تصنيف مقترح تلقائيًا</span>
+              </div>
+              <div class="workflow-fields">
+                <div class="field-row">
+                  <div class="field">
+                    <span>نوع الحركة</span>
+                    <strong>فاتورة / مصروف / سلفة</strong>
+                  </div>
+                  <div class="field">
+                    <span>التصنيف المقترح</span>
+                    <strong>مواد غذائية</strong>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field">
+                    <span>الجهة / المورد</span>
+                    <strong>شركة ١</strong>
+                  </div>
+                  <div class="field">
+                    <span>المدينة</span>
+                    <strong>مدينة ١</strong>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field">
+                    <span>القيمة</span>
+                    <strong>1,240 ريال</strong>
+                  </div>
+                  <div class="field">
+                    <span>طريقة السداد</span>
+                    <strong>تحويل بنكي</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="chip-row" aria-label="خيارات التصنيف">
+                <span class="soft-chip">مواد غذائية</span>
+                <span class="soft-chip">رواتب</span>
+                <span class="soft-chip">إيجارات</span>
+                <span class="soft-chip">توصيل</span>
+                <span class="soft-chip">هدر</span>
+                <span class="soft-chip">صيانة</span>
+              </div>
+            </div>
+
+            <div class="classification-card">
+              <div class="workflow-head">
+                <strong>تعلم التصنيف مع الوقت</strong>
+                <span class="workflow-pill">من نفس نمط كشف الحساب</span>
+              </div>
+              <div class="classification-grid">
+                <div class="classification-item">
+                  <span>الوصف</span>
+                  <strong>قيمة فاتورة تموين</strong>
+                </div>
+                <div class="classification-item">
+                  <span>النتيجة</span>
+                  <strong>تصنيف مواد غذائية</strong>
+                </div>
+                <div class="classification-item">
+                  <span>الوصف</span>
+                  <strong>رسوم موقع / فرع</strong>
+                </div>
+                <div class="classification-item">
+                  <span>النتيجة</span>
+                  <strong>تصنيف إيجارات</strong>
+                </div>
+                <div class="classification-item">
+                  <span>الوصف</span>
+                  <strong>طلب دفع شركة توصيل</strong>
+                </div>
+                <div class="classification-item">
+                  <span>النتيجة</span>
+                  <strong>تصنيف توصيل</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="classification-card">
+            <div class="workflow-head">
+              <strong>ملخص الإضافة</strong>
+              <span class="workflow-pill">جاهز للعرض</span>
+            </div>
+            <div class="details-grid">
+              <div class="detail-chip"><span>الجهة</span><strong>شركة ١</strong></div>
+              <div class="detail-chip"><span>التصنيف</span><strong>مواد غذائية</strong></div>
+              <div class="detail-chip"><span>القيمة</span><strong>1,240 ريال</strong></div>
+              <div class="detail-chip"><span>الحالة</span><strong>بحاجة اعتماد</strong></div>
+            </div>
+            <div class="table-wrap statement-table">
+              <table>
+                <thead>
+                  <tr><th>الوصف</th><th>التصنيف</th><th>الفرق</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>فاتورة تموين</td><td>مواد غذائية</td><td>0 ريال</td></tr>
+                  <tr><td>إيجار شهر ٧</td><td>إيجارات</td><td>0 ريال</td></tr>
+                  <tr><td>رسوم توصيل</td><td>توصيل</td><td>0 ريال</td></tr>
+                  <tr><td>صيانة فروع</td><td>صيانة</td><td>0 ريال</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header compact-header">
+          <div>
+            <p class="eyebrow">كشف الحساب الجاري</p>
+            <p class="subtle">تلخيص قيود الإيداعات والمصاريف والتصنيف المقترح قبل الاعتماد</p>
+          </div>
+        </div>
+        <div class="statement-summary compact-summary">
+          <article class="mini-card finance-card">
+            <span class="metric-label">إجمالي الإيداعات</span>
+            <strong>6,420 ريال</strong>
+            <div class="metric-footer">12 حركة واردة</div>
+          </article>
+          <article class="mini-card finance-card">
+            <span class="metric-label">إجمالي المصاريف</span>
+            <strong>3,780 ريال</strong>
+            <div class="metric-footer">9 قيود مصنفة</div>
+          </article>
+          <article class="mini-card finance-card">
+            <span class="metric-label">رسوم التحويل</span>
+            <strong>84 ريال</strong>
+            <div class="metric-footer">رسوم بنكية</div>
+          </article>
+          <article class="mini-card finance-card">
+            <span class="metric-label">صافي الحركة</span>
+            <strong>2,556 ريال</strong>
+            <div class="metric-footer">قبل التسويات</div>
+          </article>
+          <article class="mini-card finance-card">
+            <span class="metric-label">تصنيفات مقترحة</span>
+            <strong>41 بند</strong>
+            <div class="metric-footer">تعلم تلقائي</div>
+          </article>
+        </div>
+        <div class="table-wrap statement-table">
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>الوصف</th>
+                <th>الحركة</th>
+                <th>المبلغ</th>
+                <th>التصنيف المقترح</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>18-07-2026</td><td>سداد فاتورة شركة ١</td><td>مصروف</td><td>1,240 ريال</td><td>مواد غذائية</td></tr>
+              <tr><td>17-07-2026</td><td>إيداع فرع ٢</td><td>إيداع</td><td>2,100 ريال</td><td>إيداعات</td></tr>
+              <tr><td>16-07-2026</td><td>إيجار مدينة ١</td><td>مصروف</td><td>950 ريال</td><td>إيجارات</td></tr>
+              <tr><td>15-07-2026</td><td>رسوم شركة توصيل</td><td>مصروف</td><td>410 ريال</td><td>توصيل</td></tr>
+              <tr><td>14-07-2026</td><td>صيانة ثلاجات</td><td>مصروف</td><td>180 ريال</td><td>صيانة</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
 
     <section class="content-grid">
       <article class="panel">
