@@ -326,6 +326,64 @@
       display:grid;
       gap:10px;
     }
+    .invoice-list-card {
+      padding:14px;
+      border-radius:12px;
+      background:rgba(24,38,58,.72);
+      border:1px solid rgba(150,169,196,.15);
+      display:grid;
+      gap:10px;
+    }
+    .invoice-list {
+      display:grid;
+      gap:10px;
+    }
+    .invoice-row {
+      display:grid;
+      grid-template-columns:1.35fr .78fr auto;
+      gap:10px;
+      align-items:center;
+      padding:11px 12px;
+      border-radius:10px;
+      background:rgba(17,29,46,.78);
+      border:1px solid rgba(150,169,196,.12);
+    }
+    .invoice-meta {
+      display:grid;
+      gap:3px;
+    }
+    .invoice-meta strong {
+      color:#fff;
+      font-size:13px;
+      font-weight:760;
+      line-height:1.35;
+    }
+    .invoice-meta span {
+      color:var(--muted);
+      font-size:11px;
+      font-weight:650;
+    }
+    .invoice-amount {
+      color:#fff;
+      font-size:13px;
+      font-weight:760;
+      text-align:right;
+      font-variant-numeric:tabular-nums;
+    }
+    .invoice-edit {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:32px;
+      padding:0 12px;
+      border-radius:10px;
+      background:rgba(122,36,56,.14);
+      border:1px solid rgba(122,36,56,.20);
+      color:var(--text);
+      font-size:11px;
+      font-weight:750;
+      white-space:nowrap;
+    }
     .classification-grid {
       display:grid;
       grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -547,7 +605,7 @@
     .login-error.is-visible { display:block; }
     .dashboard-shell { opacity:0; transform:scale(.98); pointer-events:none; }
     .dashboard-shell.is-visible { opacity:1; transform:scale(1); pointer-events:auto; transition:opacity .35s ease-out, transform .35s ease-out; }
-    .hero, .metric-card, .panel, .mini-card, .detail-chip, .carrier-row, .carrier-donut, .workflow-card, .classification-card {
+    .hero, .metric-card, .panel, .mini-card, .detail-chip, .carrier-row, .carrier-donut, .workflow-card, .classification-card, .invoice-list-card {
       background:var(--card);
       border-color:var(--border);
       box-shadow:var(--shadow);
@@ -592,10 +650,10 @@
     th, td { border-bottom-color:var(--grid); }
     .carrier-center { color:var(--text); }
     .carrier-center span { color:var(--muted); }
-    .workflow-card, .classification-card, .workflow-card strong, .classification-card strong, .field strong {
+    .workflow-card, .classification-card, .invoice-list-card, .workflow-card strong, .classification-card strong, .invoice-list-card strong, .field strong {
       color:var(--text);
     }
-    .field strong, .classification-card, .workflow-card {
+    .field strong, .classification-card, .workflow-card, .invoice-list-card {
       background:var(--card);
       border-color:var(--border);
       box-shadow:var(--shadow);
@@ -628,7 +686,7 @@
     body:not(.dark) .login-screen { background:#0F1113; }
 
     @media (max-width: 1100px) {
-      .metric-grid, .content-grid, .table-grid, .mini-band, .profit-band, .finance-band, .statement-summary, .statement-summary.compact-summary, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid { grid-template-columns:1fr; }
+      .metric-grid, .content-grid, .table-grid, .mini-band, .profit-band, .finance-band, .statement-summary, .statement-summary.compact-summary, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid, .invoice-row { grid-template-columns:1fr; }
       .carrier-layout, .revenue-layout { grid-template-columns:1fr; }
       .page, .panel, .metric-card, .mini-card, .detail-chip, .content-grid, .chart-shell, .table-wrap { min-width:0; max-width:100%; }
       canvas { max-width:100%; }
@@ -662,7 +720,7 @@
       .hero-tools { display:grid; grid-template-columns:1fr 1.35fr; gap:8px; }
       .hero-tools > * { width:100%; justify-content:center; text-align:center; padding-inline:8px; }
       .subhero-tools { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-      .metric-grid, .mini-band, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid, .statement-summary.compact-summary { grid-template-columns:1fr; }
+      .metric-grid, .mini-band, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid, .statement-summary.compact-summary, .invoice-row { grid-template-columns:1fr; }
       .chart-key { display:grid; grid-template-columns:1fr; }
       .chart-key-item { justify-content:flex-start; }
       .chart-axis-note { flex-direction:column; gap:3px; }
@@ -944,6 +1002,39 @@
                 <span class="soft-chip">توصيل</span>
                 <span class="soft-chip">هدر</span>
                 <span class="soft-chip">صيانة</span>
+              </div>
+            </div>
+
+            <div class="invoice-list-card">
+              <div class="workflow-head">
+                <strong>الفواتير المضافة</strong>
+                <span class="workflow-pill">تعديل التصنيف متاح</span>
+              </div>
+              <div class="invoice-list">
+                <div class="invoice-row">
+                  <div class="invoice-meta">
+                    <strong>فاتورة تموين فرع ١</strong>
+                    <span>مضافة الآن • المورد: شركة ١ • مدينة ١</span>
+                  </div>
+                  <div class="invoice-amount">1,240 ريال</div>
+                  <div class="invoice-edit">تعديل التصنيف</div>
+                </div>
+                <div class="invoice-row">
+                  <div class="invoice-meta">
+                    <strong>فاتورة توصيل أسبوعية</strong>
+                    <span>مضافة الآن • المورد: شركة ٢ • مدينة ٢</span>
+                  </div>
+                  <div class="invoice-amount">840 ريال</div>
+                  <div class="invoice-edit">تعديل التصنيف</div>
+                </div>
+                <div class="invoice-row">
+                  <div class="invoice-meta">
+                    <strong>فاتورة صيانة معدات</strong>
+                    <span>مضافة الآن • المورد: شركة ٣ • مدينة ١</span>
+                  </div>
+                  <div class="invoice-amount">380 ريال</div>
+                  <div class="invoice-edit">تعديل التصنيف</div>
+                </div>
               </div>
             </div>
 
