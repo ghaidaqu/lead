@@ -137,7 +137,7 @@ def load_data_from_db(date_from=None, date_to=None):
         "shipping_return": {"count": 0, "total": 0.0},
         "tax_deduction": {"count": 0, "total": 0.0},
         "shipping_refund": {"count": 0, "total": 0.0},
-        "compensation": {"count": 0, "total": 0.0},
+        "compensation": {"count": 0, "total": 0.0, "items": []},
         "other_net": 0.0,
         "other": {"count": 0, "total": 0.0},
         "bank_pending_skipped": {"count": 0, "total": 0.0, "items": []},
@@ -278,6 +278,16 @@ def load_data_from_db(date_from=None, date_to=None):
                     continue
             finance[key]["count"] += 1
             finance[key]["total"] += amount
+            if key == "compensation":
+                finance[key]["items"].append(
+                    {
+                        "transaction_key": clean(row.get("transaction_key") or _row_value(raw, 0)),
+                        "date": _row_date(_row_value(raw, 1)),
+                        "customer": clean(row.get("user_name") or _row_value(raw, 2)),
+                        "amount": amount,
+                        "note": note,
+                    }
+                )
         else:
             if typ == "admin_deduction" and "خصم تكلفة شحنة مرتجعة" in note:
                 finance["shipping_return"]["count"] += 1

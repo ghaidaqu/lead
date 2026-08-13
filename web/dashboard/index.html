@@ -1011,8 +1011,10 @@
       const codAwaitCollection=codReview.filter(c=>c.status==='تم التوصيل'&&!c.collection_date).length;
       const codAwaitTransfer=codReview.filter(c=>c.collection_date&&!c.transfer_date).length;
       const bankPending=Number(f.bank_pending_skipped?.count||0);
+      const compensationCount=Number(f.compensation?.count||0);
       const excludedItems=t.excluded_items||[];
       const pendingBankItems=f.bank_pending_skipped?.items||[];
+      const compensationItems=f.compensation?.items||[];
       const memoItems=[];
       if(ms.length) memoItems.push({
         title:'مراجعة فجوات أرقام الشحنات',
@@ -1040,6 +1042,12 @@
         detail:'لم تدخل المؤشرات لأنها غير معتمدة في Lead وتحتاج مراجعة حالة الطلب.',
         value:intf(bankPending)+' طلب',
         full:pendingBankItems.length?pendingBankItems.map(x=>`${x.transaction_key||'بدون رقم'} — ${x.customer||'غير محدد'} — ${money(x.amount)}\n${x.status||'غير محدد'} · ${x.date||'بدون تاريخ'}\n${x.note||''}`).join('\n\n'):'التفاصيل الفردية غير متاحة في هذه النسخة.'
+      });
+      if(compensationCount) memoItems.push({
+        title:'التعويضات الإدارية',
+        detail:'تسويات وتعويضات منفصلة عن إيداعات العملاء العادية خلال الفترة المحددة.',
+        value:intf(compensationCount)+' عملية · '+money(f.compensation?.total),
+        full:compensationItems.length?compensationItems.map(x=>`${x.transaction_key||'بدون رقم'} — ${x.customer||'غير محدد'} — ${money(x.amount)}\n${x.date||'بدون تاريخ'}\n${x.note||'بدون ملاحظة'}`).join('\n\n'):'التفاصيل الفردية غير متاحة في هذه النسخة.'
       });
       const memoDate=range.from?new Date(range.from+'T12:00:00'):new Date();
       const memoMonth=new Intl.DateTimeFormat('ar-SA',{month:'long'}).format(memoDate);
