@@ -136,6 +136,10 @@ def build_report_xlsx(conn, date_from=None, date_to=None) -> bytes:
     for row in rows:
         ws.append([_fmt(row.get(col)) for col, _ in SHIPMENT_COLUMNS])
         for column in _TOTAL_COLUMNS:
+            # Keep excluded rows visible, while matching the dashboard's actual
+            # base-cost KPI, which counts cost only when revenue was recognized.
+            if column == "actual_base_cost" and float(row.get("actual_revenue") or 0) <= 0:
+                continue
             totals[column] += float(row.get(column) or 0)
     _append_totals_row(ws, SHIPMENT_COLUMNS, totals)
     _style_header(ws)
