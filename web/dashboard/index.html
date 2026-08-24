@@ -1141,14 +1141,14 @@
       const start=new Date(year,month,1,12),isCurrent=year===new Date().getFullYear()&&month===new Date().getMonth();
       const end=isCurrent?new Date():new Date(year,month+1,0,12);
       const iso=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-      return {start:iso(start),end:iso(end),label:monthName(start),partial:isCurrent};
+      return {start:iso(start),end:iso(end),label:monthName(start),partial:isCurrent,live:isCurrent};
     }
     async function fetchAnalysisMonth(r){
       const d=await fetch(`/api/dashboard?from=${r.start}&to=${r.end}`).then(x=>x.json()).catch(()=>({}));
       if(!d.ok)return null;
       const a=d.actuals||{},t=d.totals||{},lr=(d.lead_reports&&d.lead_reports.totals)||{};
       const shipments=Number(a.count??t.active??0),revenue=Number(a.revenue||0),profit=Number(a.true_profit||0);
-      const effectiveEnd=r.partial&&a.last_shipment_date?a.last_shipment_date:r.end;
+      const effectiveEnd=r.live&&a.last_shipment_date?a.last_shipment_date:r.end;
       const days=Math.max(1,Math.round((new Date(effectiveEnd+'T12:00:00')-new Date(r.start+'T12:00:00'))/86400000)+1);
       const baseCost=Number(a.base_cost||0),absorbed=Number(a.absorbed_fees||0),expenses=baseCost+absorbed;
       return {...r,d,shipments,revenue,profit,expenses,days,effectiveEnd,margin:revenue?profit/revenue*100:0,
@@ -1180,6 +1180,21 @@
         const iso=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
         comparePrev=await fetchAnalysisMonth({start:iso(pStart),end:iso(pEnd),label:'نفس المدة من '+monthName(pStart),partial:true})||prev;
       }
+      let baselinePeriods=months.slice(0,-1);
+      if(cur.partial&&baselinePeriods.length){
+        const cutoffDay=new Date(cur.effectiveEnd+'T12:00:00').getDate();
+        const iso=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+        baselinePeriods=(await Promise.all(baselinePeriods.map(period=>{
+          const start=new Date(period.start+'T12:00:00');
+          const lastDay=new Date(start.getFullYear(),start.getMonth()+1,0,12).getDate();
+          const end=new Date(start.getFullYear(),start.getMonth(),Math.min(cutoffDay,lastDay),12);
+          return fetchAnalysisMonth({start:period.start,end:iso(end),label:period.label,partial:false,live:false});
+        }))).filter(Boolean);
+      }
+      const averageBaseline=baselinePeriods.length?['shipments','revenue','expenses','profit','margin','avgRevenue','avgExpense'].reduce((avg,key)=>{
+        avg[key]=baselinePeriods.reduce((sum,row)=>sum+Number(row[key]||0),0)/baselinePeriods.length;
+        return avg;
+      },{}):null;
       lastDashboardData=d;
       const t=d.totals||{},f=d.finance||{},excluded=Number(t.excluded||0),pending=Number(f.bank_pending_skipped?.count||0);
       const codRows=d.cod_items||[],codOpen=codRows.filter(c=>(c.status==='تم التوصيل'&&!c.collection_date)||(c.collection_date&&!c.transfer_date)).length;
@@ -1238,10 +1253,14 @@
         return `<tr><td>${esc(x.label)}${x.partial?' *':''}</td><td>${changeText(ordersDelta)}</td><td>${changeText(revenueDelta)}</td><td>${changeText(expenseDelta)}</td><td>${changeText(profitDelta)}</td><td>${pointChangeText(marginChange)}</td><td>${changeText(invoiceDelta)}</td></tr>`;
       }).join('');
       $('analysisComparisonBasis').textContent=cur.partial&&comparePrev
-        ? `أساس مقارنة الشهر الحالي: ${cur.start} إلى ${cur.effectiveEnd} مقابل ${comparePrev.start} إلى ${comparePrev.end}؛ أي نفس عدد الأيام المتاحة فعليًا. الشهور المكتملة تُقارن بالشهر المكتمل السابق.`
+        ? `المرجع الأساسي: ${cur.start} إلى ${cur.effectiveEnd} مقابل ${comparePrev.start} إلى ${comparePrev.end}. المرجع الإضافي: متوسط ${intf(baselinePeriods.length)} فترات مماثلة منذ مايو، وكلها بنفس عدد الأيام المتاحة.`
         : 'أساس المقارنة: كل شهر مكتمل مقابل الشهر المكتمل السابق.';
 
       const insights=[];
+      if(averageBaseline){
+        const baselineMarginDelta=cur.margin-averageBaseline.margin;
+        insights.push(['مؤكد · مقارنة بمتوسط الفترات المتاحة',`مقارنة بمتوسط ${intf(baselinePeriods.length)} فترات مماثلة منذ مايو: الإيراد ${changeText(changePct(cur.revenue,averageBaseline.revenue))}، المصاريف ${changeText(changePct(cur.expenses,averageBaseline.expenses))}، صافي الربح ${changeText(changePct(cur.profit,averageBaseline.profit))}، عدد الطلبات ${changeText(changePct(cur.shipments,averageBaseline.shipments))}، ومتوسط الفاتورة ${changeText(changePct(cur.avgRevenue,averageBaseline.avgRevenue))}. هامش الربح ${pointChangeText(baselineMarginDelta)}.`]);
+      }
       if(comparePrev){
         const volumeEffect=(cur.shipments-comparePrev.shipments)*comparePrev.avgProfit;
         const efficiencyEffect=cur.shipments*(cur.avgProfit-comparePrev.avgProfit);
