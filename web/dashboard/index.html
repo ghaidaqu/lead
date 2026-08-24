@@ -1135,7 +1135,7 @@
     /* ---- experimental analysis (read-only; uses the same dashboard payload) ---- */
     const pct=(v,digits=1)=>(Number(v)||0).toFixed(digits)+'%';
     const changePct=(now,before)=>before?(now-before)/Math.abs(before)*100:null;
-    const changeText=value=>value==null?'—':`${value>=0?'ارتفاع':'انخفاض'} ${Math.abs(Number(value)).toFixed(1)}%`;
+    const changeText=value=>value==null?'—':Math.abs(Number(value))<.05?'بدون تغير 0.0%':`${value>0?'ارتفاع':'انخفاض'} ${Math.abs(Number(value)).toFixed(1)}%`;
     const monthName=date=>new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{month:'long',year:'numeric'}).format(date);
     function monthRange(year,month){
       const start=new Date(year,month,1,12),isCurrent=year===new Date().getFullYear()&&month===new Date().getMonth();
@@ -1198,7 +1198,8 @@
       const verdictBits=[];
       if(comparePrev){
         verdictBits.push(`صافي الربح ${profitChange>=0?'ارتفع':'انخفض'} ${Math.abs(profitChange).toFixed(1)}%، مقابل تغير الإيراد ${revenueChange>=0?'بالارتفاع':'بالانخفاض'} ${Math.abs(revenueChange).toFixed(1)}%.`);
-        verdictBits.push(`عدد الشحنات ${shipmentChange>=0?'زاد':'انخفض'} ${Math.abs(shipmentChange).toFixed(1)}%، بينما هامش الربح ${marginDelta>=0?'تحسن':'تراجع'} ${Math.abs(marginDelta).toFixed(1)} نقطة.`);
+        const shipmentReading=Math.abs(shipmentChange)<.05?'استقر دون تغير':`${shipmentChange>0?'زاد':'انخفض'} ${Math.abs(shipmentChange).toFixed(1)}%`;
+        verdictBits.push(`عدد الشحنات ${shipmentReading}، بينما هامش الربح ${marginDelta>=0?'تحسن':'تراجع'} ${Math.abs(marginDelta).toFixed(1)} نقطة.`);
         const quality=profitChange>=0&&marginDelta>=0
           ? `تحسن ربحي مدعوم بارتفاع ربحية الشحنة، وليس بزيادة الحجم وحدها`
           : profitChange>=0
