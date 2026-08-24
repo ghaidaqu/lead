@@ -218,11 +218,36 @@
     .invoice-note{font-size:11px;font-weight:750;white-space:nowrap;}
     .invoice-note.ok,.invoice-note.down{color:var(--positive);}
     .invoice-note.up,.invoice-note.warn{color:var(--negative);}
+    .analysis-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;}
+    .analysis-intro .sub{max-width:780px;margin-bottom:0;}
+    .analysis-status{flex:0 0 auto;padding:7px 11px;border:1px solid var(--border);border-radius:7px;
+      color:var(--muted);background:var(--card-2);font-size:11px;font-weight:750;}
+    .analysis-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px;}
+    .analysis-card{padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--card);min-width:0;}
+    .analysis-card .analysis-label{display:block;color:var(--muted);font-size:11px;font-weight:750;margin-bottom:7px;}
+    .analysis-card .analysis-value{display:block;font-size:20px;font-weight:850;line-height:1.35;overflow-wrap:anywhere;}
+    .analysis-card p{margin:7px 0 0;color:var(--muted);font-size:12px;line-height:1.75;}
+    .analysis-list{display:grid;gap:9px;margin-top:12px;}
+    .analysis-item{display:grid;grid-template-columns:9px minmax(0,1fr);gap:10px;align-items:start;padding:12px 13px;
+      border:1px solid var(--border);border-radius:8px;background:var(--card-2);}
+    .analysis-item::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--accent);margin-top:7px;}
+    .analysis-item strong{display:block;font-size:13px;margin-bottom:3px;}
+    .analysis-item span{display:block;color:var(--muted);font-size:12px;line-height:1.75;}
+    .analysis-verdict{padding:17px;border-inline-start:4px solid var(--accent);border-radius:8px;background:var(--card-2);}
+    .analysis-verdict strong{display:block;font-size:15px;margin-bottom:6px;}
+    .analysis-verdict p{margin:0;color:var(--muted);font-size:13px;line-height:1.9;}
+    .analysis-chart-box{position:relative;height:300px;margin-top:10px;}
+    .analysis-chart-box canvas{width:100%!important;height:100%!important;}
+    .analysis-table td,.analysis-table th{font-variant-numeric:tabular-nums;}
+    .analysis-note{margin:9px 2px 0;color:var(--muted);font-size:11px;line-height:1.75;}
+    .analysis-up{color:var(--positive);font-weight:800;}
+    .analysis-down{color:var(--negative);font-weight:800;}
     .upload-zone{transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease;}
     .upload-zone.is-dragging{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent);}
 
     @media(max-width:1000px){ .kpis{grid-template-columns:1fr 1fr;}
       .two,.tables,.summary,.chips5{grid-template-columns:1fr;}
+      .analysis-grid{grid-template-columns:1fr 1fr;}
       .chart-panel{height:336px;}
       .carrier-content{grid-template-columns:170px minmax(0,1fr);grid-template-rows:1fr;gap:16px;}
       .carrier-chart-card .carrier-legend{max-height:238px;}
@@ -238,6 +263,9 @@
       .hero-bottom .nav,.hero-tools{width:100%;}
       .hero-tools{justify-content:flex-start;}
       .brand-logo.gf{width:32px;height:32px;}
+      .analysis-intro{display:block;}
+      .analysis-status{display:inline-flex;margin-top:12px;}
+      .analysis-grid{grid-template-columns:1fr;}
       .brand-logo.lead{width:74px;height:30px;}
       .hero-tools{gap:6px;}
       .link,.tab{padding:0 11px;font-size:12px;}
@@ -655,6 +683,7 @@
         <nav class="nav" aria-label="روابط اللوحة">
           <button class="tab" data-view="dashboard">لوحة البيانات</button>
           <button class="tab" data-view="pricing">الأسعار</button>
+          <button class="tab" data-view="analysis">تحليل تجريبي</button>
           <button class="tab" data-view="invoices">كشف البنك</button>
           <span class="period-under num hidden" id="periodBadge">—</span>
         </nav>
@@ -767,6 +796,42 @@
       </section>
     </div>
 
+    <!-- EXPERIMENTAL ANALYSIS VIEW -->
+    <div class="view hidden" id="view-analysis">
+      <section class="panel" style="margin-top:0;">
+        <div class="analysis-intro">
+          <div>
+            <h2>التحليل التجريبي <span class="pill">للمراجعة</span></h2>
+            <p class="sub">قراءة إدارية مبنية على بيانات الفترة الحالية لمساعدة القرار. هذه الصفحة لا تغيّر الحسابات أو قاعدة البيانات أو ملف Excel.</p>
+          </div>
+          <span class="analysis-status" id="analysisPeriod">الفترة الحالية</span>
+        </div>
+      </section>
+      <section class="analysis-grid" id="analysisMetrics"></section>
+      <section class="panel">
+        <h2>قراءتنا للأداء</h2>
+        <p class="sub">خلاصة تنفيذية تفصل النتيجة عن أسبابها الرقمية.</p>
+        <div class="analysis-verdict" id="analysisVerdict"><strong>جارٍ التحليل</strong><p>يتم تجهيز القراءة المالية للفترة.</p></div>
+      </section>
+      <section class="panel">
+        <h2>الاتجاه الشهري</h2>
+        <p class="sub">مقارنة الإيراد وصافي الربح الفعلي وعدد الشحنات من مايو فصاعدًا.</p>
+        <div class="analysis-chart-box"><canvas id="analysisTrendChart"></canvas></div>
+        <div class="table-wrap"><table class="analysis-table"><thead><tr><th>الشهر</th><th>الشحنات</th><th>الإيراد</th><th>صافي الربح</th><th>الهامش</th><th>ربح الشحنة</th><th>تغير الربح عن الفترة المقارنة</th></tr></thead><tbody id="analysisMonthRows"></tbody></table></div>
+        <p id="analysisComparisonBasis" class="analysis-note"></p>
+      </section>
+      <section class="panel">
+        <h2>محركات التغير</h2>
+        <p class="sub">لماذا ارتفع أو انخفض الأداء مقارنة بالشهر السابق.</p>
+        <div class="analysis-list" id="analysisInsights"></div>
+      </section>
+      <section class="panel">
+        <h2>توصياتنا للفترة</h2>
+        <p class="sub">أولويات عملية مبنية على المؤشرات المتاحة وجودة البيانات.</p>
+        <div class="analysis-list" id="analysisRecommendations"></div>
+      </section>
+    </div>
+
     <!-- BANK STATEMENT VIEW -->
     <div class="view hidden" id="view-invoices">
       <section class="panel" style="margin-top:0;">
@@ -828,12 +893,13 @@
     /* ---- client-side routing (no reload, no login flash between views) ---- */
     const VIEWS={dashboard:{title:'لوحة التحكم المالية',sub:'نظرة عامة على أداء الأعمال',path:'/dashboard/'},
                  pricing:{title:'الأسعار',sub:'أسعار Lead ومقارنة فواتير شركات الشحن',path:'/admin'},
+                 analysis:{title:'التحليل التجريبي',sub:'قراءة إدارية وتوصيات قابلة للمراجعة',path:'/analysis'},
                  invoices:{title:'كشف البنك',sub:'قراءة وتصنيف الحركات البنكية',path:'/bank-statement'}};
-    let dashboardLoaded=false,bankRows=[],invoiceRows=[],invoiceUploadFile=null,memoDetailItems=[];
-    function viewFromPath(){const p=location.pathname.replace(/\/+$/,'');return p.endsWith('/admin')?'pricing':(p.endsWith('/invoices')||p.endsWith('/bank-statement'))?'invoices':'dashboard';}
+    let dashboardLoaded=false,lastDashboardData=null,bankRows=[],invoiceRows=[],invoiceUploadFile=null,memoDetailItems=[];
+    function viewFromPath(){const p=location.pathname.replace(/\/+$/,'');return p.endsWith('/admin')?'pricing':p.endsWith('/analysis')?'analysis':(p.endsWith('/invoices')||p.endsWith('/bank-statement'))?'invoices':'dashboard';}
     function setView(name,push){
       if(!VIEWS[name])name='dashboard';
-      for(const v of ['dashboard','pricing','invoices'])$('view-'+v).classList.toggle('hidden',v!==name);
+      for(const v of ['dashboard','pricing','analysis','invoices'])$('view-'+v).classList.toggle('hidden',v!==name);
       document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===name));
       $('viewTitle').textContent=VIEWS[name].title;$('viewSub').textContent=VIEWS[name].sub;
       $('periodBadge').classList.toggle('hidden',name!=='dashboard');
@@ -841,6 +907,7 @@
       if(name==='dashboard'&&!dashboardLoaded){dashboardLoaded=true;loadDashboard();}
       else if(name==='dashboard')requestAnimationFrame(resizeCharts);
       if(name==='pricing')loadPricing();
+      if(name==='analysis')loadExperimentalAnalysis();
       window.scrollTo(0,0);
     }
     document.querySelectorAll('.tab[data-view]').forEach(t=>t.addEventListener('click',()=>setView(t.dataset.view,true)));
@@ -951,6 +1018,7 @@
       if(range.preset)q.push('preset='+range.preset);
       const d=await fetch('/api/dashboard'+(q.length?'?'+q.join('&'):'')).then(r=>r.json()).catch(()=>({}));
       if(!d.ok)return;
+      lastDashboardData=d;
       const t=d.totals||{};
       const lr=(d.lead_reports&&d.lead_reports.totals)||null;
       const lm=(d.lead_reports&&d.lead_reports.merchants)||[];
@@ -1062,6 +1130,127 @@
       $('lastUpdated').textContent='آخر سحب للبيانات: '+(d.last_sync_at?new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(d.last_sync_at)):'—');
       // re-measure once layout has fully settled (covers mobile first-render sizing)
       requestAnimationFrame(resizeCharts);setTimeout(resizeCharts,350);
+    }
+
+    /* ---- experimental analysis (read-only; uses the same dashboard payload) ---- */
+    const pct=(v,digits=1)=>(Number(v)||0).toFixed(digits)+'%';
+    const changePct=(now,before)=>before?(now-before)/Math.abs(before)*100:null;
+    const changeText=value=>value==null?'—':`${value>=0?'ارتفاع':'انخفاض'} ${Math.abs(Number(value)).toFixed(1)}%`;
+    const monthName=date=>new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{month:'long',year:'numeric'}).format(date);
+    function monthRange(year,month){
+      const start=new Date(year,month,1,12),isCurrent=year===new Date().getFullYear()&&month===new Date().getMonth();
+      const end=isCurrent?new Date():new Date(year,month+1,0,12);
+      const iso=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+      return {start:iso(start),end:iso(end),label:monthName(start),partial:isCurrent};
+    }
+    async function fetchAnalysisMonth(r){
+      const d=await fetch(`/api/dashboard?from=${r.start}&to=${r.end}`).then(x=>x.json()).catch(()=>({}));
+      if(!d.ok)return null;
+      const a=d.actuals||{},t=d.totals||{},lr=(d.lead_reports&&d.lead_reports.totals)||{};
+      const shipments=Number(t.active||a.count||0),revenue=Number(a.revenue||0),profit=Number(a.true_profit||0);
+      return {...r,d,shipments,revenue,profit,margin:revenue?profit/revenue*100:0,
+        avgRevenue:shipments?revenue/shipments:0,avgProfit:shipments?profit/shipments:0,
+        baseCost:Number(a.base_cost||0),absorbed:Number(a.absorbed_fees||0),leadProfit:lr.net_profit==null?null:Number(lr.net_profit)};
+    }
+    async function loadExperimentalAnalysis(){
+      $('analysisMetrics').innerHTML='<div class="analysis-card"><span class="analysis-label">الحالة</span><span class="analysis-value">جارٍ التحليل…</span><p>تتم مقارنة الأشهر وقراءة محركات الأداء.</p></div>';
+      const now=new Date(),ranges=[];
+      for(let cursor=new Date(2026,4,1,12);cursor<=now;cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1,12)){
+        ranges.push(monthRange(cursor.getFullYear(),cursor.getMonth()));
+      }
+      const months=(await Promise.all(ranges.map(fetchAnalysisMonth))).filter(Boolean);
+      if(!months.length){
+        $('analysisMetrics').innerHTML='<div class="analysis-card"><span class="analysis-label">الحالة</span><span class="analysis-value">تعذّر التحميل</span><p>لا توجد بيانات متاحة للتحليل محليًا.</p></div>';
+        $('analysisVerdict').innerHTML='<strong>التحليل غير متاح</strong><p>تعذّر الوصول إلى بيانات الأشهر. لم يتم إنشاء استنتاجات أو توصيات بدون مصدر.</p>';
+        $('analysisMonthRows').innerHTML='<tr><td colspan="7" style="color:var(--muted)">لا توجد بيانات متاحة</td></tr>';
+        $('analysisInsights').innerHTML='<div class="analysis-item"><div><strong>لا توجد قراءة</strong><span>تظهر القراءة بعد توفر الاتصال بقاعدة البيانات.</span></div></div>';
+        $('analysisRecommendations').innerHTML='<div class="analysis-item"><div><strong>لا توجد توصية آلية</strong><span>لن نصدر توصيات مالية دون بيانات قابلة للتحقق.</span></div></div>';
+        return;
+      }
+      const cur=months[months.length-1],prev=months.length>1?months[months.length-2]:null,d=cur.d;
+      let comparePrev=prev;
+      if(cur.partial&&prev){
+        const today=new Date(),pStart=new Date(today.getFullYear(),today.getMonth()-1,1,12);
+        const pLast=new Date(today.getFullYear(),today.getMonth(),0,12).getDate();
+        const pEnd=new Date(pStart.getFullYear(),pStart.getMonth(),Math.min(today.getDate(),pLast),12);
+        const iso=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+        comparePrev=await fetchAnalysisMonth({start:iso(pStart),end:iso(pEnd),label:'نفس المدة من '+monthName(pStart),partial:true})||prev;
+      }
+      lastDashboardData=d;
+      const t=d.totals||{},f=d.finance||{},excluded=Number(t.excluded||0),pending=Number(f.bank_pending_skipped?.count||0);
+      const codRows=d.cod_items||[],codOpen=codRows.filter(c=>(c.status==='تم التوصيل'&&!c.collection_date)||(c.collection_date&&!c.transfer_date)).length;
+      const profitChange=comparePrev?changePct(cur.profit,comparePrev.profit):null,revenueChange=comparePrev?changePct(cur.revenue,comparePrev.revenue):null;
+      const shipmentChange=comparePrev?changePct(cur.shipments,comparePrev.shipments):null,marginDelta=comparePrev?cur.margin-comparePrev.margin:null;
+      const leadGap=cur.leadProfit==null?null:cur.leadProfit-cur.profit;
+      $('analysisPeriod').textContent=cur.label+(cur.partial?' · حتى اليوم':'');
+      $('analysisMetrics').innerHTML=[
+        ['هامش الربح الفعلي',pct(cur.margin),comparePrev?`${marginDelta>=0?'ارتفع':'انخفض'} ${Math.abs(marginDelta).toFixed(1)} نقطة مقارنة بـ${comparePrev.label}.`:'بداية خط المقارنة.'],
+        ['تغير صافي الربح',changeText(profitChange),comparePrev?`${cur.label}: ${money(cur.profit)} · ${comparePrev.label}: ${money(comparePrev.profit)}`:'لا يوجد شهر سابق للمقارنة.'],
+        ['متوسط ربح الشحنة',money(cur.avgProfit),comparePrev?`${comparePrev.label}: ${money(comparePrev.avgProfit)}.`:'متوسط الفترة الحالية.'],
+        ['الفرق عن تقارير Lead',leadGap==null?'غير متاح':money(leadGap),leadGap==null?'لم تتوفر لقطة تقرير Lead لهذه الفترة.':`${leadGap>=0?'تقرير Lead أعلى':'ربحنا الفعلي أعلى'} بالقيمة الظاهرة.`]
+      ].map(([l,v,n])=>`<article class="analysis-card"><span class="analysis-label">${l}</span><span class="analysis-value num">${v}</span><p>${n}</p></article>`).join('');
+
+      const verdictBits=[];
+      if(comparePrev){
+        verdictBits.push(`صافي الربح ${profitChange>=0?'ارتفع':'انخفض'} ${Math.abs(profitChange).toFixed(1)}%، مقابل تغير الإيراد ${revenueChange>=0?'بالارتفاع':'بالانخفاض'} ${Math.abs(revenueChange).toFixed(1)}%.`);
+        verdictBits.push(`عدد الشحنات ${shipmentChange>=0?'زاد':'انخفض'} ${Math.abs(shipmentChange).toFixed(1)}%، بينما هامش الربح ${marginDelta>=0?'تحسن':'تراجع'} ${Math.abs(marginDelta).toFixed(1)} نقطة.`);
+        const quality=profitChange>=0&&marginDelta>=0
+          ? `تحسن ربحي مدعوم بارتفاع ربحية الشحنة، وليس بزيادة الحجم وحدها`
+          : profitChange>=0
+            ? 'الربح ارتفع، لكن كفاءة الهامش لم تتحسن ولذلك تحتاج جودة الارتفاع إلى متابعة'
+            : 'الأداء الربحي أضعف من الفترة السابقة ويحتاج معالجة المحرك الأكبر أدناه';
+        verdictBits.push(`الاستنتاج المدعوم بالأرقام: ${quality}.`);
+      }else verdictBits.push(`هذا أول شهر متاح للمقارنة، وهامش الربح الفعلي ${pct(cur.margin)} بمتوسط ${money(cur.avgProfit)} للشحنة.`);
+      if(cur.partial)verdictBits.push('لعدالة القراءة، نسب التغير والأسباب تقارن نفس عدد الأيام من الشهر السابق؛ أما الجدول فيعرض الشهور الفعلية كما هي.');
+      const qualityFlags=excluded+pending+codOpen;
+      verdictBits.push(qualityFlags
+        ? `الثقة في القراءة متوسطة لحين معالجة ${intf(qualityFlags)} حالة تشغيلية أو مالية مفتوحة.`
+        : 'الثقة في المقارنة مرتفعة ضمن البيانات المتاحة؛ لا توجد حالات استبعاد أو إيداعات معلقة أو دورة COD ناقصة في الفترة.');
+      $('analysisVerdict').innerHTML=`<strong>${cur.profit>=0?'الأداء الحالي ربحي':'الأداء الحالي يسجل خسارة'}</strong><p>${verdictBits.join(' ')}</p>`;
+
+      draw('analysisTrendChart',{data:{labels:months.map(x=>x.label.replace(/ \d+.*/,'')),datasets:[
+        {type:'bar',label:'الإيراد',data:months.map(x=>x.revenue),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:6,order:3},
+        {type:'bar',label:'صافي الربح',data:months.map(x=>x.profit),backgroundColor:'#22C55E',yAxisID:'money',borderRadius:6,barPercentage:.55,order:2},
+        {type:'line',label:'عدد الشحنات',data:months.map(x=>x.shipments),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.25,pointRadius:3,order:1}]},
+        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{color:cssvar('--muted'),usePointStyle:true}}},
+          scales:{money:{position:'right',beginAtZero:true,grid:{color:cssvar('--grid')},ticks:{color:cssvar('--muted')}},count:{position:'left',beginAtZero:true,grid:{display:false},ticks:{color:cssvar('--muted'),precision:0}},x:{grid:{display:false},ticks:{color:cssvar('--muted')}}}}});
+      $('analysisMonthRows').innerHTML=months.map((x,i)=>{
+        const cp=i?changePct(x.profit,x.partial&&comparePrev?comparePrev.profit:months[i-1].profit):null,cls=cp==null?'':cp>=0?'analysis-up':'analysis-down';
+        const cpLabel=cp==null?'—':`${cp>=0?'ارتفاع':'انخفاض'} ${Math.abs(cp).toFixed(1)}%`;
+        return `<tr><td>${esc(x.label)}${x.partial?' *':''}</td><td>${intf(x.shipments)}</td><td>${money(x.revenue)}</td><td>${money(x.profit)}</td><td>${pct(x.margin)}</td><td>${money(x.avgProfit)}</td><td class="${cls}">${cpLabel}</td></tr>`;
+      }).join('');
+      $('analysisComparisonBasis').textContent=cur.partial&&comparePrev
+        ? `أساس مقارنة الشهر الحالي: ${cur.label} حتى اليوم مقابل ${comparePrev.label}؛ أي نفس عدد الأيام. الشهور المكتملة تُقارن بالشهر المكتمل السابق.`
+        : 'أساس المقارنة: كل شهر مكتمل مقابل الشهر المكتمل السابق.';
+
+      const insights=[];
+      if(comparePrev){
+        const volumeEffect=(cur.shipments-comparePrev.shipments)*comparePrev.avgProfit;
+        const efficiencyEffect=cur.shipments*(cur.avgProfit-comparePrev.avgProfit);
+        insights.push(['مؤكد · تفكيك تغير الربح',`تغير الربح ${money(cur.profit-comparePrev.profit)}. أثر تغير عدد الشحنات ${money(volumeEffect)}، وأثر تغير ربحية الشحنة ${money(efficiencyEffect)}. مجموعهما يطابق تغير الربح بين الفترتين.`]);
+        const revenueVolume=(cur.shipments-comparePrev.shipments)*comparePrev.avgRevenue;
+        const ticketEffect=cur.shipments*(cur.avgRevenue-comparePrev.avgRevenue);
+        insights.push(['مؤكد · تفكيك تغير الإيراد',`تغير الإيراد ${money(cur.revenue-comparePrev.revenue)}. أثر حجم الشحنات ${money(revenueVolume)}، وأثر متوسط إيراد الشحنة ${money(ticketEffect)}. مجموعهما يطابق تغير الإيراد بين الفترتين.`]);
+        insights.push(['مرجح · جودة الهامش',`الهامش ${marginDelta>=0?'تحسن':'تراجع'} من ${pct(comparePrev.margin)} إلى ${pct(cur.margin)}. تزامن ذلك مع ${cur.absorbed<=comparePrev.absorbed?'انخفاض':'ارتفاع'} رسوم الوزن وCOD المحمّلة من ${money(comparePrev.absorbed)} إلى ${money(cur.absorbed)}، وتمثل حاليًا ${cur.revenue?pct(cur.absorbed/cur.revenue*100):'0.0%'} من الإيراد. هذا ارتباط رقمي، وليس إثباتًا أن الرسوم وحدها سببت تغير الهامش.`]);
+      }
+      if(leadGap!=null)insights.push(['يحتاج تسوية · الفرق عن Lead',`تقارير Lead تعرض ${money(cur.leadProfit)} مقابل ${money(cur.profit)} صافي ربح فعلي لدينا؛ الفرق ${money(leadGap)}. الرقم مؤكد على مستوى الإجمالي، أما سببه فلا يُعتمد قبل مطابقة الشحنات تفصيليًا. المرشح للمراجعة: اختلاف التكلفة الفعلية أو رسوم الوزن وCOD أو تغطية المصدر.`]);
+      const marginRank=[...months].sort((a,b)=>b.margin-a.margin).findIndex(x=>x===cur)+1;
+      insights.push(['مؤكد · السياق التاريخي',`هامش الفترة الحالية ${pct(cur.margin)} ويأتي في المرتبة ${intf(marginRank)} من أصل ${intf(months.length)} أشهر معروضة منذ مايو. ترتيب الهامش صالح للمقارنة كنسبة، مع التنبيه أن الشهر الحالي غير مكتمل.`]);
+      const merchants=(d.lead_reports&&d.lead_reports.merchants)||[],merchantPositive=merchants.reduce((s,x)=>s+Math.max(0,Number(x.profit||0)),0);
+      if(merchants.length&&merchantPositive){const top=[...merchants].sort((a,b)=>Number(b.profit||0)-Number(a.profit||0))[0],share=Math.max(0,Number(top.profit||0))/merchantPositive*100;insights.push(['مؤكد · تركيز الربح حسب Lead',`حسب تقارير Lead، أعلى عميل هو ${esc(top.merchant||'غير محدد')} ويساهم بنحو ${pct(share)} من أرباح العملاء الموجبة في التقرير. هذه قراءة تركّز من مصدر Lead وليست توزيعًا لصافي ربحنا الفعلي حسب العميل.`]);}
+      insights.push(['رقابة الجودة',`${intf(excluded)} شحنة مستبعدة، ${intf(pending)} إيداع بنكي معلق، و${intf(codOpen)} حالة COD تحتاج استكمال التحصيل أو التحويل. هذه مؤشرات اكتمال ومتابعة، ولا تُعامل تلقائيًا كأسباب للربح أو الخسارة.`]);
+      $('analysisInsights').innerHTML=insights.map(([x,y])=>`<div class="analysis-item"><div><strong>${x}</strong><span>${y}</span></div></div>`).join('');
+
+      const recommendations=[];
+      if(comparePrev&&marginDelta<0)recommendations.push(['استعادة كفاءة الهامش','بدء المراجعة بالشحنات ذات ربح الشحنة الأقل والرسوم الأعلى؛ الهامش فقد '+Math.abs(marginDelta).toFixed(1)+' نقطة عن الفترة المقارنة. مراجعة التسعير والفاتورة حسب الناقل والعميل قبل تعديل أي قاعدة.']);
+      if(comparePrev&&cur.avgProfit<comparePrev.avgProfit)recommendations.push(['رفع ربحية الشحنة','متوسط ربح الشحنة تراجع من '+money(comparePrev.avgProfit)+' إلى '+money(cur.avgProfit)+'. الأولوية لمعرفة العملاء أو الناقلين الذين صنعوا التراجع، لا لتعويضه بزيادة الحجم فقط.']);
+      if(codOpen)recommendations.push(['إغلاق دورة COD','متابعة '+intf(codOpen)+' حالة غير مكتملة لأن تأخر التحصيل أو التحويل يضعف وضوح التدفق النقدي حتى لو كان الربح مسجلًا.']);
+      if(pending)recommendations.push(['حسم الإيداعات المعلقة','مراجعة '+intf(pending)+' طلب بنكي من المصدر؛ لا يدخل أي طلب في المؤشرات حتى يصبح معتمدًا.']);
+      if(leadGap!=null&&Math.abs(leadGap)>.05)recommendations.push(['تسوية فرق Lead','فتح تفاصيل الفرق من كرت الربح ومقارنة الشحنات التي تحمل وزنًا أو COD أو تكلفة فاتورة فعلية. الهدف تفسير الفرق لا إجبار الرقمين على التطابق.']);
+      recommendations.push(['رقابة تغير الأسعار','استمرار رفع الفواتير فور صدورها. أي تكلفة تختلف عن السعر المعتمد يجب أن تظهر كتنبيه ومراجعة عقد، لا كتعديل تلقائي للقواعد.']);
+      if(!recommendations.length)recommendations.push(['استمرار المراقبة','الأداء لا يظهر انحرافًا جوهريًا حاليًا؛ استمرار المقارنة الشهرية ومراجعة الفواتير والإقفالات.']);
+      $('analysisRecommendations').innerHTML=recommendations.map(([x,y])=>`<div class="analysis-item"><div><strong>${x}</strong><span>${y}</span></div></div>`).join('');
+      requestAnimationFrame(resizeCharts);
     }
 
     /* ---- prices (read-only reference; everything is sourced from Lead) ---- */

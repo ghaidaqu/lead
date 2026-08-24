@@ -629,6 +629,11 @@ def bank_statement_page() -> Response:
     return admin_page()
 
 
+@app.get("/analysis")
+def analysis_page() -> Response:
+    return admin_page()
+
+
 def _dashboard_dir() -> Path | None:
     index = WEB_DIR / "index.html"
     if index.exists():
