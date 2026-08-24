@@ -222,7 +222,7 @@
     .analysis-intro .sub{max-width:780px;margin-bottom:0;}
     .analysis-status{flex:0 0 auto;padding:7px 11px;border:1px solid var(--border);border-radius:7px;
       color:var(--muted);background:var(--card-2);font-size:11px;font-weight:750;}
-    .analysis-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px;}
+    .analysis-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px;}
     .analysis-card{padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--card);min-width:0;}
     .analysis-card .analysis-label{display:block;color:var(--muted);font-size:11px;font-weight:750;margin-bottom:7px;}
     .analysis-card .analysis-value{display:block;font-size:20px;font-weight:850;line-height:1.35;overflow-wrap:anywhere;}
@@ -815,9 +815,9 @@
       </section>
       <section class="panel">
         <h2>الاتجاه الشهري</h2>
-        <p class="sub">مقارنة الإيراد وصافي الربح الفعلي وعدد الشحنات من مايو فصاعدًا.</p>
+        <p class="sub">مقارنة الإيراد والمصاريف وصافي الربح الفعلي وعدد الطلبات من مايو فصاعدًا.</p>
         <div class="analysis-chart-box"><canvas id="analysisTrendChart"></canvas></div>
-        <div class="table-wrap"><table class="analysis-table"><thead><tr><th>الشهر</th><th>الشحنات</th><th>الإيراد</th><th>صافي الربح</th><th>الهامش</th><th>ربح الشحنة</th><th>تغير الربح عن الفترة المقارنة</th></tr></thead><tbody id="analysisMonthRows"></tbody></table></div>
+        <div class="table-wrap"><table class="analysis-table"><thead><tr><th>الشهر</th><th>الطلبات</th><th>الإيراد</th><th>المصاريف</th><th>صافي الربح</th><th>الهامش</th><th>متوسط الفاتورة</th><th>ربح الطلب</th><th>تغير الربح عن الفترة المقارنة</th></tr></thead><tbody id="analysisMonthRows"></tbody></table></div>
         <p id="analysisComparisonBasis" class="analysis-note"></p>
       </section>
       <section class="panel">
@@ -1147,13 +1147,14 @@
       const d=await fetch(`/api/dashboard?from=${r.start}&to=${r.end}`).then(x=>x.json()).catch(()=>({}));
       if(!d.ok)return null;
       const a=d.actuals||{},t=d.totals||{},lr=(d.lead_reports&&d.lead_reports.totals)||{};
-      const shipments=Number(t.active||a.count||0),revenue=Number(a.revenue||0),profit=Number(a.true_profit||0);
+      const shipments=Number(a.count??t.active??0),revenue=Number(a.revenue||0),profit=Number(a.true_profit||0);
       const effectiveEnd=r.partial&&a.last_shipment_date?a.last_shipment_date:r.end;
       const days=Math.max(1,Math.round((new Date(effectiveEnd+'T12:00:00')-new Date(r.start+'T12:00:00'))/86400000)+1);
-      return {...r,d,shipments,revenue,profit,days,effectiveEnd,margin:revenue?profit/revenue*100:0,
-        avgRevenue:shipments?revenue/shipments:0,avgProfit:shipments?profit/shipments:0,
+      const baseCost=Number(a.base_cost||0),absorbed=Number(a.absorbed_fees||0),expenses=baseCost+absorbed;
+      return {...r,d,shipments,revenue,profit,expenses,days,effectiveEnd,margin:revenue?profit/revenue*100:0,
+        avgRevenue:shipments?revenue/shipments:0,avgExpense:shipments?expenses/shipments:0,avgProfit:shipments?profit/shipments:0,
         avgDailyOrders:shipments/days,merchantCounts:a.merchant_counts||{},carrierCounts:a.carrier_counts||{},
-        baseCost:Number(a.base_cost||0),absorbed:Number(a.absorbed_fees||0),leadProfit:lr.net_profit==null?null:Number(lr.net_profit)};
+        baseCost,absorbed,leadProfit:lr.net_profit==null?null:Number(lr.net_profit)};
     }
     async function loadExperimentalAnalysis(){
       $('analysisMetrics').innerHTML='<div class="analysis-card"><span class="analysis-label">الحالة</span><span class="analysis-value">جارٍ التحليل…</span><p>تتم مقارنة الأشهر وقراءة محركات الأداء.</p></div>';
@@ -1165,7 +1166,7 @@
       if(!months.length){
         $('analysisMetrics').innerHTML='<div class="analysis-card"><span class="analysis-label">الحالة</span><span class="analysis-value">تعذّر التحميل</span><p>لا توجد بيانات متاحة للتحليل محليًا.</p></div>';
         $('analysisVerdict').innerHTML='<strong>التحليل غير متاح</strong><p>تعذّر الوصول إلى بيانات الأشهر. لم يتم إنشاء استنتاجات أو توصيات بدون مصدر.</p>';
-        $('analysisMonthRows').innerHTML='<tr><td colspan="7" style="color:var(--muted)">لا توجد بيانات متاحة</td></tr>';
+        $('analysisMonthRows').innerHTML='<tr><td colspan="9" style="color:var(--muted)">لا توجد بيانات متاحة</td></tr>';
         $('analysisInsights').innerHTML='<div class="analysis-item"><div><strong>لا توجد قراءة</strong><span>تظهر القراءة بعد توفر الاتصال بقاعدة البيانات.</span></div></div>';
         $('analysisRecommendations').innerHTML='<div class="analysis-item"><div><strong>لا توجد توصية آلية</strong><span>لن نصدر توصيات مالية دون بيانات قابلة للتحقق.</span></div></div>';
         return;
@@ -1183,21 +1184,24 @@
       const t=d.totals||{},f=d.finance||{},excluded=Number(t.excluded||0),pending=Number(f.bank_pending_skipped?.count||0);
       const codRows=d.cod_items||[],codOpen=codRows.filter(c=>(c.status==='تم التوصيل'&&!c.collection_date)||(c.collection_date&&!c.transfer_date)).length;
       const profitChange=comparePrev?changePct(cur.profit,comparePrev.profit):null,revenueChange=comparePrev?changePct(cur.revenue,comparePrev.revenue):null;
+      const expenseChange=comparePrev?changePct(cur.expenses,comparePrev.expenses):null;
       const shipmentChange=comparePrev?changePct(cur.shipments,comparePrev.shipments):null,marginDelta=comparePrev?cur.margin-comparePrev.margin:null;
       const leadGap=cur.leadProfit==null?null:cur.leadProfit-cur.profit;
       $('analysisPeriod').textContent=cur.label+(cur.partial?` · حتى ${new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{day:'numeric',month:'long'}).format(new Date(cur.effectiveEnd+'T12:00:00'))}`:'');
       $('analysisMetrics').innerHTML=[
+        ['إجمالي الإيراد',money(cur.revenue),comparePrev?`${changeText(revenueChange)} عن ${money(comparePrev.revenue)} في ${comparePrev.label}.`:'إجمالي إيراد الفترة.'],
+        ['إجمالي المصاريف',money(cur.expenses),comparePrev?`${changeText(expenseChange)} عن ${money(comparePrev.expenses)} · التكلفة الأساسية + رسوم الوزن وCOD.`:'التكلفة الأساسية + رسوم الوزن وCOD.'],
+        ['صافي الربح الفعلي',money(cur.profit),comparePrev?`${changeText(profitChange)} عن ${money(comparePrev.profit)} · الإيراد ناقص المصاريف.`:'الإيراد ناقص المصاريف.'],
         ['هامش الربح الفعلي',pct(cur.margin),comparePrev?`${marginDelta>=0?'ارتفع':'انخفض'} ${Math.abs(marginDelta).toFixed(1)} نقطة مقارنة بـ${comparePrev.label}.`:'بداية خط المقارنة.'],
-        ['تغير صافي الربح',changeText(profitChange),comparePrev?`${cur.label}: ${money(cur.profit)} · ${comparePrev.label}: ${money(comparePrev.profit)}`:'لا يوجد شهر سابق للمقارنة.'],
         ['عدد الطلبات',intf(cur.shipments),comparePrev?`${changeText(shipmentChange)} مقارنة بـ${intf(comparePrev.shipments)} طلب في ${comparePrev.label}.`:`${cur.avgDailyOrders.toFixed(1)} طلب يوميًا.`],
-        ['متوسط سعر الطلب',money(cur.avgRevenue),comparePrev?`${comparePrev.label}: ${money(comparePrev.avgRevenue)} · المتوسط = الإيراد الفعلي ÷ عدد الطلبات.`:'الإيراد الفعلي ÷ عدد الطلبات.'],
-        ['متوسط ربح الشحنة',money(cur.avgProfit),comparePrev?`${comparePrev.label}: ${money(comparePrev.avgProfit)}.`:'متوسط الفترة الحالية.'],
+        ['متوسط فاتورة الشحن',money(cur.avgRevenue),comparePrev?`${comparePrev.label}: ${money(comparePrev.avgRevenue)} · الإيراد ÷ عدد الطلبات.`:'الإيراد ÷ عدد الطلبات.'],
+        ['متوسط مصروف الطلب',money(cur.avgExpense),comparePrev?`${comparePrev.label}: ${money(comparePrev.avgExpense)} · المصاريف ÷ عدد الطلبات.`:'المصاريف ÷ عدد الطلبات.'],
         ['الفرق عن تقارير Lead',leadGap==null?'غير متاح':money(leadGap),leadGap==null?'لم تتوفر لقطة تقرير Lead لهذه الفترة.':`${leadGap>=0?'تقرير Lead أعلى':'ربحنا الفعلي أعلى'} بالقيمة الظاهرة.`]
       ].map(([l,v,n])=>`<article class="analysis-card"><span class="analysis-label">${l}</span><span class="analysis-value num">${v}</span><p>${n}</p></article>`).join('');
 
       const verdictBits=[];
       if(comparePrev){
-        verdictBits.push(`صافي الربح ${profitChange>=0?'ارتفع':'انخفض'} ${Math.abs(profitChange).toFixed(1)}%، مقابل تغير الإيراد ${revenueChange>=0?'بالارتفاع':'بالانخفاض'} ${Math.abs(revenueChange).toFixed(1)}%.`);
+        verdictBits.push(`صافي الربح ${profitChange>=0?'ارتفع':'انخفض'} ${Math.abs(profitChange).toFixed(1)}%، والإيراد ${revenueChange>=0?'ارتفع':'انخفض'} ${Math.abs(revenueChange).toFixed(1)}%، بينما المصاريف ${expenseChange<=0?'انخفضت':'ارتفعت'} ${Math.abs(expenseChange).toFixed(1)}%.`);
         const shipmentReading=Math.abs(shipmentChange)<.05?'استقر دون تغير':`${shipmentChange>0?'زاد':'انخفض'} ${Math.abs(shipmentChange).toFixed(1)}%`;
         verdictBits.push(`عدد الشحنات ${shipmentReading}، بينما هامش الربح ${marginDelta>=0?'تحسن':'تراجع'} ${Math.abs(marginDelta).toFixed(1)} نقطة.`);
         const quality=profitChange>=0&&marginDelta>=0
@@ -1216,6 +1220,7 @@
 
       draw('analysisTrendChart',{data:{labels:months.map(x=>x.label.replace(/ \d+.*/,'')),datasets:[
         {type:'bar',label:'الإيراد',data:months.map(x=>x.revenue),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:6,order:3},
+        {type:'bar',label:'المصاريف',data:months.map(x=>x.expenses),backgroundColor:'#64748B',yAxisID:'money',borderRadius:6,barPercentage:.72,order:3},
         {type:'bar',label:'صافي الربح',data:months.map(x=>x.profit),backgroundColor:'#22C55E',yAxisID:'money',borderRadius:6,barPercentage:.55,order:2},
         {type:'line',label:'عدد الشحنات',data:months.map(x=>x.shipments),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.25,pointRadius:3,order:1}]},
         options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{color:cssvar('--muted'),usePointStyle:true}}},
@@ -1223,7 +1228,7 @@
       $('analysisMonthRows').innerHTML=months.map((x,i)=>{
         const cp=i?changePct(x.profit,x.partial&&comparePrev?comparePrev.profit:months[i-1].profit):null,cls=cp==null?'':cp>=0?'analysis-up':'analysis-down';
         const cpLabel=cp==null?'—':`${cp>=0?'ارتفاع':'انخفاض'} ${Math.abs(cp).toFixed(1)}%`;
-        return `<tr><td>${esc(x.label)}${x.partial?' *':''}</td><td>${intf(x.shipments)}</td><td>${money(x.revenue)}</td><td>${money(x.profit)}</td><td>${pct(x.margin)}</td><td>${money(x.avgProfit)}</td><td class="${cls}">${cpLabel}</td></tr>`;
+        return `<tr><td>${esc(x.label)}${x.partial?' *':''}</td><td>${intf(x.shipments)}</td><td>${money(x.revenue)}</td><td>${money(x.expenses)}</td><td>${money(x.profit)}</td><td>${pct(x.margin)}</td><td>${money(x.avgRevenue)}</td><td>${money(x.avgProfit)}</td><td class="${cls}">${cpLabel}</td></tr>`;
       }).join('');
       $('analysisComparisonBasis').textContent=cur.partial&&comparePrev
         ? `أساس مقارنة الشهر الحالي: ${cur.start} إلى ${cur.effectiveEnd} مقابل ${comparePrev.start} إلى ${comparePrev.end}؛ أي نفس عدد الأيام المتاحة فعليًا. الشهور المكتملة تُقارن بالشهر المكتمل السابق.`
