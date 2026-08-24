@@ -815,9 +815,9 @@
       </section>
       <section class="panel">
         <h2>الاتجاه الشهري</h2>
-        <p class="sub">مقارنة الإيراد والمصاريف وصافي الربح الفعلي وعدد الطلبات من مايو فصاعدًا.</p>
+        <p class="sub">اتجاه نسب التغير في الإيراد والمصاريف وصافي الربح وعدد الطلبات من مايو فصاعدًا.</p>
         <div class="analysis-chart-box"><canvas id="analysisTrendChart"></canvas></div>
-        <div class="table-wrap"><table class="analysis-table"><thead><tr><th>الشهر</th><th>الطلبات</th><th>الإيراد</th><th>المصاريف</th><th>صافي الربح</th><th>الهامش</th><th>متوسط الفاتورة</th><th>ربح الطلب</th><th>تغير الربح عن الفترة المقارنة</th></tr></thead><tbody id="analysisMonthRows"></tbody></table></div>
+        <div class="table-wrap"><table class="analysis-table"><thead><tr><th>الشهر</th><th>تغير الطلبات</th><th>تغير الإيراد</th><th>تغير المصاريف</th><th>تغير صافي الربح</th><th>تغير الهامش</th><th>تغير متوسط الفاتورة</th></tr></thead><tbody id="analysisMonthRows"></tbody></table></div>
         <p id="analysisComparisonBasis" class="analysis-note"></p>
       </section>
       <section class="panel">
@@ -1166,7 +1166,7 @@
       if(!months.length){
         $('analysisMetrics').innerHTML='<div class="analysis-card"><span class="analysis-label">الحالة</span><span class="analysis-value">تعذّر التحميل</span><p>لا توجد بيانات متاحة للتحليل محليًا.</p></div>';
         $('analysisVerdict').innerHTML='<strong>التحليل غير متاح</strong><p>تعذّر الوصول إلى بيانات الأشهر. لم يتم إنشاء استنتاجات أو توصيات بدون مصدر.</p>';
-        $('analysisMonthRows').innerHTML='<tr><td colspan="9" style="color:var(--muted)">لا توجد بيانات متاحة</td></tr>';
+        $('analysisMonthRows').innerHTML='<tr><td colspan="7" style="color:var(--muted)">لا توجد بيانات متاحة</td></tr>';
         $('analysisInsights').innerHTML='<div class="analysis-item"><div><strong>لا توجد قراءة</strong><span>تظهر القراءة بعد توفر الاتصال بقاعدة البيانات.</span></div></div>';
         $('analysisRecommendations').innerHTML='<div class="analysis-item"><div><strong>لا توجد توصية آلية</strong><span>لن نصدر توصيات مالية دون بيانات قابلة للتحقق.</span></div></div>';
         return;
@@ -1185,18 +1185,22 @@
       const codRows=d.cod_items||[],codOpen=codRows.filter(c=>(c.status==='تم التوصيل'&&!c.collection_date)||(c.collection_date&&!c.transfer_date)).length;
       const profitChange=comparePrev?changePct(cur.profit,comparePrev.profit):null,revenueChange=comparePrev?changePct(cur.revenue,comparePrev.revenue):null;
       const expenseChange=comparePrev?changePct(cur.expenses,comparePrev.expenses):null;
+      const avgRevenueChange=comparePrev?changePct(cur.avgRevenue,comparePrev.avgRevenue):null;
+      const avgExpenseChange=comparePrev?changePct(cur.avgExpense,comparePrev.avgExpense):null;
       const shipmentChange=comparePrev?changePct(cur.shipments,comparePrev.shipments):null,marginDelta=comparePrev?cur.margin-comparePrev.margin:null;
       const leadGap=cur.leadProfit==null?null:cur.leadProfit-cur.profit;
+      const leadGapPct=leadGap==null||!cur.leadProfit?null:leadGap/Math.abs(cur.leadProfit)*100;
+      const pointChangeText=value=>value==null?'—':Math.abs(Number(value))<.05?'بدون تغير 0.0 نقطة':`${value>0?'تحسن':'تراجع'} ${Math.abs(Number(value)).toFixed(1)} نقطة`;
       $('analysisPeriod').textContent=cur.label+(cur.partial?` · حتى ${new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{day:'numeric',month:'long'}).format(new Date(cur.effectiveEnd+'T12:00:00'))}`:'');
       $('analysisMetrics').innerHTML=[
-        ['إجمالي الإيراد',money(cur.revenue),comparePrev?`${changeText(revenueChange)} عن ${money(comparePrev.revenue)} في ${comparePrev.label}.`:'إجمالي إيراد الفترة.'],
-        ['إجمالي المصاريف',money(cur.expenses),comparePrev?`${changeText(expenseChange)} عن ${money(comparePrev.expenses)} · التكلفة الأساسية + رسوم الوزن وCOD.`:'التكلفة الأساسية + رسوم الوزن وCOD.'],
-        ['صافي الربح الفعلي',money(cur.profit),comparePrev?`${changeText(profitChange)} عن ${money(comparePrev.profit)} · الإيراد ناقص المصاريف.`:'الإيراد ناقص المصاريف.'],
-        ['هامش الربح الفعلي',pct(cur.margin),comparePrev?`${marginDelta>=0?'ارتفع':'انخفض'} ${Math.abs(marginDelta).toFixed(1)} نقطة مقارنة بـ${comparePrev.label}.`:'بداية خط المقارنة.'],
-        ['عدد الطلبات',intf(cur.shipments),comparePrev?`${changeText(shipmentChange)} مقارنة بـ${intf(comparePrev.shipments)} طلب في ${comparePrev.label}.`:`${cur.avgDailyOrders.toFixed(1)} طلب يوميًا.`],
-        ['متوسط فاتورة الشحن',money(cur.avgRevenue),comparePrev?`${comparePrev.label}: ${money(comparePrev.avgRevenue)} · الإيراد ÷ عدد الطلبات.`:'الإيراد ÷ عدد الطلبات.'],
-        ['متوسط مصروف الطلب',money(cur.avgExpense),comparePrev?`${comparePrev.label}: ${money(comparePrev.avgExpense)} · المصاريف ÷ عدد الطلبات.`:'المصاريف ÷ عدد الطلبات.'],
-        ['الفرق عن تقارير Lead',leadGap==null?'غير متاح':money(leadGap),leadGap==null?'لم تتوفر لقطة تقرير Lead لهذه الفترة.':`${leadGap>=0?'تقرير Lead أعلى':'ربحنا الفعلي أعلى'} بالقيمة الظاهرة.`]
+        ['تغير الإيراد',changeText(revenueChange),'مقارنة بالفترة السابقة المماثلة.'],
+        ['تغير المصاريف',changeText(expenseChange),'التكلفة الأساسية ورسوم الوزن وCOD مقارنة بالفترة السابقة.'],
+        ['تغير صافي الربح',changeText(profitChange),'بعد احتساب جميع المصاريف المعتمدة.'],
+        ['تغير هامش الربح',pointChangeText(marginDelta),'الفرق بالنقاط المئوية عن الفترة السابقة.'],
+        ['تغير عدد الطلبات',changeText(shipmentChange),'مقارنة بنفس عدد الأيام المتاحة فعليًا.'],
+        ['تغير متوسط الفاتورة',changeText(avgRevenueChange),'الإيراد لكل طلب مقارنة بالفترة السابقة.'],
+        ['تغير متوسط مصروف الطلب',changeText(avgExpenseChange),'المصروف لكل طلب مقارنة بالفترة السابقة.'],
+        ['الفارق النسبي عن تقارير Lead',leadGapPct==null?'غير متاح':pct(Math.abs(leadGapPct)),leadGapPct==null?'لم تتوفر لقطة تقرير Lead لهذه الفترة.':`${leadGap>=0?'تقرير Lead أعلى':'ربحنا الفعلي أعلى'} بهذه النسبة.`]
       ].map(([l,v,n])=>`<article class="analysis-card"><span class="analysis-label">${l}</span><span class="analysis-value num">${v}</span><p>${n}</p></article>`).join('');
 
       const verdictBits=[];
@@ -1210,7 +1214,7 @@
             ? 'الربح ارتفع، لكن كفاءة الهامش لم تتحسن ولذلك تحتاج جودة الارتفاع إلى متابعة'
             : 'الأداء الربحي أضعف من الفترة السابقة ويحتاج معالجة المحرك الأكبر أدناه';
         verdictBits.push(`الاستنتاج المدعوم بالأرقام: ${quality}.`);
-      }else verdictBits.push(`هذا أول شهر متاح للمقارنة، وهامش الربح الفعلي ${pct(cur.margin)} بمتوسط ${money(cur.avgProfit)} للشحنة.`);
+      }else verdictBits.push('هذا أول شهر متاح، لذلك لا توجد فترة سابقة لحساب نسب التغير.');
       if(cur.partial)verdictBits.push('لعدالة القراءة، نسب التغير والأسباب تقارن نفس عدد الأيام من الشهر السابق؛ أما الجدول فيعرض الشهور الفعلية كما هي.');
       const qualityFlags=excluded+pending+codOpen;
       verdictBits.push(qualityFlags
@@ -1218,17 +1222,20 @@
         : 'الثقة في المقارنة مرتفعة ضمن البيانات المتاحة؛ لا توجد حالات استبعاد أو إيداعات معلقة أو دورة COD ناقصة في الفترة.');
       $('analysisVerdict').innerHTML=`<strong>${cur.profit>=0?'الأداء الحالي ربحي':'الأداء الحالي يسجل خسارة'}</strong><p>${verdictBits.join(' ')}</p>`;
 
+      const comparisonFor=(x,i)=>i?(x.partial&&comparePrev?comparePrev:months[i-1]):null;
+      const deltaFor=(x,i,key)=>{const base=comparisonFor(x,i);return base?changePct(x[key],base[key]):null;};
       draw('analysisTrendChart',{data:{labels:months.map(x=>x.label.replace(/ \d+.*/,'')),datasets:[
-        {type:'bar',label:'الإيراد',data:months.map(x=>x.revenue),backgroundColor:cssvar('--accent-light'),yAxisID:'money',borderRadius:6,order:3},
-        {type:'bar',label:'المصاريف',data:months.map(x=>x.expenses),backgroundColor:'#64748B',yAxisID:'money',borderRadius:6,barPercentage:.72,order:3},
-        {type:'bar',label:'صافي الربح',data:months.map(x=>x.profit),backgroundColor:'#22C55E',yAxisID:'money',borderRadius:6,barPercentage:.55,order:2},
-        {type:'line',label:'عدد الشحنات',data:months.map(x=>x.shipments),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'count',tension:.25,pointRadius:3,order:1}]},
+        {type:'bar',label:'تغير الإيراد',data:months.map((x,i)=>deltaFor(x,i,'revenue')),backgroundColor:cssvar('--accent-light'),yAxisID:'percent',borderRadius:6,order:3},
+        {type:'bar',label:'تغير المصاريف',data:months.map((x,i)=>deltaFor(x,i,'expenses')),backgroundColor:'#64748B',yAxisID:'percent',borderRadius:6,barPercentage:.72,order:3},
+        {type:'bar',label:'تغير صافي الربح',data:months.map((x,i)=>deltaFor(x,i,'profit')),backgroundColor:'#22C55E',yAxisID:'percent',borderRadius:6,barPercentage:.55,order:2},
+        {type:'line',label:'تغير عدد الطلبات',data:months.map((x,i)=>deltaFor(x,i,'shipments')),borderColor:cssvar('--accent'),backgroundColor:cssvar('--accent'),yAxisID:'percent',tension:.25,pointRadius:3,order:1}]},
         options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{color:cssvar('--muted'),usePointStyle:true}}},
-          scales:{money:{position:'right',beginAtZero:true,grid:{color:cssvar('--grid')},ticks:{color:cssvar('--muted')}},count:{position:'left',beginAtZero:true,grid:{display:false},ticks:{color:cssvar('--muted'),precision:0}},x:{grid:{display:false},ticks:{color:cssvar('--muted')}}}}});
+          scales:{percent:{position:'right',grid:{color:cssvar('--grid')},ticks:{color:cssvar('--muted'),callback:v=>v+'%'}},x:{grid:{display:false},ticks:{color:cssvar('--muted')}}}}});
       $('analysisMonthRows').innerHTML=months.map((x,i)=>{
-        const cp=i?changePct(x.profit,x.partial&&comparePrev?comparePrev.profit:months[i-1].profit):null,cls=cp==null?'':cp>=0?'analysis-up':'analysis-down';
-        const cpLabel=cp==null?'—':`${cp>=0?'ارتفاع':'انخفاض'} ${Math.abs(cp).toFixed(1)}%`;
-        return `<tr><td>${esc(x.label)}${x.partial?' *':''}</td><td>${intf(x.shipments)}</td><td>${money(x.revenue)}</td><td>${money(x.expenses)}</td><td>${money(x.profit)}</td><td>${pct(x.margin)}</td><td>${money(x.avgRevenue)}</td><td>${money(x.avgProfit)}</td><td class="${cls}">${cpLabel}</td></tr>`;
+        const base=comparisonFor(x,i),ordersDelta=deltaFor(x,i,'shipments'),revenueDelta=deltaFor(x,i,'revenue');
+        const expenseDelta=deltaFor(x,i,'expenses'),profitDelta=deltaFor(x,i,'profit'),invoiceDelta=deltaFor(x,i,'avgRevenue');
+        const marginChange=base?x.margin-base.margin:null;
+        return `<tr><td>${esc(x.label)}${x.partial?' *':''}</td><td>${changeText(ordersDelta)}</td><td>${changeText(revenueDelta)}</td><td>${changeText(expenseDelta)}</td><td>${changeText(profitDelta)}</td><td>${pointChangeText(marginChange)}</td><td>${changeText(invoiceDelta)}</td></tr>`;
       }).join('');
       $('analysisComparisonBasis').textContent=cur.partial&&comparePrev
         ? `أساس مقارنة الشهر الحالي: ${cur.start} إلى ${cur.effectiveEnd} مقابل ${comparePrev.start} إلى ${comparePrev.end}؛ أي نفس عدد الأيام المتاحة فعليًا. الشهور المكتملة تُقارن بالشهر المكتمل السابق.`
@@ -1238,11 +1245,16 @@
       if(comparePrev){
         const volumeEffect=(cur.shipments-comparePrev.shipments)*comparePrev.avgProfit;
         const efficiencyEffect=cur.shipments*(cur.avgProfit-comparePrev.avgProfit);
-        insights.push(['مؤكد · تفكيك تغير الربح',`تغير الربح ${money(cur.profit-comparePrev.profit)}. أثر تغير عدد الشحنات ${money(volumeEffect)}، وأثر تغير ربحية الشحنة ${money(efficiencyEffect)}. مجموعهما يطابق تغير الربح بين الفترتين.`]);
+        const volumeProfitPct=comparePrev.profit?volumeEffect/Math.abs(comparePrev.profit)*100:0;
+        const efficiencyProfitPct=comparePrev.profit?efficiencyEffect/Math.abs(comparePrev.profit)*100:0;
+        insights.push(['مؤكد · تفكيك تغير الربح',`تغير الربح ${changeText(profitChange)}. مساهمة تغير عدد الطلبات ${volumeProfitPct>=0?'+':''}${volumeProfitPct.toFixed(1)} نقطة مئوية، ومساهمة تغير ربحية الطلب ${efficiencyProfitPct>=0?'+':''}${efficiencyProfitPct.toFixed(1)} نقطة مئوية. مجموعهما يطابق نسبة تغير الربح.`]);
         const revenueVolume=(cur.shipments-comparePrev.shipments)*comparePrev.avgRevenue;
         const ticketEffect=cur.shipments*(cur.avgRevenue-comparePrev.avgRevenue);
-        insights.push(['مؤكد · تفكيك تغير الإيراد',`تغير الإيراد ${money(cur.revenue-comparePrev.revenue)}. أثر حجم الشحنات ${money(revenueVolume)}، وأثر متوسط إيراد الشحنة ${money(ticketEffect)}. مجموعهما يطابق تغير الإيراد بين الفترتين.`]);
-        insights.push(['مرجح · جودة الهامش',`الهامش ${marginDelta>=0?'تحسن':'تراجع'} من ${pct(comparePrev.margin)} إلى ${pct(cur.margin)}. تزامن ذلك مع ${cur.absorbed<=comparePrev.absorbed?'انخفاض':'ارتفاع'} رسوم الوزن وCOD المحمّلة من ${money(comparePrev.absorbed)} إلى ${money(cur.absorbed)}، وتمثل حاليًا ${cur.revenue?pct(cur.absorbed/cur.revenue*100):'0.0%'} من الإيراد. هذا ارتباط رقمي، وليس إثباتًا أن الرسوم وحدها سببت تغير الهامش.`]);
+        const revenueVolumePct=comparePrev.revenue?revenueVolume/Math.abs(comparePrev.revenue)*100:0;
+        const ticketEffectPct=comparePrev.revenue?ticketEffect/Math.abs(comparePrev.revenue)*100:0;
+        insights.push(['مؤكد · تفكيك تغير الإيراد',`تغير الإيراد ${changeText(revenueChange)}. مساهمة حجم الطلبات ${revenueVolumePct>=0?'+':''}${revenueVolumePct.toFixed(1)} نقطة مئوية، ومساهمة متوسط الفاتورة ${ticketEffectPct>=0?'+':''}${ticketEffectPct.toFixed(1)} نقطة مئوية. مجموعهما يطابق نسبة تغير الإيراد.`]);
+        const currentFeeShare=cur.revenue?cur.absorbed/cur.revenue*100:0,previousFeeShare=comparePrev.revenue?comparePrev.absorbed/comparePrev.revenue*100:0;
+        insights.push(['مرجح · جودة الهامش',`الهامش ${marginDelta>=0?'تحسن':'تراجع'} ${Math.abs(marginDelta).toFixed(1)} نقطة مئوية. حصة رسوم الوزن وCOD من الإيراد ${currentFeeShare<=previousFeeShare?'انخفضت':'ارتفعت'} ${Math.abs(currentFeeShare-previousFeeShare).toFixed(1)} نقطة، وأصبحت ${pct(currentFeeShare)}. هذا ارتباط رقمي، وليس إثباتًا أن الرسوم وحدها سببت تغير الهامش.`]);
         const countDrivers=(current,previous)=>[...new Set([...Object.keys(current),...Object.keys(previous)])]
           .map(name=>({name,delta:Number(current[name]||0)-Number(previous[name]||0)}))
           .filter(x=>x.delta!==0);
@@ -1260,7 +1272,7 @@
         volumeParts.push(`المعدل اليومي ${cur.avgDailyOrders.toFixed(1)} مقابل ${comparePrev.avgDailyOrders.toFixed(1)} طلب`);
         insights.push(['مؤكد · مصدر تغير عدد الطلبات',`${volumeParts.join('. ')}. هذا يحدد موضع التغير داخل البيانات، ولا يثبت وحده السبب التجاري وراء سلوك العميل.`]);
       }
-      if(leadGap!=null)insights.push(['يحتاج تسوية · الفرق عن Lead',`تقارير Lead تعرض ${money(cur.leadProfit)} مقابل ${money(cur.profit)} صافي ربح فعلي لدينا؛ الفرق ${money(leadGap)}. الرقم مؤكد على مستوى الإجمالي، أما سببه فلا يُعتمد قبل مطابقة الشحنات تفصيليًا. المرشح للمراجعة: اختلاف التكلفة الفعلية أو رسوم الوزن وCOD أو تغطية المصدر.`]);
+      if(leadGapPct!=null)insights.push(['يحتاج تسوية · الفارق عن Lead',`${leadGap>=0?'تقارير Lead أعلى':'صافي ربحنا الفعلي أعلى'} بنسبة ${pct(Math.abs(leadGapPct))}. النسبة مؤكدة على مستوى الإجمالي، أما سبب الفارق فلا يُعتمد قبل مطابقة الشحنات تفصيليًا. المرشح للمراجعة: اختلاف التكلفة الفعلية أو رسوم الوزن وCOD أو تغطية المصدر.`]);
       const marginRank=[...months].sort((a,b)=>b.margin-a.margin).findIndex(x=>x===cur)+1;
       insights.push(['مؤكد · السياق التاريخي',`هامش الفترة الحالية ${pct(cur.margin)} ويأتي في المرتبة ${intf(marginRank)} من أصل ${intf(months.length)} أشهر معروضة منذ مايو. ترتيب الهامش صالح للمقارنة كنسبة، مع التنبيه أن الشهر الحالي غير مكتمل.`]);
       const merchants=(d.lead_reports&&d.lead_reports.merchants)||[],merchantPositive=merchants.reduce((s,x)=>s+Math.max(0,Number(x.profit||0)),0);
@@ -1270,7 +1282,7 @@
 
       const recommendations=[];
       if(comparePrev&&marginDelta<0)recommendations.push(['استعادة كفاءة الهامش','بدء المراجعة بالشحنات ذات ربح الشحنة الأقل والرسوم الأعلى؛ الهامش فقد '+Math.abs(marginDelta).toFixed(1)+' نقطة عن الفترة المقارنة. مراجعة التسعير والفاتورة حسب الناقل والعميل قبل تعديل أي قاعدة.']);
-      if(comparePrev&&cur.avgProfit<comparePrev.avgProfit)recommendations.push(['رفع ربحية الشحنة','متوسط ربح الشحنة تراجع من '+money(comparePrev.avgProfit)+' إلى '+money(cur.avgProfit)+'. الأولوية لمعرفة العملاء أو الناقلين الذين صنعوا التراجع، لا لتعويضه بزيادة الحجم فقط.']);
+      if(comparePrev&&cur.avgProfit<comparePrev.avgProfit)recommendations.push(['رفع ربحية الشحنة','متوسط ربح الشحنة '+changeText(changePct(cur.avgProfit,comparePrev.avgProfit))+'. الأولوية لمعرفة العملاء أو الناقلين الذين صنعوا التراجع، لا لتعويضه بزيادة الحجم فقط.']);
       if(codOpen)recommendations.push(['إغلاق دورة COD','متابعة '+intf(codOpen)+' حالة غير مكتملة لأن تأخر التحصيل أو التحويل يضعف وضوح التدفق النقدي حتى لو كان الربح مسجلًا.']);
       if(pending)recommendations.push(['حسم الإيداعات المعلقة','مراجعة '+intf(pending)+' طلب بنكي من المصدر؛ لا يدخل أي طلب في المؤشرات حتى يصبح معتمدًا.']);
       if(leadGap!=null&&Math.abs(leadGap)>.05)recommendations.push(['تسوية فرق Lead','فتح تفاصيل الفرق من كرت الربح ومقارنة الشحنات التي تحمل وزنًا أو COD أو تكلفة فاتورة فعلية. الهدف تفسير الفرق لا إجبار الرقمين على التطابق.']);
