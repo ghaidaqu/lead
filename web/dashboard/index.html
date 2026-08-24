@@ -1148,8 +1148,9 @@
       if(!d.ok)return null;
       const a=d.actuals||{},t=d.totals||{},lr=(d.lead_reports&&d.lead_reports.totals)||{};
       const shipments=Number(t.active||a.count||0),revenue=Number(a.revenue||0),profit=Number(a.true_profit||0);
-      const days=Math.max(1,Math.round((new Date(r.end+'T12:00:00')-new Date(r.start+'T12:00:00'))/86400000)+1);
-      return {...r,d,shipments,revenue,profit,days,margin:revenue?profit/revenue*100:0,
+      const effectiveEnd=r.partial&&a.last_shipment_date?a.last_shipment_date:r.end;
+      const days=Math.max(1,Math.round((new Date(effectiveEnd+'T12:00:00')-new Date(r.start+'T12:00:00'))/86400000)+1);
+      return {...r,d,shipments,revenue,profit,days,effectiveEnd,margin:revenue?profit/revenue*100:0,
         avgRevenue:shipments?revenue/shipments:0,avgProfit:shipments?profit/shipments:0,
         avgDailyOrders:shipments/days,merchantCounts:a.merchant_counts||{},carrierCounts:a.carrier_counts||{},
         baseCost:Number(a.base_cost||0),absorbed:Number(a.absorbed_fees||0),leadProfit:lr.net_profit==null?null:Number(lr.net_profit)};
@@ -1172,9 +1173,9 @@
       const cur=months[months.length-1],prev=months.length>1?months[months.length-2]:null,d=cur.d;
       let comparePrev=prev;
       if(cur.partial&&prev){
-        const today=new Date(),pStart=new Date(today.getFullYear(),today.getMonth()-1,1,12);
-        const pLast=new Date(today.getFullYear(),today.getMonth(),0,12).getDate();
-        const pEnd=new Date(pStart.getFullYear(),pStart.getMonth(),Math.min(today.getDate(),pLast),12);
+        const effectiveCurrent=new Date(cur.effectiveEnd+'T12:00:00'),pStart=new Date(effectiveCurrent.getFullYear(),effectiveCurrent.getMonth()-1,1,12);
+        const pLast=new Date(effectiveCurrent.getFullYear(),effectiveCurrent.getMonth(),0,12).getDate();
+        const pEnd=new Date(pStart.getFullYear(),pStart.getMonth(),Math.min(effectiveCurrent.getDate(),pLast),12);
         const iso=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
         comparePrev=await fetchAnalysisMonth({start:iso(pStart),end:iso(pEnd),label:'نفس المدة من '+monthName(pStart),partial:true})||prev;
       }
@@ -1184,7 +1185,7 @@
       const profitChange=comparePrev?changePct(cur.profit,comparePrev.profit):null,revenueChange=comparePrev?changePct(cur.revenue,comparePrev.revenue):null;
       const shipmentChange=comparePrev?changePct(cur.shipments,comparePrev.shipments):null,marginDelta=comparePrev?cur.margin-comparePrev.margin:null;
       const leadGap=cur.leadProfit==null?null:cur.leadProfit-cur.profit;
-      $('analysisPeriod').textContent=cur.label+(cur.partial?' · حتى اليوم':'');
+      $('analysisPeriod').textContent=cur.label+(cur.partial?` · حتى ${new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{day:'numeric',month:'long'}).format(new Date(cur.effectiveEnd+'T12:00:00'))}`:'');
       $('analysisMetrics').innerHTML=[
         ['هامش الربح الفعلي',pct(cur.margin),comparePrev?`${marginDelta>=0?'ارتفع':'انخفض'} ${Math.abs(marginDelta).toFixed(1)} نقطة مقارنة بـ${comparePrev.label}.`:'بداية خط المقارنة.'],
         ['تغير صافي الربح',changeText(profitChange),comparePrev?`${cur.label}: ${money(cur.profit)} · ${comparePrev.label}: ${money(comparePrev.profit)}`:'لا يوجد شهر سابق للمقارنة.'],
@@ -1224,7 +1225,7 @@
         return `<tr><td>${esc(x.label)}${x.partial?' *':''}</td><td>${intf(x.shipments)}</td><td>${money(x.revenue)}</td><td>${money(x.profit)}</td><td>${pct(x.margin)}</td><td>${money(x.avgProfit)}</td><td class="${cls}">${cpLabel}</td></tr>`;
       }).join('');
       $('analysisComparisonBasis').textContent=cur.partial&&comparePrev
-        ? `أساس مقارنة الشهر الحالي: ${cur.label} حتى اليوم مقابل ${comparePrev.label}؛ أي نفس عدد الأيام. الشهور المكتملة تُقارن بالشهر المكتمل السابق.`
+        ? `أساس مقارنة الشهر الحالي: ${cur.start} إلى ${cur.effectiveEnd} مقابل ${comparePrev.start} إلى ${comparePrev.end}؛ أي نفس عدد الأيام المتاحة فعليًا. الشهور المكتملة تُقارن بالشهر المكتمل السابق.`
         : 'أساس المقارنة: كل شهر مكتمل مقابل الشهر المكتمل السابق.';
 
       const insights=[];

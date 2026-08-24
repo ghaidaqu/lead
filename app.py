@@ -107,7 +107,8 @@ def get_actuals(date_from, date_to):
                 """SELECT sum(actual_revenue) rev,
                           sum(actual_base_cost) FILTER (WHERE actual_revenue>0) base,
                           sum(actual_extra_cost) extra, sum(actual_profit) profit,
-                          count(*) FILTER (WHERE actual_revenue>0) n
+                          count(*) FILTER (WHERE actual_revenue>0) n,
+                          max(shipment_date) FILTER (WHERE actual_revenue>0) last_shipment_date
                    FROM shipments WHERE shipment_date >= %s AND shipment_date <= %s""",
                 (start, end),
             )
@@ -131,7 +132,12 @@ def get_actuals(date_from, date_to):
                    GROUP BY 1""",
                 (start, end),
             )
-            carrier_counts = {str(row["name"]): int(row["n"] or 0) for row in cur.fetchall()}
+            from scripts.pricing import CARRIER_ALIASES
+            carrier_counts = {}
+            for row in cur.fetchall():
+                raw_name = str(row["name"])
+                name = CARRIER_ALIASES.get(raw_name, raw_name)
+                carrier_counts[name] = carrier_counts.get(name, 0) + int(row["n"] or 0)
     except Exception:
         return None
     rev = float(r["rev"] or 0); base = float(r["base"] or 0)
@@ -143,6 +149,7 @@ def get_actuals(date_from, date_to):
         "reports_profit": round(rev - base, 2),
         "true_profit": round(profit, 2),
         "count": int(r["n"] or 0),
+        "last_shipment_date": r["last_shipment_date"].isoformat() if r["last_shipment_date"] else None,
         "merchant_counts": merchant_counts,
         "carrier_counts": carrier_counts,
     }
