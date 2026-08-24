@@ -112,6 +112,26 @@ def get_actuals(date_from, date_to):
                 (start, end),
             )
             r = cur.fetchone()
+            cur.execute(
+                """SELECT COALESCE(NULLIF(trim(merchant_name), ''), 'غير محدد') name,
+                          count(*) n
+                   FROM shipments
+                   WHERE shipment_date >= %s AND shipment_date <= %s
+                     AND actual_revenue > 0
+                   GROUP BY 1""",
+                (start, end),
+            )
+            merchant_counts = {str(row["name"]): int(row["n"] or 0) for row in cur.fetchall()}
+            cur.execute(
+                """SELECT COALESCE(NULLIF(trim(carrier), ''), 'غير محدد') name,
+                          count(*) n
+                   FROM shipments
+                   WHERE shipment_date >= %s AND shipment_date <= %s
+                     AND actual_revenue > 0
+                   GROUP BY 1""",
+                (start, end),
+            )
+            carrier_counts = {str(row["name"]): int(row["n"] or 0) for row in cur.fetchall()}
     except Exception:
         return None
     rev = float(r["rev"] or 0); base = float(r["base"] or 0)
@@ -123,6 +143,8 @@ def get_actuals(date_from, date_to):
         "reports_profit": round(rev - base, 2),
         "true_profit": round(profit, 2),
         "count": int(r["n"] or 0),
+        "merchant_counts": merchant_counts,
+        "carrier_counts": carrier_counts,
     }
 
 

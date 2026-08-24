@@ -222,7 +222,7 @@
     .analysis-intro .sub{max-width:780px;margin-bottom:0;}
     .analysis-status{flex:0 0 auto;padding:7px 11px;border:1px solid var(--border);border-radius:7px;
       color:var(--muted);background:var(--card-2);font-size:11px;font-weight:750;}
-    .analysis-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px;}
+    .analysis-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px;}
     .analysis-card{padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--card);min-width:0;}
     .analysis-card .analysis-label{display:block;color:var(--muted);font-size:11px;font-weight:750;margin-bottom:7px;}
     .analysis-card .analysis-value{display:block;font-size:20px;font-weight:850;line-height:1.35;overflow-wrap:anywhere;}
@@ -1148,8 +1148,10 @@
       if(!d.ok)return null;
       const a=d.actuals||{},t=d.totals||{},lr=(d.lead_reports&&d.lead_reports.totals)||{};
       const shipments=Number(t.active||a.count||0),revenue=Number(a.revenue||0),profit=Number(a.true_profit||0);
-      return {...r,d,shipments,revenue,profit,margin:revenue?profit/revenue*100:0,
+      const days=Math.max(1,Math.round((new Date(r.end+'T12:00:00')-new Date(r.start+'T12:00:00'))/86400000)+1);
+      return {...r,d,shipments,revenue,profit,days,margin:revenue?profit/revenue*100:0,
         avgRevenue:shipments?revenue/shipments:0,avgProfit:shipments?profit/shipments:0,
+        avgDailyOrders:shipments/days,merchantCounts:a.merchant_counts||{},carrierCounts:a.carrier_counts||{},
         baseCost:Number(a.base_cost||0),absorbed:Number(a.absorbed_fees||0),leadProfit:lr.net_profit==null?null:Number(lr.net_profit)};
     }
     async function loadExperimentalAnalysis(){
@@ -1186,6 +1188,8 @@
       $('analysisMetrics').innerHTML=[
         ['هامش الربح الفعلي',pct(cur.margin),comparePrev?`${marginDelta>=0?'ارتفع':'انخفض'} ${Math.abs(marginDelta).toFixed(1)} نقطة مقارنة بـ${comparePrev.label}.`:'بداية خط المقارنة.'],
         ['تغير صافي الربح',changeText(profitChange),comparePrev?`${cur.label}: ${money(cur.profit)} · ${comparePrev.label}: ${money(comparePrev.profit)}`:'لا يوجد شهر سابق للمقارنة.'],
+        ['عدد الطلبات',intf(cur.shipments),comparePrev?`${changeText(shipmentChange)} مقارنة بـ${intf(comparePrev.shipments)} طلب في ${comparePrev.label}.`:`${cur.avgDailyOrders.toFixed(1)} طلب يوميًا.`],
+        ['متوسط سعر الطلب',money(cur.avgRevenue),comparePrev?`${comparePrev.label}: ${money(comparePrev.avgRevenue)} · المتوسط = الإيراد الفعلي ÷ عدد الطلبات.`:'الإيراد الفعلي ÷ عدد الطلبات.'],
         ['متوسط ربح الشحنة',money(cur.avgProfit),comparePrev?`${comparePrev.label}: ${money(comparePrev.avgProfit)}.`:'متوسط الفترة الحالية.'],
         ['الفرق عن تقارير Lead',leadGap==null?'غير متاح':money(leadGap),leadGap==null?'لم تتوفر لقطة تقرير Lead لهذه الفترة.':`${leadGap>=0?'تقرير Lead أعلى':'ربحنا الفعلي أعلى'} بالقيمة الظاهرة.`]
       ].map(([l,v,n])=>`<article class="analysis-card"><span class="analysis-label">${l}</span><span class="analysis-value num">${v}</span><p>${n}</p></article>`).join('');
@@ -1232,6 +1236,21 @@
         const ticketEffect=cur.shipments*(cur.avgRevenue-comparePrev.avgRevenue);
         insights.push(['مؤكد · تفكيك تغير الإيراد',`تغير الإيراد ${money(cur.revenue-comparePrev.revenue)}. أثر حجم الشحنات ${money(revenueVolume)}، وأثر متوسط إيراد الشحنة ${money(ticketEffect)}. مجموعهما يطابق تغير الإيراد بين الفترتين.`]);
         insights.push(['مرجح · جودة الهامش',`الهامش ${marginDelta>=0?'تحسن':'تراجع'} من ${pct(comparePrev.margin)} إلى ${pct(cur.margin)}. تزامن ذلك مع ${cur.absorbed<=comparePrev.absorbed?'انخفاض':'ارتفاع'} رسوم الوزن وCOD المحمّلة من ${money(comparePrev.absorbed)} إلى ${money(cur.absorbed)}، وتمثل حاليًا ${cur.revenue?pct(cur.absorbed/cur.revenue*100):'0.0%'} من الإيراد. هذا ارتباط رقمي، وليس إثباتًا أن الرسوم وحدها سببت تغير الهامش.`]);
+        const countDrivers=(current,previous)=>[...new Set([...Object.keys(current),...Object.keys(previous)])]
+          .map(name=>({name,delta:Number(current[name]||0)-Number(previous[name]||0)}))
+          .filter(x=>x.delta!==0);
+        const merchantDrivers=countDrivers(cur.merchantCounts,comparePrev.merchantCounts);
+        const carrierDrivers=countDrivers(cur.carrierCounts,comparePrev.carrierCounts);
+        const declines=merchantDrivers.filter(x=>x.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,3);
+        const gains=merchantDrivers.filter(x=>x.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,2);
+        const carrierDeclines=carrierDrivers.filter(x=>x.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,2);
+        const fmtDrivers=rows=>rows.map(x=>`${esc(x.name)} (${x.delta>0?'+':''}${intf(x.delta)})`).join('، ');
+        const volumeParts=[];
+        if(declines.length)volumeParts.push(`أكبر انخفاض حسب العميل: ${fmtDrivers(declines)}`);
+        if(gains.length)volumeParts.push(`وأكبر تعويض: ${fmtDrivers(gains)}`);
+        if(carrierDeclines.length)volumeParts.push(`الانخفاض حسب الناقل تركز في: ${fmtDrivers(carrierDeclines)}`);
+        volumeParts.push(`المعدل اليومي ${cur.avgDailyOrders.toFixed(1)} مقابل ${comparePrev.avgDailyOrders.toFixed(1)} طلب`);
+        insights.push(['مؤكد · مصدر تغير عدد الطلبات',`${volumeParts.join('. ')}. هذا يحدد موضع التغير داخل البيانات، ولا يثبت وحده السبب التجاري وراء سلوك العميل.`]);
       }
       if(leadGap!=null)insights.push(['يحتاج تسوية · الفرق عن Lead',`تقارير Lead تعرض ${money(cur.leadProfit)} مقابل ${money(cur.profit)} صافي ربح فعلي لدينا؛ الفرق ${money(leadGap)}. الرقم مؤكد على مستوى الإجمالي، أما سببه فلا يُعتمد قبل مطابقة الشحنات تفصيليًا. المرشح للمراجعة: اختلاف التكلفة الفعلية أو رسوم الوزن وCOD أو تغطية المصدر.`]);
       const marginRank=[...months].sort((a,b)=>b.margin-a.margin).findIndex(x=>x===cur)+1;
