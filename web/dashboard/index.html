@@ -1244,10 +1244,11 @@
         const merchantDrivers=countDrivers(cur.merchantCounts,comparePrev.merchantCounts);
         const carrierDrivers=countDrivers(cur.carrierCounts,comparePrev.carrierCounts);
         const declines=merchantDrivers.filter(x=>x.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,3);
-        const gains=merchantDrivers.filter(x=>x.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,2);
+        const gains=merchantDrivers.filter(x=>x.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,3);
         const carrierDeclines=carrierDrivers.filter(x=>x.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,2);
         const fmtDrivers=rows=>rows.map(x=>`${esc(x.name)} (${x.delta>0?'+':''}${intf(x.delta)})`).join('، ');
-        const volumeParts=[];
+        const netOrderDelta=cur.shipments-comparePrev.shipments;
+        const volumeParts=[netOrderDelta===0?'إجمالي عدد الطلبات لم يتغير':`صافي تغير عدد الطلبات ${netOrderDelta>0?'+':''}${intf(netOrderDelta)}`];
         if(declines.length)volumeParts.push(`أكبر انخفاض حسب العميل: ${fmtDrivers(declines)}`);
         if(gains.length)volumeParts.push(`وأكبر تعويض: ${fmtDrivers(gains)}`);
         if(carrierDeclines.length)volumeParts.push(`الانخفاض حسب الناقل تركز في: ${fmtDrivers(carrierDeclines)}`);
