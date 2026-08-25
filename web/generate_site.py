@@ -345,7 +345,7 @@ def load_data_from_db(date_from=None, date_to=None):
     # is tracked separately because it is a settlement, not normal wallet funding.
     finance["total"] = finance["bank"]["total"] + finance["moyasar"]["total"] + finance["other"]["total"]
     top_merchants = sorted(by_merchant.items(), key=lambda kv: kv[1]["total"], reverse=True)[:5]
-    top_cities = sorted(by_city.items(), key=lambda kv: kv[1]["total"], reverse=True)[:5]
+    top_cities = sorted(by_city.items(), key=lambda kv: kv[1]["count"], reverse=True)[:5]
     top_carriers = sorted(by_carrier.items(), key=lambda kv: kv[1]["total"], reverse=True)
     daily = sorted(by_date.items(), key=lambda kv: kv[0])
     daily_revenue = sorted(by_date_revenue.items(), key=lambda kv: kv[0])

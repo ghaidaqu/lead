@@ -242,12 +242,50 @@
     .analysis-note{margin:9px 2px 0;color:var(--muted);font-size:11px;line-height:1.75;}
     .analysis-up{color:var(--positive);font-weight:800;}
     .analysis-down{color:var(--negative);font-weight:800;}
+    .analysis-decision{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(240px,.5fr);gap:14px;align-items:stretch;}
+    .analysis-action{padding:17px;border:1px solid var(--border);border-radius:8px;background:var(--accent);color:#fff;}
+    .analysis-action span{display:block;font-size:11px;font-weight:750;opacity:.72;margin-bottom:6px;}
+    .analysis-action strong{display:block;font-size:15px;line-height:1.6;}
+    .analysis-domains{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px;}
+    .analysis-domain{margin:0;padding:0;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:var(--card);}
+    .analysis-domain summary{list-style:none;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:17px;cursor:pointer;}
+    .analysis-domain summary::-webkit-details-marker{display:none;}
+    .analysis-domain summary::after{content:"+";display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--border);border-radius:6px;color:var(--accent);font-size:18px;line-height:1;}
+    .analysis-domain[open] summary::after{content:"\2212";}
+    .analysis-domain h3{font-size:14px;margin:0 0 5px;}
+    .analysis-domain summary p{font-size:12px;color:var(--muted);margin:0;line-height:1.65;}
+    .analysis-domain-body{padding:0 17px 17px;border-top:1px solid var(--border);}
+    .analysis-domain-action{margin:14px 0 0;padding:11px 12px;border-inline-start:3px solid var(--accent);background:var(--card-2);font-size:12px;line-height:1.7;}
+    .analysis-deep-dive{margin-top:14px;border:1px solid var(--border);border-radius:8px;background:var(--card);overflow:hidden;}
+    .analysis-deep-dive>summary{cursor:pointer;list-style:none;padding:15px 17px;font-size:13px;font-weight:800;}
+    .analysis-deep-dive>summary::-webkit-details-marker{display:none;}
+    .analysis-deep-dive>summary::after{content:"عرض التفاصيل";float:left;color:var(--muted);font-size:11px;font-weight:650;}
+    .analysis-deep-dive[open]>summary::after{content:"إخفاء التفاصيل";}
+    .analysis-deep-content{padding:0 17px 17px;border-top:1px solid var(--border);}
+    .analysis-nav{display:flex;gap:8px;overflow-x:auto;padding:6px;margin-top:14px;border:1px solid var(--border);border-radius:8px;background:var(--card-2);}
+    .analysis-nav-button{flex:0 0 auto;border:0;border-radius:6px;background:transparent;color:var(--muted);padding:9px 13px;font:inherit;font-size:12px;font-weight:750;cursor:pointer;}
+    .analysis-nav-button.active{background:var(--accent);color:#fff;}
+    .analysis-view[hidden]{display:none!important;}
+    .analysis-view-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;}
+    .analysis-view-heading h2{margin:0 0 5px;font-size:20px;}
+    .analysis-view-heading p{margin:0;color:var(--muted);font-size:12px;}
+    .analysis-back{border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:8px 12px;font:inherit;font-size:12px;font-weight:750;cursor:pointer;white-space:nowrap;}
+    .analysis-scope-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px;}
+    .analysis-scope{display:block;text-align:start;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font:inherit;cursor:pointer;}
+    .analysis-scope span{display:block;color:var(--muted);font-size:11px;margin-bottom:5px;}
+    .analysis-scope strong{display:block;font-size:14px;margin-bottom:6px;}
+    .analysis-scope p{margin:0;color:var(--muted);font-size:12px;line-height:1.7;}
+    .analysis-scope b{display:block;color:var(--accent-light);font-size:11px;margin-top:10px;}
+    .analysis-view-panel{padding:18px;border:1px solid var(--border);border-radius:8px;background:var(--card);}
     .upload-zone{transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease;}
     .upload-zone.is-dragging{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent);}
 
     @media(max-width:1000px){ .kpis{grid-template-columns:1fr 1fr;}
       .two,.tables,.summary,.chips5{grid-template-columns:1fr;}
       .analysis-grid{grid-template-columns:1fr 1fr;}
+      .analysis-domains{grid-template-columns:1fr;}
+      .analysis-decision{grid-template-columns:1fr;}
+      .analysis-scope-grid{grid-template-columns:1fr;}
       .chart-panel{height:336px;}
       .carrier-content{grid-template-columns:170px minmax(0,1fr);grid-template-rows:1fr;gap:16px;}
       .carrier-chart-card .carrier-legend{max-height:238px;}
@@ -266,6 +304,8 @@
       .analysis-intro{display:block;}
       .analysis-status{display:inline-flex;margin-top:12px;}
       .analysis-grid{grid-template-columns:1fr;}
+      .analysis-view-heading{display:block;}
+      .analysis-back{margin-top:10px;}
       .brand-logo.lead{width:74px;height:30px;}
       .hero-tools{gap:6px;}
       .link,.tab{padding:0 11px;font-size:12px;}
@@ -806,30 +846,32 @@
           </div>
           <span class="analysis-status" id="analysisPeriod">الفترة الحالية</span>
         </div>
+        <nav class="analysis-nav" aria-label="نطاقات التحليل">
+          <button class="analysis-nav-button active" type="button" data-analysis-target="overview">الملخص التنفيذي</button>
+          <button class="analysis-nav-button" type="button" data-analysis-target="growth">النمو والطلبات</button>
+          <button class="analysis-nav-button" type="button" data-analysis-target="profit">الربحية والتكاليف</button>
+          <button class="analysis-nav-button" type="button" data-analysis-target="mix">العملاء والناقلون</button>
+          <button class="analysis-nav-button" type="button" data-analysis-target="control">التحصيل والرقابة</button>
+        </nav>
       </section>
-      <section class="analysis-grid" id="analysisMetrics"></section>
-      <section class="panel">
-        <h2>قراءتنا للأداء</h2>
-        <p class="sub">خلاصة تنفيذية تفصل النتيجة عن أسبابها الرقمية.</p>
-        <div class="analysis-verdict" id="analysisVerdict"><strong>جارٍ التحليل</strong><p>يتم تجهيز القراءة المالية للفترة.</p></div>
-      </section>
-      <section class="panel">
-        <h2>الاتجاه الشهري</h2>
-        <p class="sub">اتجاه نسب التغير في الإيراد والمصاريف وصافي الربح وعدد الطلبات من مايو فصاعدًا.</p>
-        <div class="analysis-chart-box"><canvas id="analysisTrendChart"></canvas></div>
-        <div class="table-wrap"><table class="analysis-table"><thead><tr><th>الشهر</th><th>تغير الطلبات</th><th>تغير الإيراد</th><th>تغير المصاريف</th><th>تغير صافي الربح</th><th>تغير الهامش</th><th>تغير متوسط الفاتورة</th></tr></thead><tbody id="analysisMonthRows"></tbody></table></div>
-        <p id="analysisComparisonBasis" class="analysis-note"></p>
-      </section>
-      <section class="panel">
-        <h2>محركات التغير</h2>
-        <p class="sub">لماذا ارتفع أو انخفض الأداء مقارنة بالشهر السابق.</p>
-        <div class="analysis-list" id="analysisInsights"></div>
-      </section>
-      <section class="panel">
-        <h2>توصياتنا للفترة</h2>
-        <p class="sub">أولويات عملية مبنية على المؤشرات المتاحة وجودة البيانات.</p>
-        <div class="analysis-list" id="analysisRecommendations"></div>
-      </section>
+      <div class="analysis-view" data-analysis-view="overview">
+        <section class="analysis-grid" id="analysisMetrics"></section>
+        <section class="panel">
+          <h2>الملخص التنفيذي</h2><p class="sub">النتيجة، السبب، ثم الإجراء الأول.</p>
+          <div class="analysis-decision"><div class="analysis-verdict" id="analysisVerdict"><strong>جارٍ التحليل</strong><p>يتم تجهيز القراءة المالية للفترة.</p></div><div class="analysis-action"><span>الإجراء الأول</span><strong id="analysisPrimaryAction">جارٍ تحديد الأولوية…</strong></div></div>
+        </section>
+        <section class="panel"><h2>اختر سؤال القرار</h2><p class="sub">كل نطاق يجيب عن سؤال واحد دون عرض بقية التفاصيل.</p><div class="analysis-scope-grid">
+          <button class="analysis-scope" type="button" data-analysis-target="growth"><span>هل النشاط ينمو؟</span><strong>النمو والطلبات</strong><p id="growthDomainSummary">قراءة الإيراد وحجم الطلب ومتوسطه</p><b>فتح التحليل</b></button>
+          <button class="analysis-scope" type="button" data-analysis-target="profit"><span>هل النمو مربح؟</span><strong>الربحية والتكاليف</strong><p id="profitDomainSummary">قراءة الهامش وكفاءة تكلفة الشحنة</p><b>فتح التحليل</b></button>
+          <button class="analysis-scope" type="button" data-analysis-target="mix"><span>من صنع التغير؟</span><strong>العملاء والناقلون والمدن</strong><p id="mixDomainSummary">قراءة تغير المزيج التشغيلي والجغرافي</p><b>فتح التحليل</b></button>
+          <button class="analysis-scope" type="button" data-analysis-target="control"><span>هل الأرقام مكتملة؟</span><strong>التحصيل والرقابة</strong><p id="controlDomainSummary">حالات COD والإيداعات والاستبعادات</p><b>فتح التحليل</b></button>
+        </div></section>
+        <details class="analysis-deep-dive"><summary>الاتجاه التاريخي ومنهج المقارنة</summary><div class="analysis-deep-content"><div class="analysis-chart-box"><canvas id="analysisTrendChart"></canvas></div><div class="table-wrap"><table class="analysis-table"><thead><tr><th>الشهر</th><th>تغير الطلبات</th><th>تغير الإيراد</th><th>تغير المصاريف</th><th>تغير صافي الربح</th><th>تغير الهامش</th><th>تغير متوسط الفاتورة</th></tr></thead><tbody id="analysisMonthRows"></tbody></table></div><p id="analysisComparisonBasis" class="analysis-note"></p></div></details>
+      </div>
+      <div class="analysis-view" data-analysis-view="growth" hidden><section class="analysis-view-panel"><div class="analysis-view-heading"><div><h2>النمو والطلبات</h2><p>هل تغير الإيراد بسبب عدد الطلبات أم متوسط قيمة الشحنة؟</p></div><button class="analysis-back" type="button" data-analysis-target="overview">العودة للملخص</button></div><div class="analysis-domain-action" id="growthDomainAction"></div><div class="analysis-list" id="growthInsights"></div></section></div>
+      <div class="analysis-view" data-analysis-view="profit" hidden><section class="analysis-view-panel"><div class="analysis-view-heading"><div><h2>الربحية والتكاليف</h2><p>هل تحولت الإيرادات إلى ربح، وأين يوجد ضغط التكلفة؟</p></div><button class="analysis-back" type="button" data-analysis-target="overview">العودة للملخص</button></div><div class="analysis-domain-action" id="profitDomainAction"></div><div class="analysis-list" id="profitInsights"></div></section></div>
+      <div class="analysis-view" data-analysis-view="mix" hidden><section class="analysis-view-panel"><div class="analysis-view-heading"><div><h2>العملاء والناقلون والمدن</h2><p>من صنع تغير الطلب، وأين يتركز النشاط؟</p></div><button class="analysis-back" type="button" data-analysis-target="overview">العودة للملخص</button></div><div class="analysis-domain-action" id="mixDomainAction"></div><div class="analysis-list" id="mixInsights"></div></section></div>
+      <div class="analysis-view" data-analysis-view="control" hidden><section class="analysis-view-panel"><div class="analysis-view-heading"><div><h2>التحصيل والرقابة</h2><p>هل توجد حالات مفتوحة تؤثر في موثوقية القرار؟</p></div><button class="analysis-back" type="button" data-analysis-target="overview">العودة للملخص</button></div><div class="analysis-domain-action" id="controlDomainAction"></div><div class="analysis-list" id="controlInsights"></div><details class="analysis-deep-dive"><summary>ملاحظات التسوية وجميع الإجراءات</summary><div class="analysis-deep-content"><div class="analysis-list" id="analysisInsights"></div><h2 style="margin-top:22px;">جميع الإجراءات المقترحة</h2><div class="analysis-list" id="analysisRecommendations"></div></div></details></section></div>
     </div>
 
     <!-- BANK STATEMENT VIEW -->
@@ -1137,6 +1179,16 @@
     const changePct=(now,before)=>before?(now-before)/Math.abs(before)*100:null;
     const changeText=value=>value==null?'—':Math.abs(Number(value))<.05?'بدون تغير 0.0%':`${value>0?'ارتفاع':'انخفاض'} ${Math.abs(Number(value)).toFixed(1)}%`;
     const monthName=date=>new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{month:'long',year:'numeric'}).format(date);
+    function showAnalysisView(name,updateHash=true){
+      const allowed=['overview','growth','profit','mix','control'];
+      if(!allowed.includes(name))name='overview';
+      document.querySelectorAll('[data-analysis-view]').forEach(view=>view.hidden=view.dataset.analysisView!==name);
+      document.querySelectorAll('.analysis-nav-button').forEach(button=>button.classList.toggle('active',button.dataset.analysisTarget===name));
+      if(updateHash)history.replaceState(history.state,'',name==='overview'?location.pathname:`${location.pathname}#${name}`);
+      window.scrollTo({top:0,behavior:'smooth'});
+      if(name==='overview')requestAnimationFrame(resizeCharts);
+    }
+    document.addEventListener('click',event=>{const trigger=event.target.closest('[data-analysis-target]');if(trigger)showAnalysisView(trigger.dataset.analysisTarget);});
     function monthRange(year,month){
       const start=new Date(year,month,1,12),isCurrent=year===new Date().getFullYear()&&month===new Date().getMonth();
       const end=isCurrent?new Date():new Date(year,month+1,0,12);
@@ -1154,9 +1206,11 @@
       return {...r,d,shipments,revenue,profit,expenses,days,effectiveEnd,margin:revenue?profit/revenue*100:0,
         avgRevenue:shipments?revenue/shipments:0,avgExpense:shipments?expenses/shipments:0,avgProfit:shipments?profit/shipments:0,
         avgDailyOrders:shipments/days,merchantCounts:a.merchant_counts||{},carrierCounts:a.carrier_counts||{},
-        baseCost,absorbed,leadProfit:lr.net_profit==null?null:Number(lr.net_profit)};
+        cityRows:d.top_cities||[],baseCost,absorbed,leadProfit:lr.net_profit==null?null:Number(lr.net_profit)};
     }
     async function loadExperimentalAnalysis(){
+      const requested=location.hash.replace('#','');
+      showAnalysisView(['overview','growth','profit','mix','control'].includes(requested)?requested:'overview',false);
       $('analysisMetrics').innerHTML='<div class="analysis-card"><span class="analysis-label">الحالة</span><span class="analysis-value">جارٍ التحليل…</span><p>تتم مقارنة الأشهر وقراءة محركات الأداء.</p></div>';
       const now=new Date(),ranges=[];
       for(let cursor=new Date(2026,4,1,12);cursor<=now;cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1,12)){
@@ -1169,6 +1223,9 @@
         $('analysisMonthRows').innerHTML='<tr><td colspan="7" style="color:var(--muted)">لا توجد بيانات متاحة</td></tr>';
         $('analysisInsights').innerHTML='<div class="analysis-item"><div><strong>لا توجد قراءة</strong><span>تظهر القراءة بعد توفر الاتصال بقاعدة البيانات.</span></div></div>';
         $('analysisRecommendations').innerHTML='<div class="analysis-item"><div><strong>لا توجد توصية آلية</strong><span>لن نصدر توصيات مالية دون بيانات قابلة للتحقق.</span></div></div>';
+        $('analysisPrimaryAction').textContent='التحقق من اتصال مصدر البيانات قبل اتخاذ أي قرار.';
+        for(const id of ['growthInsights','profitInsights','mixInsights','controlInsights'])$(id).innerHTML='<div class="analysis-item"><div><strong>بانتظار البيانات</strong><span>يظهر هذا النطاق عند توفر الاتصال بالمصدر.</span></div></div>';
+        for(const id of ['growthDomainAction','profitDomainAction','mixDomainAction','controlDomainAction'])$(id).textContent='لا يصدر النظام إجراءً دون بيانات قابلة للتحقق.';
         return;
       }
       const cur=months[months.length-1],prev=months.length>1?months[months.length-2]:null,d=cur.d;
@@ -1209,33 +1266,25 @@
       $('analysisPeriod').textContent=cur.label+(cur.partial?` · حتى ${new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{day:'numeric',month:'long'}).format(new Date(cur.effectiveEnd+'T12:00:00'))}`:'');
       $('analysisMetrics').innerHTML=[
         ['تغير الإيراد',changeText(revenueChange),'مقارنة بالفترة السابقة المماثلة.'],
-        ['تغير المصاريف',changeText(expenseChange),'التكلفة الأساسية ورسوم الوزن وCOD مقارنة بالفترة السابقة.'],
         ['تغير صافي الربح',changeText(profitChange),'بعد احتساب جميع المصاريف المعتمدة.'],
-        ['تغير هامش الربح',pointChangeText(marginDelta),'الفرق بالنقاط المئوية عن الفترة السابقة.'],
-        ['تغير عدد الطلبات',changeText(shipmentChange),'مقارنة بنفس عدد الأيام المتاحة فعليًا.'],
-        ['تغير متوسط الفاتورة',changeText(avgRevenueChange),'الإيراد لكل طلب مقارنة بالفترة السابقة.'],
-        ['تغير متوسط مصروف الطلب',changeText(avgExpenseChange),'المصروف لكل طلب مقارنة بالفترة السابقة.'],
-        ['الفارق النسبي عن تقارير Lead',leadGapPct==null?'غير متاح':pct(Math.abs(leadGapPct)),leadGapPct==null?'لم تتوفر لقطة تقرير Lead لهذه الفترة.':`${leadGap>=0?'تقرير Lead أعلى':'ربحنا الفعلي أعلى'} بهذه النسبة.`]
+        ['تغير عدد الطلبات',changeText(shipmentChange),'مقارنة بنفس عدد الأيام المتاحة فعليًا.']
       ].map(([l,v,n])=>`<article class="analysis-card"><span class="analysis-label">${l}</span><span class="analysis-value num">${v}</span><p>${n}</p></article>`).join('');
 
       const verdictBits=[];
       if(comparePrev){
-        verdictBits.push(`صافي الربح ${profitChange>=0?'ارتفع':'انخفض'} ${Math.abs(profitChange).toFixed(1)}%، والإيراد ${revenueChange>=0?'ارتفع':'انخفض'} ${Math.abs(revenueChange).toFixed(1)}%، بينما المصاريف ${expenseChange<=0?'انخفضت':'ارتفعت'} ${Math.abs(expenseChange).toFixed(1)}%.`);
-        const shipmentReading=Math.abs(shipmentChange)<.05?'استقر دون تغير':`${shipmentChange>0?'زاد':'انخفض'} ${Math.abs(shipmentChange).toFixed(1)}%`;
-        verdictBits.push(`عدد الشحنات ${shipmentReading}، بينما هامش الربح ${marginDelta>=0?'تحسن':'تراجع'} ${Math.abs(marginDelta).toFixed(1)} نقطة.`);
-        const quality=profitChange>=0&&marginDelta>=0
-          ? `تحسن ربحي مدعوم بارتفاع ربحية الشحنة، وليس بزيادة الحجم وحدها`
-          : profitChange>=0
-            ? 'الربح ارتفع، لكن كفاءة الهامش لم تتحسن ولذلك تحتاج جودة الارتفاع إلى متابعة'
-            : 'الأداء الربحي أضعف من الفترة السابقة ويحتاج معالجة المحرك الأكبر أدناه';
-        verdictBits.push(`الاستنتاج المدعوم بالأرقام: ${quality}.`);
+        const mainDriver=profitChange>=0&&expenseChange<=0
+          ? 'انخفاض المصاريف وتحسن كفاءة الشحنة'
+          : profitChange>=0&&shipmentChange>0
+            ? 'ارتفاع عدد الطلبات'
+            : profitChange<0&&shipmentChange<0
+              ? 'انخفاض عدد الطلبات'
+              : profitChange<0&&marginDelta<0
+                ? 'تراجع ربحية الشحنة والهامش'
+                : 'تغير مزيج الطلبات والتكلفة';
+        verdictBits.push(`النتيجة: صافي الربح ${changeText(profitChange)} مقارنة بالفترة المماثلة. السبب الأبرز المدعوم بالأرقام: ${mainDriver}.`);
       }else verdictBits.push('هذا أول شهر متاح، لذلك لا توجد فترة سابقة لحساب نسب التغير.');
-      if(cur.partial)verdictBits.push('لعدالة القراءة، نسب التغير والأسباب تقارن نفس عدد الأيام من الشهر السابق؛ أما الجدول فيعرض الشهور الفعلية كما هي.');
       const qualityFlags=excluded+pending+codOpen;
-      verdictBits.push(qualityFlags
-        ? `الثقة في القراءة متوسطة لحين معالجة ${intf(qualityFlags)} حالة تشغيلية أو مالية مفتوحة.`
-        : 'الثقة في المقارنة مرتفعة ضمن البيانات المتاحة؛ لا توجد حالات استبعاد أو إيداعات معلقة أو دورة COD ناقصة في الفترة.');
-      $('analysisVerdict').innerHTML=`<strong>${cur.profit>=0?'الأداء الحالي ربحي':'الأداء الحالي يسجل خسارة'}</strong><p>${verdictBits.join(' ')}</p>`;
+      $('analysisVerdict').innerHTML=`<strong>${profitChange==null?(cur.profit>=0?'الفترة الحالية ربحية':'الفترة الحالية تسجل خسارة'):profitChange>=0?'الأداء يتحسن':'الأداء يحتاج تدخلًا'}</strong><p>${verdictBits.join(' ')}</p>`;
 
       const comparisonFor=(x,i)=>i?(x.partial&&comparePrev?comparePrev:months[i-1]):null;
       const deltaFor=(x,i,key)=>{const base=comparisonFor(x,i);return base?changePct(x[key],base[key]):null;};
@@ -1299,6 +1348,33 @@
       insights.push(['رقابة الجودة',`${intf(excluded)} شحنة مستبعدة، ${intf(pending)} إيداع بنكي معلق، و${intf(codOpen)} حالة COD تحتاج استكمال التحصيل أو التحويل. هذه مؤشرات اكتمال ومتابعة، ولا تُعامل تلقائيًا كأسباب للربح أو الخسارة.`]);
       $('analysisInsights').innerHTML=insights.map(([x,y])=>`<div class="analysis-item"><div><strong>${x}</strong><span>${y}</span></div></div>`).join('');
 
+      const renderDomain=(id,rows)=>$(id).innerHTML=rows.map(([x,y])=>`<div class="analysis-item"><div><strong>${x}</strong><span>${y}</span></div></div>`).join('')||'<div class="analysis-item"><div><strong>لا يوجد تغير جوهري</strong><span>لا تظهر إشارة تستدعي التعمق في هذا النطاق حاليًا.</span></div></div>';
+      const growthRows=insights.filter(([x])=>/متوسط الفترات|الإيراد|عدد الطلبات/.test(x));
+      const profitRows=insights.filter(([x])=>/الربح|الهامش|Lead|السياق التاريخي/.test(x));
+      const mixRows=insights.filter(([x])=>/مصدر تغير عدد الطلبات|تركيز الربح/.test(x));
+      const citiesByCount=rows=>(rows||[]).map(([name,data])=>({name,count:Number(data?.count||0)})).sort((a,b)=>b.count-a.count);
+      const currentCities=citiesByCount(cur.cityRows),previousCities=citiesByCount(comparePrev?.cityRows);
+      if(currentCities.length){
+        const topCity=currentCities[0],previousCount=previousCities.find(x=>x.name===topCity.name)?.count||0;
+        const cityShare=cur.shipments?topCity.count/cur.shipments*100:0,cityChange=previousCount?changePct(topCity.count,previousCount):null;
+        mixRows.push(['مؤكد · التركز الجغرافي',`${esc(topCity.name)} هي المدينة الأعلى بعدد ${intf(topCity.count)} شحنة وتمثل ${pct(cityShare)} من طلبات الفترة${cityChange==null?'':`، وعدد شحناتها ${changeText(cityChange)} عن الفترة المماثلة`}. هذه حقيقة من بيانات الشحنات.`]);
+        mixRows.push(['فرضية تحتاج تحقق · لماذا هذه المدينة؟','قد يرتبط التفوق بكثافة السكان أو عدد المشاريع والعملاء أو نشاط التسويق، لكن بيانات Lead وحدها لا تثبت أي سبب منها.']);
+        mixRows.push(['الإجراء · اختبار السبب','مقارنة تغير طلبات المدينة بعدد العملاء النشطين فيها والإنفاق التسويقي ومصدر اكتساب العميل. عندها يمكن تحديد هل النمو طبيعي بسبب حجم السوق أم ناتج عن التسويق.']);
+      }
+      const controlRows=insights.filter(([x])=>/رقابة الجودة|Lead/.test(x));
+      renderDomain('growthInsights',growthRows);
+      renderDomain('profitInsights',profitRows);
+      renderDomain('mixInsights',mixRows);
+      renderDomain('controlInsights',controlRows);
+      $('growthDomainSummary').textContent=`الإيراد ${changeText(revenueChange)} · الطلبات ${changeText(shipmentChange)}`;
+      $('profitDomainSummary').textContent=`صافي الربح ${changeText(profitChange)} · الهامش ${pointChangeText(marginDelta)}`;
+      $('mixDomainSummary').textContent=currentCities.length?`${currentCities[0].name} الأعلى جغرافيًا · افتح لمعرفة الدلالة`:(comparePrev?'أين تغير حجم الطلب بين العملاء والناقلين':'لا توجد فترة مقارنة بعد');
+      $('controlDomainSummary').textContent=qualityFlags?`${intf(qualityFlags)} حالة تحتاج متابعة`:'لا توجد حالات مفتوحة مؤثرة';
+      $('growthDomainAction').textContent=shipmentChange<0?'الإجراء: تحديد العملاء الذين انخفضت طلباتهم قبل محاولة رفع متوسط الفاتورة.':'الإجراء: متابعة استدامة الطلب ومتوسط الفاتورة دون تدخل تسعيري متسرع.';
+      $('profitDomainAction').textContent=marginDelta<0?'الإجراء: البدء بالشحنات الأقل ربحًا والأعلى تكلفة ومطابقة فواتيرها.':'الإجراء: تثبيت مكاسب الهامش ومراقبة تكلفة الشحنة بعد الأسعار الجديدة.';
+      $('mixDomainAction').textContent='الإجراء: فتح التفاصيل فقط عند وجود عميل أو ناقل يصنع تغيرًا كبيرًا في الحجم أو الربح.';
+      $('controlDomainAction').textContent=qualityFlags?'الإجراء: إغلاق الحالات المفتوحة قبل اعتماد قراءة نهائية للفترة.':'الإجراء: لا توجد معالجة عاجلة؛ الاستمرار في رقابة المزامنة.';
+
       const recommendations=[];
       if(comparePrev&&marginDelta<0)recommendations.push(['استعادة كفاءة الهامش','بدء المراجعة بالشحنات ذات ربح الشحنة الأقل والرسوم الأعلى؛ الهامش فقد '+Math.abs(marginDelta).toFixed(1)+' نقطة عن الفترة المقارنة. مراجعة التسعير والفاتورة حسب الناقل والعميل قبل تعديل أي قاعدة.']);
       if(comparePrev&&cur.avgProfit<comparePrev.avgProfit)recommendations.push(['رفع ربحية الشحنة','متوسط ربح الشحنة '+changeText(changePct(cur.avgProfit,comparePrev.avgProfit))+'. الأولوية لمعرفة العملاء أو الناقلين الذين صنعوا التراجع، لا لتعويضه بزيادة الحجم فقط.']);
@@ -1308,6 +1384,13 @@
       recommendations.push(['رقابة تغير الأسعار','استمرار رفع الفواتير فور صدورها. أي تكلفة تختلف عن السعر المعتمد يجب أن تظهر كتنبيه ومراجعة عقد، لا كتعديل تلقائي للقواعد.']);
       if(!recommendations.length)recommendations.push(['استمرار المراقبة','الأداء لا يظهر انحرافًا جوهريًا حاليًا؛ استمرار المقارنة الشهرية ومراجعة الفواتير والإقفالات.']);
       $('analysisRecommendations').innerHTML=recommendations.map(([x,y])=>`<div class="analysis-item"><div><strong>${x}</strong><span>${y}</span></div></div>`).join('');
+      $('analysisPrimaryAction').textContent=qualityFlags
+        ? `إغلاق ${intf(qualityFlags)} حالة مفتوحة أولًا لضمان قرار مبني على بيانات مكتملة.`
+        : marginDelta<0
+          ? 'مراجعة أعلى الشحنات تكلفة وأقلها ربحًا قبل تعديل الأسعار أو استهداف نمو جديد.'
+          : shipmentChange<0
+            ? 'استعادة الطلبات المتراجعة لدى العملاء الأكثر تأثيرًا مع الحفاظ على الهامش.'
+            : 'حماية تحسن الهامش ومراقبة استدامته مع الأسعار الجديدة.';
       requestAnimationFrame(resizeCharts);
     }
 
