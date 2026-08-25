@@ -176,22 +176,6 @@
     }
     .profit-band { grid-template-columns:repeat(3, minmax(0, 1fr)); }
     .finance-band { grid-template-columns:repeat(4, minmax(0, 1fr)); }
-    .analysis-board { margin:0 0 14px; padding:16px; }
-    .analysis-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:12px; }
-    .analysis-summary { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .analysis-pill { display:inline-flex; align-items:center; gap:6px; min-height:28px; padding:0 10px; border-radius:999px; border:1px solid rgba(216,202,190,.22); background:rgba(216,202,190,.08); color:rgba(238,229,219,.9); font-size:11px; font-weight:700; }
-    .analysis-pill strong { color:#fff; font-variant-numeric:tabular-nums; }
-    .analysis-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
-    .analysis-card { min-height:126px; padding:13px; border:1px solid rgba(150,169,196,.16); border-radius:10px; background:rgba(12,23,38,.42); display:flex; flex-direction:column; gap:8px; }
-    .analysis-card.warning { border-color:rgba(176,74,100,.42); box-shadow:inset 0 2px 0 rgba(176,74,100,.28); }
-    .analysis-card span { color:var(--muted); font-size:11px; font-weight:700; }
-    .analysis-card strong { color:#fff; font-size:16px; line-height:1.25; }
-    .analysis-card p { margin:0; color:rgba(211,222,235,.72); font-size:11px; line-height:1.6; }
-    .analysis-actions { margin-top:12px; overflow:hidden; border:1px solid rgba(150,169,196,.15); border-radius:10px; }
-    .analysis-action { display:grid; grid-template-columns:90px 1.25fr 1.25fr 90px; gap:10px; padding:10px 12px; border-bottom:1px solid rgba(150,169,196,.12); color:rgba(222,230,240,.83); font-size:11px; align-items:center; }
-    .analysis-action:last-child { border-bottom:0; }
-    .analysis-action span:first-child { color:#E3C9D0; font-weight:800; }
-    .analysis-action span:last-child { color:var(--muted); }
     .metric-card, .panel, .mini-card {
       position:relative;
       overflow:hidden;
@@ -723,7 +707,7 @@
     body:not(.dark) .login-screen { background:#0F1113; }
 
     @media (max-width: 1100px) {
-      .metric-grid, .content-grid, .table-grid, .mini-band, .profit-band, .finance-band, .statement-summary, .statement-summary.compact-summary, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid, .invoice-row, .analysis-grid { grid-template-columns:1fr; }
+      .metric-grid, .content-grid, .table-grid, .mini-band, .profit-band, .finance-band, .statement-summary, .statement-summary.compact-summary, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid, .invoice-row { grid-template-columns:1fr; }
       .carrier-layout, .revenue-layout { grid-template-columns:1fr; }
       .page, .panel, .metric-card, .mini-card, .detail-chip, .content-grid, .chart-shell, .table-wrap { min-width:0; max-width:100%; }
       canvas { max-width:100%; }
@@ -757,9 +741,7 @@
       .hero-tools { display:grid; grid-template-columns:1fr 1.35fr; gap:8px; }
       .hero-tools > * { width:100%; justify-content:center; text-align:center; padding-inline:8px; }
       .subhero-tools { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-      .metric-grid, .mini-band, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid, .statement-summary.compact-summary, .invoice-row, .analysis-grid { grid-template-columns:1fr; }
-      .analysis-header { flex-direction:column; }
-      .analysis-action { grid-template-columns:1fr; gap:4px; }
+      .metric-grid, .mini-band, .details-grid, .workflow-grid, .workflow-layout, .field-row, .classification-grid, .statement-summary.compact-summary, .invoice-row { grid-template-columns:1fr; }
       .chart-key { display:grid; grid-template-columns:1fr; }
       .chart-key-item { justify-content:flex-start; }
       .chart-axis-note { flex-direction:column; gap:3px; }
@@ -822,7 +804,7 @@
       <div class="hero-tools">
         <span class="badge">1-18 يوليو</span>
         <a class="primary-button" href="../GF_Demo.xlsx"><span>فتح ملف Excel</span></a>
-        <button class="primary-button analysis-launch" id="demoAnalysisButton" type="button"><span>تحليل تجريبي</span></button>
+        <a class="primary-button analysis-launch" href="analysis.html"><span>تحليل تجريبي</span></a>
       </div>
       <div class="subhero-tools">
         <button class="theme-toggle" id="themeToggle" type="button">🌙 Night Mode</button>
@@ -876,130 +858,6 @@
         <span class="metric-label">قيمة الهدر الشهرية</span>
         <strong>217.00 ريال</strong>
         <div class="metric-footer">إجمالي الشهر</div>
-      </article>
-    </section>
-
-    <section class="panel analysis-board" id="analysisBoard" aria-labelledby="analysisTitle" tabindex="-1">
-      <div class="analysis-header">
-        <div>
-          <p class="eyebrow" id="analysisTitle">مركز التحليل المالي</p>
-          <p class="subtle">يحوّل المبيعات والمصاريف والتوصيل والهدر إلى أولويات تشغيلية قابلة للتنفيذ</p>
-        </div>
-        <div class="analysis-summary" id="analysisSummary">
-          <span class="analysis-pill">جاري تحليل نموذج الديمو…</span>
-        </div>
-      </div>
-      <div class="analysis-grid" id="analysisDiagnosis">
-        <article class="analysis-card"><span>محرك التحليل</span><strong>تحليل مالي تشغيلي</strong><p>يظهر هنا تشخيص تلقائي لبيانات الديمو الصناعية.</p></article>
-      </div>
-      <div class="analysis-actions" id="analysisActions" aria-label="الأولويات المقترحة"></div>
-    </section>
-
-    <section class="profit-details-card">
-      <article class="panel details-panel">
-        <div class="panel-header compact-header">
-          <div>
-            <p class="eyebrow">أين تذهب الإيرادات</p>
-            <p class="subtle">توزيع الإيراد بين المواد الغذائية والرواتب والإيجارات والتوصيل والهدر وصافي الربح</p>
-          </div>
-        </div>
-        <div class="revenue-layout">
-          <div class="carrier-donut revenue-donut">
-            <canvas id="revenueSplitChart" aria-label="توزيع الإيرادات"></canvas>
-            <div class="carrier-center">
-              <div>
-                <strong>6</strong>
-                <span>بنود</span>
-              </div>
-            </div>
-          </div>
-          <div class="details-grid" style="grid-template-columns:repeat(2, minmax(0,1fr));">
-            <div class="detail-chip"><span>مواد غذائية</span><strong>4,050.00 ريال</strong></div>
-            <div class="detail-chip"><span>رواتب</span><strong>1,650.00 ريال</strong></div>
-            <div class="detail-chip"><span>توصيل</span><strong>830.00 ريال</strong></div>
-            <div class="detail-chip"><span>هدر</span><strong>217.00 ريال</strong></div>
-            <div class="detail-chip"><span>إيجارات</span><strong>1,100.00 ريال</strong></div>
-            <div class="detail-chip"><span>صافي ربح</span><strong>2,146.75 ريال</strong></div>
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <section class="table-grid">
-      <article class="panel">
-        <div class="table-card-title">
-          <div>
-            <p class="eyebrow">أصناف تحتاج مراجعة</p>
-            <p class="subtle">أعلى وأدنى ربحية مع الأصناف ذات المبيعات المرتفعة والربحية المنخفضة</p>
-          </div>
-        </div>
-
-        <div class="table-card-title"><div><p class="eyebrow">أكثر صنف ربحية</p></div></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>الصنف</th><th>الطلبات</th><th>الربح</th></tr>
-            </thead>
-            <tbody><tr><td>شاورما دجاج</td><td>142</td><td>184.50 ريال</td></tr><tr><td>برجر لحم</td><td>129</td><td>163.25 ريال</td></tr></tbody>
-          </table>
-        </div>
-
-        <div class="table-card-title"><div><p class="eyebrow">أقل صنف ربحية</p></div></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>الصنف</th><th>الطلبات</th><th>الربح</th></tr>
-            </thead>
-            <tbody><tr><td>سلطة جانبية</td><td>256</td><td>18.50 ريال</td></tr><tr><td>بطاطس مقلية</td><td>320</td><td>22.75 ريال</td></tr></tbody>
-          </table>
-        </div>
-
-        <div class="table-card-title"><div><p class="eyebrow">عالية البيع منخفضة الربحية</p></div></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>الصنف</th><th>الطلبات</th><th>الربحية</th></tr>
-            </thead>
-            <tbody><tr><td>بطاطس مقلية</td><td>320</td><td>22.75 ريال</td></tr><tr><td>مشروب غازي</td><td>298</td><td>24.00 ريال</td></tr><tr><td>إضافات صوص</td><td>255</td><td>19.50 ريال</td></tr></tbody>
-          </table>
-        </div>
-      </article>
-
-      <article class="panel">
-        <div class="table-card-title">
-          <div>
-            <p class="eyebrow">تشخيص الربحية</p>
-            <p class="subtle">أفضل وأضعف فرع وأوقات الذروة والتنبيهات الإدارية</p>
-          </div>
-        </div>
-
-        <div class="table-card-title"><div><p class="eyebrow">أفضل وأضعف فرع</p></div></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>الفرع</th><th>الربح</th><th>الهدر</th></tr>
-            </thead>
-            <tbody><tr><td>فرع ٣</td><td>512.50 ريال</td><td>3.8%</td></tr><tr><td>فرع ٢</td><td>186.75 ريال</td><td>7.6%</td></tr></tbody>
-          </table>
-        </div>
-
-        <div class="table-card-title"><div><p class="eyebrow">أعلى ساعات المبيعات</p></div></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>الساعة</th><th>الطلبات</th><th>الربح</th></tr>
-            </thead>
-            <tbody><tr><td>20:00</td><td>110</td><td>312.40 ريال</td></tr><tr><td>21:00</td><td>103</td><td>284.10 ريال</td></tr><tr><td>13:00</td><td>84</td><td>221.60 ريال</td></tr><tr><td>12:00</td><td>68</td><td>175.20 ريال</td></tr></tbody>
-          </table>
-        </div>
-
-        <div class="table-card-title"><div><p class="eyebrow">تنبيهات إدارية ذكية</p></div></div>
-        <div class="details-grid">
-          <div class="detail-chip"><span>ارتفاع تكلفة الطعام</span><strong>40.5%</strong></div>
-          <div class="detail-chip"><span>ارتفاع الهدر</span><strong>217 ريال</strong></div>
-          <div class="detail-chip"><span>انخفاض هامش الربح</span><strong>21.5%</strong></div>
-          <div class="detail-chip"><span>أصناف تحتاج مراجعة</span><strong>3</strong></div>
-        </div>
       </article>
     </section>
 
@@ -1270,12 +1128,6 @@
     const passwordToggle = document.getElementById('passwordToggle');
     const themeToggle = document.getElementById('themeToggle');
     const logoutButton = document.getElementById('logoutButton');
-    const demoAnalysisButton = document.getElementById('demoAnalysisButton');
-    const analysisBoard = document.getElementById('analysisBoard');
-    const analysisSummary = document.getElementById('analysisSummary');
-    const analysisDiagnosis = document.getElementById('analysisDiagnosis');
-    const analysisActions = document.getElementById('analysisActions');
-    const analysisEscapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const expenseInvoiceFile = document.getElementById('expenseInvoiceFile');
     const expenseInvoiceStatus = document.getElementById('expenseInvoiceStatus');
     const expenseInvoiceList = document.getElementById('expenseInvoiceList');
@@ -1309,35 +1161,11 @@
       renderExpenseInvoices();
     }
 
-    function renderDemoAnalysis(analysis) {
-      const kpis = analysis.kpis || {};
-      const scope = analysis.scope || {};
-      analysisSummary.innerHTML = `
-        <span class="analysis-pill"><strong>${kpis.health_score || '—'}/100</strong> صحة الربحية</span>
-        <span class="analysis-pill"><strong>${kpis.alerts || 0}</strong> تنبيهات تحتاج متابعة</span>
-        <span class="analysis-pill">${scope.branches || 0} فروع · ${scope.carriers || 0} شركات توصيل</span>
-        <span class="analysis-pill">بيانات صناعية للعرض فقط</span>`;
-      analysisDiagnosis.innerHTML = (analysis.diagnosis || []).map((item) => `
-        <article class="analysis-card ${item.level === 'warning' ? 'warning' : ''}">
-          <span>${analysisEscapeHtml(item.title)}</span>
-          <strong>${analysisEscapeHtml(item.value)}</strong>
-          <p>${analysisEscapeHtml(item.detail)}</p>
-        </article>`).join('');
-      analysisActions.innerHTML = (analysis.actions || []).map((item) => `
-        <div class="analysis-action">
-          <span>${analysisEscapeHtml(item.priority)}</span>
-          <strong>${analysisEscapeHtml(item.action)}</strong>
-          <span>${analysisEscapeHtml(item.impact)}</span>
-          <span>${analysisEscapeHtml(item.owner)}</span>
-        </div>`).join('');
-    }
-
     function setDashboardVisible(visible) {
       if (visible) {
         loginScreen.classList.add('is-hidden');
         dashboardShell.classList.add('is-visible');
         dashboardShell.setAttribute('aria-hidden', 'false');
-        loadDemoAnalysis();
         loadExpenseInvoices();
       } else {
         loginScreen.classList.remove('is-hidden', 'is-hiding');
@@ -1357,17 +1185,6 @@
       document.body.classList.toggle('dark', isDark);
       localStorage.setItem('gfTheme', isDark ? 'dark' : 'day');
       themeToggle.textContent = isDark ? '☀️ Day Mode' : '🌙 Night Mode';
-    }
-
-    async function loadDemoAnalysis() {
-      try {
-        const response = await fetch('/api/demo-analysis', { credentials:'same-origin' });
-        if (!response.ok) throw new Error('analysis_unavailable');
-        const result = await response.json();
-        if (result.ok && result.analysis) renderDemoAnalysis(result.analysis);
-      } catch (error) {
-        analysisSummary.innerHTML = '<span class="analysis-pill">تحليل الديمو غير متاح حاليًا</span>';
-      }
     }
 
     applyTheme(localStorage.getItem('gfTheme') || 'dark');
@@ -1452,11 +1269,6 @@
 
     themeToggle.addEventListener('click', () => {
       applyTheme(document.body.classList.contains('dark') ? 'day' : 'dark');
-    });
-
-    demoAnalysisButton.addEventListener('click', () => {
-      analysisBoard.scrollIntoView({ behavior:'smooth', block:'start' });
-      analysisBoard.focus({ preventScroll:true });
     });
 
     logoutButton.addEventListener('click', async () => {

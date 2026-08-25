@@ -13,7 +13,7 @@ from pathlib import Path
 
 from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory, session
 
-from analysis_engine import demo_analysis
+from analysis_engine import demo_analysis, financial_comparison
 
 
 ROOT = Path(__file__).resolve().parent
@@ -219,6 +219,13 @@ def get_demo_analysis():
     if not authenticated():
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     return jsonify({"ok": True, "analysis": demo_analysis()})
+
+
+@app.get("/api/financial-analysis")
+def get_financial_analysis():
+    if not authenticated():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    return jsonify({"ok": True, "analysis": financial_comparison()})
 
 
 @app.get("/api/expense-invoices")
