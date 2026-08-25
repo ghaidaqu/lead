@@ -1349,19 +1349,26 @@
       $('analysisInsights').innerHTML=insights.map(([x,y])=>`<div class="analysis-item"><div><strong>${x}</strong><span>${y}</span></div></div>`).join('');
 
       const renderDomain=(id,rows)=>$(id).innerHTML=rows.map(([x,y])=>`<div class="analysis-item"><div><strong>${x}</strong><span>${y}</span></div></div>`).join('')||'<div class="analysis-item"><div><strong>لا يوجد تغير جوهري</strong><span>لا تظهر إشارة تستدعي التعمق في هذا النطاق حاليًا.</span></div></div>';
-      const growthRows=insights.filter(([x])=>/متوسط الفترات|الإيراد|عدد الطلبات/.test(x));
-      const profitRows=insights.filter(([x])=>/الربح|الهامش|Lead|السياق التاريخي/.test(x));
-      const mixRows=insights.filter(([x])=>/مصدر تغير عدد الطلبات|تركيز الربح/.test(x));
+      const growthRows=comparePrev?[
+        ['الخلاصة',`الإيراد ${changeText(revenueChange)} رغم أن الطلبات ${changeText(shipmentChange)}؛ لأن متوسط قيمة الشحنة ${changeText(avgRevenueChange)}.`],
+        ['ماذا يعني؟',avgRevenueChange>0?'النمو جاء من قيمة الشحنة، لا من زيادة عدد الطلبات.':'تغير عدد الطلبات كان المحرك الأكبر للإيراد.']
+      ]:[];
+      const profitRows=comparePrev?[
+        ['الخلاصة',`صافي الربح ${changeText(profitChange)}، والهامش ${pointChangeText(marginDelta)}.`],
+        ['محرك التكلفة',`المصاريف ${changeText(expenseChange)}، ومتوسط مصروف الشحنة ${changeText(avgExpenseChange)}.`]
+      ]:[];
+      if(leadGapPct!=null)profitRows.push(['مقارنة Lead',`${leadGap>=0?'تقارير Lead أعلى':'ربحنا الفعلي أعلى'} بنسبة ${pct(Math.abs(leadGapPct))}. افتح التسويات للتفصيل.`]);
+      const mixRows=[];
       const citiesByCount=rows=>(rows||[]).map(([name,data])=>({name,count:Number(data?.count||0)})).sort((a,b)=>b.count-a.count);
       const currentCities=citiesByCount(cur.cityRows),previousCities=citiesByCount(comparePrev?.cityRows);
       if(currentCities.length){
         const topCity=currentCities[0],previousCount=previousCities.find(x=>x.name===topCity.name)?.count||0;
         const cityShare=cur.shipments?topCity.count/cur.shipments*100:0,cityChange=previousCount?changePct(topCity.count,previousCount):null;
-        mixRows.push(['مؤكد · التركز الجغرافي',`${esc(topCity.name)} هي المدينة الأعلى بعدد ${intf(topCity.count)} شحنة وتمثل ${pct(cityShare)} من طلبات الفترة${cityChange==null?'':`، وعدد شحناتها ${changeText(cityChange)} عن الفترة المماثلة`}. هذه حقيقة من بيانات الشحنات.`]);
-        mixRows.push(['فرضية تحتاج تحقق · لماذا هذه المدينة؟','قد يرتبط التفوق بكثافة السكان أو عدد المشاريع والعملاء أو نشاط التسويق، لكن بيانات Lead وحدها لا تثبت أي سبب منها.']);
-        mixRows.push(['الإجراء · اختبار السبب','مقارنة تغير طلبات المدينة بعدد العملاء النشطين فيها والإنفاق التسويقي ومصدر اكتساب العميل. عندها يمكن تحديد هل النمو طبيعي بسبب حجم السوق أم ناتج عن التسويق.']);
+        mixRows.push(['المدينة الأعلى',`${esc(topCity.name)}: ${intf(topCity.count)} شحنة، وتمثل ${pct(cityShare)} من الفترة${cityChange==null?'':`، ${changeText(cityChange)} عن الفترة السابقة`}.`]);
+        mixRows.push(['لماذا؟','قد يكون السبب حجم السوق أو العملاء أو التسويق، لكن بيانات الشحن وحدها لا تثبت السبب.']);
+        mixRows.push(['الإجراء','قارن المدينة بعدد العملاء النشطين والإنفاق التسويقي قبل اتخاذ قرار.']);
       }
-      const controlRows=insights.filter(([x])=>/رقابة الجودة|Lead/.test(x));
+      const controlRows=[['الحالات المفتوحة',`${intf(excluded)} شحنة مستبعدة · ${intf(pending)} إيداع معلق · ${intf(codOpen)} حالة COD غير مكتملة.`]];
       renderDomain('growthInsights',growthRows);
       renderDomain('profitInsights',profitRows);
       renderDomain('mixInsights',mixRows);
