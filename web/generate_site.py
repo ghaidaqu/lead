@@ -191,6 +191,10 @@ def load_data_from_db(date_from=None, date_to=None):
         extra_profit = money(row.get("extra_profit") if row.get("extra_profit") is not None else _row_value(raw, 20))
         fee_profit = money(row.get("cod_profit") if row.get("cod_profit") is not None else _row_value(raw, 21))
         total_profit = money(row.get("total_profit") if row.get("total_profit") is not None else _row_value(raw, 22))
+        actual_revenue = money(row.get("actual_revenue"))
+        actual_base_cost = money(row.get("actual_base_cost"))
+        actual_extra_cost = money(row.get("actual_extra_cost"))
+        actual_profit = money(row.get("actual_profit"))
 
         item = {
             "order_id": raw[0],
@@ -212,6 +216,11 @@ def load_data_from_db(date_from=None, date_to=None):
             "extra_profit": extra_profit,
             "fee_profit": fee_profit,
             "total_profit": total_profit,
+            "actual_revenue": actual_revenue,
+            "actual_base_cost": actual_base_cost,
+            "actual_extra_cost": actual_extra_cost,
+            "actual_profit": actual_profit,
+            "cost_source": clean(row.get("cost_source")),
             "review_diff": shipping_profit,
             "collection_date": cod_date_map.get(str(raw[0]), {}).get("collection_date"),
             "transfer_date": cod_date_map.get(str(raw[0]), {}).get("transfer_date"),
@@ -219,7 +228,7 @@ def load_data_from_db(date_from=None, date_to=None):
         if not _in_range(item["date"], date_from, date_to):
             continue
         in_range_count += 1
-        total_customer_shipping += item["customer_shipping"]
+        total_customer_shipping += item["actual_revenue"]
         all_items_by_order[str(item["order_id"])] = item
         if item["date"]:
             all_shipment_dates.add(item["date"])
@@ -239,15 +248,15 @@ def load_data_from_db(date_from=None, date_to=None):
         if item["cod_amount"] > 0:
             cod_items.append(item)
         by_merchant[item["merchant"]]["count"] += 1
-        by_merchant[item["merchant"]]["total"] += item["total_profit"]
+        by_merchant[item["merchant"]]["total"] += item["actual_profit"]
         by_city[item["city"]]["count"] += 1
-        by_city[item["city"]]["total"] += item["total_profit"]
+        by_city[item["city"]]["total"] += item["actual_profit"]
         by_carrier[item["carrier"]]["count"] += 1
-        by_carrier[item["carrier"]]["total"] += item["total_profit"]
+        by_carrier[item["carrier"]]["total"] += item["actual_profit"]
         by_status[item["status"]] += 1
         if item["date"]:
-            by_date[item["date"]] += item["total_profit"]
-            by_date_revenue[item["date"]] += item["customer_shipping"]
+            by_date[item["date"]] += item["actual_profit"]
+            by_date_revenue[item["date"]] += item["actual_revenue"]
             by_date_count[item["date"]] += 1
 
     for row in wallet_rows:
@@ -360,15 +369,15 @@ def load_data_from_db(date_from=None, date_to=None):
         "shipping": len(items),
         "cod": sum(1 for item in items if item["fee_profit"] > 0),
         "cod_amount": sum(item["cod_amount"] for item in items if item["included"]),
-        "revenue": total_customer_shipping + return_revenue,
-        "cost": sum(item["platform_shipping"] for item in items) + return_platform_cost,
+        "revenue": total_customer_shipping,
+        "cost": sum(item["actual_base_cost"] + item["actual_extra_cost"] for item in items),
         "base": sum(item["shipping_profit"] for item in items),
         "extra": sum(item["extra_profit"] for item in items),
         "cod_profit": sum(item["fee_profit"] for item in items),
         "return_revenue": return_revenue,
         "return_profit": return_profit,
         "return_count": len(return_items),
-        "total": sum(item["total_profit"] for item in items) + return_profit,
+        "total": sum(item["actual_profit"] for item in items),
         "excluded": in_range_count - len(items),
         "excluded_items": excluded_items,
     }
