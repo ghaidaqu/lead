@@ -149,6 +149,11 @@
     .donut-box{position:relative;height:148px;width:148px;margin:0 auto;display:flex;align-items:center;justify-content:center;}
     .donut-box canvas{width:100%!important;height:100%!important;}
     .carrier-chart-card .carrier-legend{direction:rtl;max-height:120px;overflow:auto;padding-inline-end:3px;}
+    .section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+    .cod-alert{height:32px;padding:0 11px;border:1px solid #C98A28;border-radius:7px;background:color-mix(in srgb,#E9A63A 13%,var(--card));
+      color:color-mix(in srgb,#9B5B00 86%,var(--text));font:inherit;font-size:11px;font-weight:800;cursor:pointer;align-items:center;gap:6px;}
+    .cod-alert:not(.hidden){display:inline-flex;}
+    body.dark .cod-alert{color:#F2C879;border-color:#9D6B28;background:rgba(201,138,40,.12);}
     footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center;line-height:1.8;}
     footer .updated-at{display:block;font-variant-numeric:tabular-nums;}
 
@@ -788,7 +793,8 @@
         <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>نوع المصروف</th><th>المبلغ</th></tr></thead><tbody id="stmtBody"></tbody></table></div>
       </section>
       <section class="panel">
-        <h2>طلبات COD</h2><p class="sub">كل طلب على حدة</p>
+        <div class="section-heading"><h2>طلبات COD</h2><button class="cod-alert hidden" id="codTransferAlert" type="button"></button></div>
+        <p class="sub">كل طلب على حدة</p>
         <div class="table-wrap"><table><thead><tr><th>رقم الطلب</th><th>التاجر</th><th>المدينة</th><th>مبلغ COD</th><th>تاريخ الطلب</th><th>تاريخ التحصيل</th><th>تاريخ التحويل</th><th>الحالة</th></tr></thead><tbody id="codBody"></tbody></table></div>
         <button class="btn ghost sm hidden" id="codToggle" style="margin-top:12px;"></button>
       </section>
@@ -1047,6 +1053,24 @@
     }
     function renderCod(items){codItems=items;codExpanded=false;drawCod();}
     $('codToggle').addEventListener('click',()=>{codExpanded=!codExpanded;drawCod();});
+    let codTransferAlerts=[];
+    function renderCodTransferAlerts(items){
+      codTransferAlerts=Array.isArray(items)?items:[];
+      const btn=$('codTransferAlert');
+      if(!codTransferAlerts.length){btn.classList.add('hidden');btn.textContent='';return;}
+      btn.textContent=`تنبيه تحويل COD (${intf(codTransferAlerts.length)})`;
+      btn.classList.remove('hidden');
+    }
+    $('codTransferAlert').addEventListener('click',()=>{
+      const lines=codTransferAlerts.map(c=>{
+        const who=c.merchant_name||c.customer_name||'عميل غير محدد';
+        const ref=c.tracking_number?` · تتبع ${c.tracking_number}`:'';
+        return `طلب #${c.order_id}${ref}\n${who} · ${money(c.cod_amount)}\nتاريخ التحصيل: ${c.collection_date||'-'} · بدون تحويل منذ ${intf(c.days_waiting)} أيام`;
+      });
+      $('infoTitle').textContent='شحنات COD المتأخرة عن التحويل';
+      $('infoText').textContent=`تم تحصيل هذه الشحنات ومرّ 5 أيام أو أكثر بدون تسجيل تحويل في Lead.\n\n${lines.join('\n\n')}`;
+      $('infoModal').classList.remove('hidden');
+    });
 
     let range={from:'',to:'',preset:'month'};
     function updateReportLink(){
@@ -1116,6 +1140,7 @@
         .map(([l,v])=>`<div class="chip"><span class="label">${l}</span><span class="value num" style="font-size:15px;">${v}</span></div>`).join('');
       $('stmtBody').innerHTML=((d.statement&&d.statement.rows)||[]).map(r=>`<tr><td class="num">${esc(r.date||'-')}</td><td>${esc(r.expense_type||'-')}</td><td class="num">${money(r.amount)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
       renderCod(d.cod_items||[]);
+      renderCodTransferAlerts(d.cod_transfer_alerts||[]);
       const ms=d.missing_sequence_numbers||[];
       const codReview=d.cod_items||[];
       const codAwaitCollection=codReview.filter(c=>c.status==='تم التوصيل'&&!c.collection_date).length;

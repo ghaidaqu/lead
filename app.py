@@ -287,6 +287,42 @@ def _dashboard_payload_from_db(date_from=None, date_to=None):
     }
 
 
+def _overdue_cod_transfers(days=5):
+    """Return collected COD shipments that still have no confirmed transfer."""
+    if db_store is None:
+        return []
+    cutoff = _dt.date.today() - _dt.timedelta(days=days)
+    with db_store.get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT order_id, tracking_number, merchant_name, customer_name,
+                       cod_amount, collection_date, transfer_date, settlement_status
+                FROM cod_collections
+                WHERE cod_amount > 0
+                  AND collection_date IS NOT NULL
+                  AND collection_date <= %s
+                  AND transfer_date IS NULL
+                ORDER BY collection_date, order_id
+                """,
+                (cutoff,),
+            )
+            rows = [dict(row) for row in cur.fetchall()]
+
+    transferred_statuses = {
+        "تم التحويل", "محول", "محولة", "transferred", "paid", "settled"
+    }
+    alerts = []
+    for row in rows:
+        status = str(row.get("settlement_status") or "").strip().lower()
+        if status in transferred_statuses:
+            continue
+        collected = row.get("collection_date")
+        row["days_waiting"] = (_dt.date.today() - collected).days
+        alerts.append(row)
+    return alerts
+
+
 def _json_safe(value):
     import datetime as _dt
     from decimal import Decimal
@@ -344,6 +380,13 @@ def api_dashboard():
             payload["daily_profit"] = get_daily_actual_profit(date_from, date_to)
         except Exception:
             payload["daily_profit"] = []
+        try:
+            # Operational alert is intentionally independent of the selected
+            # dashboard period so an overdue transfer cannot disappear by filtering.
+            payload["cod_transfer_alerts"] = _overdue_cod_transfers(5)
+        except Exception:
+            logger.exception("failed to load overdue COD transfers")
+            payload["cod_transfer_alerts"] = []
         try:
             payload["last_sync_at"] = get_last_successful_sync_at()
         except Exception:
