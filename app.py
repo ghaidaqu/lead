@@ -303,6 +303,7 @@ def _overdue_cod_transfers(days=5):
                   AND collection_date IS NOT NULL
                   AND collection_date <= %s
                   AND transfer_date IS NULL
+                  AND jsonb_typeof(raw_payload) = 'array'
                 ORDER BY collection_date, order_id
                 """,
                 (cutoff,),

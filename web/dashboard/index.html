@@ -1128,7 +1128,7 @@
       $('citiesBody').innerHTML=cityRows.map(([n,c],i)=>`<tr><td class="rank num">${i+1}</td><td>${esc(n)}</td><td class="num">${intf(c)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">لا يوجد</td></tr>';
       const f=d.finance||{};
       $('finance').innerHTML=[['إيداعات البنك',money(f.bank?.total),intf(f.bank?.count)+' عملية'],
-        ['إيداعات ميسر',money(f.moyasar?.total),intf(f.moyasar?.count)+' عملية'],
+        ['إيداعات ميسر (تاريخية)',money(f.moyasar?.total),intf(f.moyasar?.count)+' عملية'],
         ['شحن رصيد وإيداعات إدارية',money(f.other?.total),intf(f.other?.count)+' عملية'],
         ['التعويضات الإدارية',money(f.compensation?.total),intf(f.compensation?.count)+' عملية'],
         ['إجمالي الإيداعات',money(f.total),'البنك + ميسر + شحن الرصيد'],
