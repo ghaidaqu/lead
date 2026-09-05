@@ -471,12 +471,20 @@ def fetch_dashboard_rows(conn) -> dict[str, Any]:
         )
         cod = [dict(row) for row in cur.fetchall()]
 
+        cur.execute(
+            "SELECT value FROM settings WHERE key = 'non_revenue_wallet_transaction_keys'"
+        )
+        excluded_wallet_row = cur.fetchone()
+
     return {
         "shipments": shipments,
         "wallet": wallet,
         "payments": payments,
         "pending_recharges": pending_recharges,
         "cod": cod,
+        "non_revenue_wallet_transaction_keys": (
+            excluded_wallet_row["value"] if excluded_wallet_row else ""
+        ),
     }
 
 

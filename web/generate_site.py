@@ -107,6 +107,11 @@ def load_data_from_db(date_from=None, date_to=None):
     wallet_rows = payload["wallet"]
     pending_recharge_rows = payload.get("pending_recharges", [])
     cod_rows_db = payload["cod"]
+    excluded_wallet_keys = {
+        key.strip().lstrip("#").strip()
+        for key in str(payload.get("non_revenue_wallet_transaction_keys") or "").split(",")
+        if key.strip()
+    }
 
     # Real collection/transfer dates come from the cod_collections table
     # (scraped from collect-cod.php), keyed by order_id for lookup.
@@ -263,13 +268,18 @@ def load_data_from_db(date_from=None, date_to=None):
         raw = row.get("raw_payload") or []
         if not _in_range(_row_value(raw, 1), date_from, date_to):
             continue
+        tx_key = clean(row.get("transaction_key") or _row_value(raw, 0))
+        normalized_tx_key = tx_key.lstrip("#").strip()
+        # Keep explicit account adjustments in Raw_Wallet for audit while
+        # excluding them from customer-funded deposit totals.
+        if normalized_tx_key in excluded_wallet_keys:
+            continue
         typ = clean(_row_value(raw, 3))
         note = clean(_row_value(raw, 5))
         amount = money(_row_value(raw, 4))
         if typ == "إيداع":
             key = "bank" if "تحويل بنكي" in note else "moyasar" if "Moyasar" in note else "compensation" if "تعويض" in note else "other"
             if key == "bank":
-                tx_key = clean(row.get("transaction_key") or _row_value(raw, 0))
                 recharge_status = recharge_status_by_key.get(tx_key)
                 if recharge_status and recharge_status != "موافق عليه":
                     finance["bank_pending_skipped"]["count"] += 1
