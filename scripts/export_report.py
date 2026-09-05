@@ -206,12 +206,9 @@ def _load_cod_context(conn) -> dict[str, Any]:
 
 def _actual_cod_profit(row: dict[str, Any], context: dict[str, Any]) -> float:
     """Return the COD-only contribution without changing the stored total profit."""
-    vat_rate = float(context["vat_rate"])
-    shipment_date = row.get("shipment_date")
-    current_prices = bool(context["effective_date"] and shipment_date >= context["effective_date"])
     customer_fee = float(context["cod_fee"])
-    if not current_prices and str(row.get("merchant_name") or "").strip() not in context["tax_agreements"]:
-        customer_fee /= 1 + vat_rate
+    # All customers fund their wallets VAT-inclusive. The configured customer
+    # COD fee is therefore recognized as-is and must not be reduced again.
 
     invoice = context["invoice_cod_costs"].get(str(row.get("order_id") or ""))
     if invoice is not None:

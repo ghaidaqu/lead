@@ -817,8 +817,8 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
         "source_row": None,
         "source_hash": norm(row[0]) if row else "",
     }
-    # Per-shipment ACTUALS — Lead's original real-economics formula. Historical
-    # rows retain the VAT agreement rule; current site prices are already net:
+    # Per-shipment ACTUALS — Lead's original real-economics formula. Customers
+    # fund their wallets VAT-inclusive, so the shipment charge is revenue as-is:
     #   true profit = adjusted charge - adjusted(Base Cost + Over Fee + COD Fixed)
     # Billed shipments take Base Cost / Over Fee / COD Fixed from the invoice.
     # Current un-invoiced shipments use the contract values attached to Lead's
@@ -828,12 +828,7 @@ def shipment_record(row: list[list[Any]], snap=None, invoice_costs=None,
     charge = record["shipping_charge"]
     realized = record["status"] not in realized_excluded
     is_cod = "COD" in record["payment_type"]
-    tax_agreement_customers = tax_agreement_customers or set()
-    customer_revenue = (
-        charge
-        if current_prices_are_net(record["shipment_date"]) or record["merchant_name"] in tax_agreement_customers
-        else _net_of_vat(charge, vat_rate)
-    )
+    customer_revenue = charge
     platform_cost_is_net = False
     weight_cost = 0.0
     computed_extra_is_net = False
